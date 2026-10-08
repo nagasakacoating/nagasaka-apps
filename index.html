@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>長坂コーテング タブレットアプリ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+     background:#F5F6F8;color:#1A1A1A;line-height:1.7}
+.bar{background:#12306B;color:#fff;padding:20px 24px}
+.bar h1{font-size:20px;font-weight:700}
+.bar p{font-size:13px;opacity:.8;margin-top:3px}
+.wrap{max-width:900px;margin:0 auto;padding:24px}
+h2{font-size:15px;color:#1B4A9C;margin:26px 0 12px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+a.card{display:block;background:#fff;border:1px solid #E3E7ED;border-radius:12px;padding:18px 20px;
+       text-decoration:none;color:inherit;transition:.15s}
+a.card:hover{border-color:#12306B;box-shadow:0 4px 14px rgba(18,48,107,.12)}
+.ttl{font-size:17px;font-weight:700;color:#12306B;display:flex;align-items:center;gap:9px}
+.desc{font-size:13px;color:#5A6472;margin-top:6px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;margin-top:9px}
+.live{background:#E8F5E9;color:#1B5E20}
+.test{background:#FEF3E7;color:#C2410C}
+ul{list-style:none}
+li{background:#fff;border:1px solid #E3E7ED;border-radius:10px;margin-bottom:8px}
+li a{display:block;padding:13px 18px;text-decoration:none;color:#1A1A1A;font-size:14.5;font-weight:600}
+li a:hover{color:#12306B}
+li span{display:block;font-size:12px;color:#6B7480;font-weight:400;margin-top:2px}
+.note{background:#FEF8EC;border:1px solid #F3E2BC;border-radius:10px;padding:14px 18px;font-size:13px;color:#5C4A14;margin-top:24px}
+footer{text-align:center;font-size:12px;color:#8A93A0;padding:30px 0}
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>🏭 長坂コーテング タブレットアプリ</h1>
+  <p>現場用アプリ と 開発ドキュメント</p>
+</div>
+<div class="wrap">
+
+  <h2>アプリを開く</h2>
+  <div class="grid">
+    <a class="card" href="outline.html">
+      <div class="ttl">📋 アウトライン工程</div>
+      <div class="desc">製品情報の閲覧・作業指示（計画表）・実績記録・評価</div>
+      <span class="tag test">テスト中</span>
+    </a>
+    <a class="card" href="nagasaka.html">
+      <div class="ttl">🪝 生産計画</div>
+      <div class="desc">A/Bラインの生産計画・掛け/降ろし/出荷の実績記録</div>
+      <span class="tag live">本番稼働中</span>
+    </a>
+  </div>
+
+  <h2>ドキュメント（GitHubで開きます）</h2>
+  <ul>
+    <li><a href="https://github.com/nagasakacoating/nagasaka-apps/blob/main/docs/01_%E5%BC%95%E3%81%8D%E7%B6%99%E3%81%8E%E6%89%8B%E9%A0%86%E6%9B%B8.md">
+      01. 引き継ぎ手順書<span>最初にやること・残っている依存関係・注意点</span></a></li>
+    <li><a href="https://github.com/nagasakacoating/nagasaka-apps/blob/main/docs/02_%E9%96%8B%E7%99%BA%E3%82%AC%E3%82%A4%E3%83%89.md">
+      02. 開発ガイド<span>コードの直し方・公開のしかた・困ったとき</span></a></li>
+    <li><a href="https://github.com/nagasakacoating/nagasaka-apps/blob/main/docs/03_%E3%83%87%E3%83%BC%E3%82%BF%E6%A7%8B%E9%80%A0.md">
+      03. データ構造<span>データベースに保存している中身</span></a></li>
+    <li><a href="https://github.com/nagasakacoating/nagasaka-apps/blob/main/docs/04_%E9%81%8B%E7%94%A8%E3%83%9E%E3%83%8B%E3%83%A5%E3%82%A2%E3%83%AB.md">
+      04. 運用マニュアル<span>現場での使い方（管理者編・作業者編）</span></a></li>
+    <li><a href="https://github.com/nagasakacoating/nagasaka-apps">
+      📁 ソースコード（リポジトリ）<span>ここでコードを編集すると自動で公開されます</span></a></li>
+  </ul>
+
+  <div class="note">
+    <b>⚠️ ご注意</b><br>
+    生産計画アプリは<b>本番稼働中</b>です。現場が使用中の時間帯にコードを変更しないでください。<br>
+    修正方法は「02. 開発ガイド」をご確認ください。
+  </div>
+
+  <footer>開発：ミヤマ工業株式会社 品質管理部</footer>
+</div>
+</body>
+</html>
