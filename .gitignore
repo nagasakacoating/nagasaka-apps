@@ -1,0 +1,8 @@
+# OS / エディタ
+.DS_Store
+Thumbs.db
+~$*
+
+# 作業用の一時ファイル
+*.bak
+*.tmp
