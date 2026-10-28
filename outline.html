@@ -35,6 +35,16 @@ input:focus,textarea:focus{border-color:#12306B;box-shadow:0 0 0 3px rgba(18,48,
 .bi-select-button{font-family:inherit;font-size:15px;border:1px solid #C7CDD6;border-radius:8px;padding:10px 12px;background:#fff;color:#111;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}.bi-select-menu{background:#fff;border:1px solid #BCC6D6;border-radius:8px;overflow-y:auto;box-shadow:0 8px 24px #0003}.bi-option{padding:9px 12px;font-size:14px;cursor:pointer}.bi-option.active{background:#EEF4FC;color:#12306B}.bi-option[aria-disabled=true]{opacity:.5;cursor:default}.bi-dialog-backdrop{position:fixed;inset:0;z-index:3000;background:#0008;display:flex;align-items:center;justify-content:center;padding:24px}.bi-dialog{background:white;padding:24px;border-radius:14px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto}.bi-ok,.bi-cancel{padding:12px 22px;border-radius:8px;font-size:15px}.bi-ok{background:#12306B;color:white}.bi-cancel{background:#EEF1F5;color:#334155}.login-language{position:fixed;right:18px;top:18px;z-index:100}
 button{line-height:1.4}.master-editor-tabs>button{flex-shrink:0;min-width:115px;max-width:210px;min-height:64px;display:flex;align-items:center;justify-content:center}.master-editor-tabs .bi-text{overflow-wrap:normal;word-break:normal}.master-admin-toolbar>button{min-width:115px}.panel-h{line-height:1.5} td,th{vertical-align:top} .master-editor-dialog [role=tablist]{align-items:stretch}
 @media(max-width:900px){.master-admin-toolbar{grid-template-columns:minmax(150px,1fr) auto!important}.bi-sub{font-size:.76em}.master-editor-dialog{max-width:calc(100vw - 20px)!important}.bi-select-button{font-family:inherit;font-size:15px;border:1px solid #C7CDD6;border-radius:8px;padding:10px 12px;background:#fff;color:#111;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}.bi-select-menu{background:#fff;border:1px solid #BCC6D6;border-radius:8px;overflow-y:auto;box-shadow:0 8px 24px #0003}.bi-option{padding:9px 12px;font-size:14px;cursor:pointer}.bi-option.active{background:#EEF4FC;color:#12306B}.bi-option[aria-disabled=true]{opacity:.5;cursor:default}.bi-dialog-backdrop{padding:12px}}
+
+.photo-backdrop{position:fixed;inset:0;z-index:2600;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;overscroll-behavior:contain;padding:0}
+.photo-viewer{width:82vw;height:82vh;display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 70px #0007}
+@supports(height:82dvh){.photo-viewer{height:82dvh}}
+.photo-viewer-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px 8px 18px;background:#12306B;color:#fff;font-size:14px;flex-shrink:0}
+.photo-viewer-close{width:44px;height:44px;min-width:44px;border-radius:50%;color:#fff;background:#ffffff26;font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center}
+.photo-viewer-image{flex:1;min-height:0;min-width:0;padding:10px;display:flex;align-items:center;justify-content:center;background:#f5f6f8}
+.photo-viewer-image img{width:100%;height:100%;object-fit:contain;display:block}
+.photo-delete{position:absolute;top:-7px;right:-7px;width:32px;height:32px;border-radius:50%;background:#C0392B;color:white;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.photo-delete:disabled{opacity:.45;cursor:default}.bi-danger{background:#B3261E}img[role=button]:focus-visible,canvas[role=button]:focus-visible{outline:3px solid #1B4A9C;outline-offset:3px}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -52,6 +62,7 @@ button{line-height:1.4}.master-editor-tabs>button{flex-shrink:0;min-width:115px;
 <div id="root"></div>
 
 <script type="text/babel">
+
 /* ══════════ Firebase（生産計画アプリと同一プロジェクト・認証を共有） ══════════ */
 var firebaseConfig = {
   apiKey: "AIzaSyDxl5a__1aGS-19zn4cQNn6FutP7-q_mag",
@@ -706,97 +717,63 @@ function ErrorScreen({
     }}><BiText value={"\u518D\u8A66\u884C"} /></button>
     </div>;
 }
-function QRDisplay({
-  value,
-  size = 120
-}) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!ref.current || !value) return;
-    const gen = () => {
-      if (!window.QRious) {
-        setTimeout(gen, 300);
-        return;
-      }
-      try {
-        new window.QRious({
-          element: ref.current,
-          value,
-          size,
-          padding: 4,
-          level: 'M'
-        });
-      } catch (e) {}
-    };
-    gen();
-  }, [value, size]);
-  return <canvas ref={ref} style={{
-    display: 'block',
-    borderRadius: 4,
-    width: size + 'px',
-    height: size + 'px'
-  }} />;
+function QRDisplay({value,size=120}){
+  const ref=useRef(null),[zoom,setZoom]=useState('');
+  useEffect(()=>{
+    if(!ref.current||!value)return;
+    let active=true,timer;
+    function draw(){
+      if(!active)return;
+      if(!window.QRious){timer=setTimeout(draw,300);return;}
+      try{new window.QRious({element:ref.current,value,size,padding:4,level:'M'});}catch(e){}
+    }
+    draw();return()=>{active=false;clearTimeout(timer);};
+  },[value,size]);
+  function expand(e){
+    e.preventDefault();e.stopPropagation();if(!value||!ref.current)return;
+    try{
+      const canvas=document.createElement('canvas');
+      if(window.QRious)new window.QRious({element:canvas,value,size:1024,padding:24,level:'M'});
+      setZoom((window.QRious?canvas:ref.current).toDataURL('image/png'));
+    }catch(error){setZoom(ref.current.toDataURL('image/png'));}
+  }
+  return <><canvas ref={ref} role={value?'button':undefined} tabIndex={value?0:-1} aria-label="QRコードを拡大 / Perbesar kode QR"
+    onClick={expand} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')expand(e);}}
+    style={{display:'block',borderRadius:4,width:size+'px',height:size+'px',cursor:value?'zoom-in':'default'}}/>
+    {zoom&&<ImageModal src={zoom} caption="QRコード" onClose={()=>setZoom('')}/>}</>;
 }
-function ImageModal({
-  src,
-  onClose
-}) {
-  return <div onClick={onClose} style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,.85)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 500
-  }}>
-      <img src={src} style={{
-      maxWidth: '95vw',
-      maxHeight: '92vh',
-      borderRadius: 10,
-      objectFit: 'contain'
-    }} onClick={e => e.stopPropagation()} />
-      <button onClick={onClose} style={{
-      position: 'fixed',
-      top: 16,
-      right: 16,
-      width: 44,
-      height: 44,
-      borderRadius: '50%',
-      background: 'rgba(255,255,255,.2)',
-      color: '#fff',
-      fontSize: 24
-    }}>×</button>
-    </div>;
+
+function ImageModal({src,onClose,caption}){
+  const closeButton=useRef(null);
+  useEffect(()=>{
+    const previous=document.activeElement;
+    const elements=[document.documentElement,document.body];
+    const styles=elements.map(el=>({el,overflow:el.style.overflow}));
+    elements.forEach(el=>{el.style.overflow='hidden';});
+    closeButton.current&&closeButton.current.focus();
+    return()=>{styles.forEach(({el,overflow})=>{el.style.overflow=overflow;});if(previous&&previous.isConnected&&previous.focus)previous.focus();};
+  },[]);
+  return ReactDOM.createPortal(<div className="photo-backdrop" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)onClose();}}
+    onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();onClose();}if(e.key==='Tab'){e.preventDefault();closeButton.current&&closeButton.current.focus();}}}>
+    <div className="photo-viewer" role="dialog" aria-modal="true" aria-labelledby="photo-viewer-title" onClick={e=>e.stopPropagation()}>
+      <div className="photo-viewer-header"><div id="photo-viewer-title"><BiText value={caption||'画像を拡大表示'}/></div>
+        <button type="button" ref={closeButton} onClick={e=>{e.stopPropagation();onClose();}} className="photo-viewer-close" aria-label="拡大表示を閉じる / Tutup tampilan gambar">×</button>
+      </div>
+      <div className="photo-viewer-image"><img src={src} alt={caption||'写真 / Foto'}/></div>
+    </div>
+  </div>,document.body);
 }
-function TapPhoto({
-  src,
-  style,
-  ratio,
-  empty
-}) {
-  const [open, setOpen] = useState(false);
-  if (!src) return <div style={{
-    ...(style || {}),
-    background: '#F0F2F5',
-    border: '1px dashed #C7CDD6',
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#B0B7C0',
-    fontSize: 12,
-    minHeight: ratio || 120
-  }}><BiText value={empty || '写真なし'} /></div>;
-  return <>
-    <img src={src} style={{
-      ...style,
-      cursor: 'zoom-in'
-    }} onClick={() => setOpen(true)} />
-    <BiText value={open && <ImageModal src={src} onClose={() => setOpen(false)} />} />
-  </>;
+
+function TapPhoto({src,style,ratio,empty,alt,caption}){
+  const [open,setOpen]=useState(false);
+  if(!src)return <div style={{...(style||{}),background:'#F0F2F5',border:'1px dashed #C7CDD6',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'#B0B7C0',fontSize:12,minHeight:ratio||120}}><BiText value={empty||'写真なし'}/></div>;
+  function expand(e){e.preventDefault();e.stopPropagation();setOpen(true);}
+  return <><img src={src} alt={alt||caption||'写真 / Foto'} role="button" tabIndex={0}
+    aria-label="画像を拡大表示 / Perbesar gambar" style={{...style,cursor:'zoom-in'}} onClick={expand}
+    onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')expand(e);}}/>
+    {open&&<ImageModal src={src} caption={caption} onClose={()=>setOpen(false)}/>}</>;
 }
-/* テーブル見出し：現在の言語を上段、もう一方を小さく下段に（横幅を節約） */
+
 function TH({
   k,
   k2
@@ -3631,72 +3608,32 @@ function Row({
     gap: 12
   }}><BiText value={children} /></div>;
 }
-function ImgSlot({
-  url,
-  label,
-  busy,
-  onPick,
-  onClear,
-  h
-}) {
-  const r = useRef(null);
+function ImgSlot({url,label,busy,onPick,onClear,h}){
+  const r=useRef(null),pending=useRef(false),mounted=useRef(true),latest=useRef({url,onClear});
+  latest.current={url,onClear};
+  const [deleting,setDeleting]=useState(false);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  async function clear(e){
+    e.preventDefault();e.stopPropagation();if(pending.current||busy||!onClear)return;
+    pending.current=true;setDeleting(true);const original=url;
+    try{
+      const ok=await showBiDialog('confirm','この写真を削除しますか？','',{confirmLabel:'削除する',destructive:true});
+      if(ok&&mounted.current&&latest.current.url===original&&latest.current.onClear)latest.current.onClear();
+    }finally{pending.current=false;if(mounted.current)setDeleting(false);}
+  }
   return <div>
-      <BiText value={label && <div style={{
-      fontSize: 11.5,
-      fontWeight: 600,
-      color: '#6B7480',
-      marginBottom: 5
-    }}><BiText value={label} /></div>} />
-      <BiText value={url ? <div style={{
-      position: 'relative',
-      display: 'inline-block'
-    }}>
-          <img src={url} style={{
-        width: '100%',
-        maxWidth: 150,
-        height: h || 110,
-        objectFit: 'contain',
-        borderRadius: 8,
-        border: '1px solid ' + LINE,
-        background: '#fff',
-        display: 'block'
-      }} />
-          <button onClick={onClear} style={{
-        position: 'absolute',
-        top: -7,
-        right: -7,
-        width: 24,
-        height: 24,
-        borderRadius: '50%',
-        background: '#C0392B',
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: 700
-      }}>×</button>
-        </div> : <div onClick={() => !busy && r.current?.click()} style={{
-      width: 150,
-      height: h || 110,
-      border: '2px dashed #C7CDD6',
-      borderRadius: 8,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#FAFBFC',
-      cursor: 'pointer',
-      fontSize: 12,
-      color: '#9AA3AF'
-    }}>
-          <BiText value={busy ? 'アップ中…' : '＋ 画像'} />
-        </div>} />
-      <LocalizedInput type="file" accept="image/*" ref={r} style={{
-      display: 'none'
-    }} onChange={e => {
-      onPick(e.target.files[0]);
-      e.target.value = '';
-    }} />
-    </div>;
+    {label&&<div style={{fontSize:11.5,fontWeight:600,color:'#6B7480',marginBottom:5}}><BiText value={label}/></div>}
+    {url?<div style={{position:'relative',display:'inline-block'}}>
+      <TapPhoto src={url} caption={label} style={{width:'100%',maxWidth:150,height:h||110,objectFit:'contain',borderRadius:8,border:'1px solid '+LINE,background:'#fff',display:'block'}}/>
+      <button type="button" onClick={clear} disabled={!!busy||deleting} className="photo-delete" aria-label="写真を削除 / Hapus foto" title="写真を削除 / Hapus foto">×</button>
+    </div>:<button type="button" onClick={()=>!busy&&r.current&&r.current.click()} disabled={!!busy}
+      style={{width:150,height:h||110,border:'2px dashed #C7CDD6',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',background:'#FAFBFC',cursor:busy?'wait':'pointer',fontSize:12,color:'#9AA3AF'}}>
+      <BiText value={busy?'アップ中…':'＋ 画像'}/>
+    </button>}
+    <LocalizedInput type="file" accept="image/*" ref={r} style={{display:'none'}} onChange={e=>{const file=e.target.files&&e.target.files[0];if(file&&onPick)onPick(file);e.target.value='';}}/>
+  </div>;
 }
-/* 可変リスト編集 */
+
 function RepList({
   items,
   onChange,
@@ -3711,7 +3648,14 @@ function RepList({
     n[i] = v;
     onChange(n);
   };
-  const rm = i => onChange(arr.filter((_, j) => j !== i));
+  const removing=useRef(false),latestRows=useRef({items:arr,onChange});latestRows.current={items:arr,onChange};
+  const rm=async i=>{
+    if(removing.current)return;const original=arr[i];removing.current=true;
+    try{
+      if(rowHasPhoto(original)&&!(await showBiDialog('confirm','この項目と写真を削除しますか？','',{confirmLabel:'削除する',destructive:true})))return;
+      if(latestRows.current.items[i]===original)latestRows.current.onChange(latestRows.current.items.filter((_,j)=>j!==i));
+    }finally{removing.current=false;}
+  };
   return <div>
       <BiText value={arr.map((it, i) => <div key={i} style={{
       border: '1px solid ' + LINE,
@@ -4899,7 +4843,7 @@ function HinbanPicker({
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                    <BiText value={m.productImg ? <img src={m.productImg} style={{
+                    <BiText value={m.productImg ? <TapPhoto src={m.productImg} style={{
                   width: '100%',
                   height: '100%',
                   objectFit: 'contain'
@@ -8160,7 +8104,13 @@ Object.assign(DICT,{"戻る":"Kembali","ホーム":"Beranda","クリア":"Hapus"
 const BI_RULES=[{"re":"^検索結果：([\\s\\S]*?)件 / Hasil pencarian: ([\\s\\S]*?) item$","id":"Hasil pencarian: {0} item"},{"re":"^工程 ([\\s\\S]*?)件$","id":"{0} proses"},{"re":"^([\\s\\S]*?)/13 項目$","id":"{0}/13 item"},{"re":"^担当者「([\\s\\S]*?)」を削除しますか？$","id":"Hapus penanggung jawab \"{0}\"?"},{"re":"^([\\s\\S]*?)件の翻訳に失敗しました（該当箇所は日本語のまま表示されます）$","id":"Gagal menerjemahkan {0} item (bagian yang sesuai akan ditampilkan dalam bahasa Jepang)"},{"re":"^呼称「([\\s\\S]*?)」を削除しますか？$","id":"Hapus sebutan \"{0}\"?"},{"re":"^呼称を「([\\s\\S]*?)」→「([\\s\\S]*?)」に変更しました。\nスケジュール・実績 ([\\s\\S]*?) 件も更新しました。$","id":"Sebutan diubah dari \"{0}\" menjadi \"{1}\".\n{2} item jadwal dan hasil juga diperbarui."},{"re":"^🌐 翻訳中 ([\\s\\S]*?)/([\\s\\S]*?)$","id":"🌐 Menerjemahkan {0}/{1}"},{"re":"^写真([\\s\\S]*?)$","id":"Foto {0}"},{"re":"^未入力なら代表の ([\\s\\S]*?) 個$","id":"Jika kosong, gunakan isi standar {0} buah"},{"re":"^([\\s\\S]*?)\\.([\\s\\S]*?) ([\\s\\S]*?)個$","id":"{0}.{1} {2} item"},{"re":"^（([\\s\\S]*?)個）$","id":"({0} item)"},{"re":"^([\\s\\S]*?) の行を削除しますか？$","id":"Hapus baris {0}?"},{"re":"^([\\s\\S]*?) の ([\\s\\S]*?) 行を ([\\s\\S]*?) に複製しますか？$","id":"Duplikat {1} baris {0} ke {2}?"},{"re":"^　※([\\s\\S]*?) ([\\s\\S]*?)個で箱換算$","id":"※Konversi kotak dengan {0} {1} buah"},{"re":"^（\\+([\\s\\S]*?)個）$","id":"（+{0} buah）"}].map(r=>({...r,re:new RegExp(r.re)}));
 const BI_FRAGMENTS=[["が「呼称」です（上の「✎ 呼称を変更」で変更できます）。実際の品番は下の欄に登録してください。","adalah \"Istilah Pemanggilan\"（dapat diubah dengan \"✎ Ubah Istilah Pemanggilan\" di atas）. Silakan daftarkan nomor item sebenarnya di bidang bawah."],["登録内容の全ての日本語を翻訳し直します。手入力した翻訳も上書きされます。よろしいですか？","Menerjemahkan ulang semua bahasa Jepang dalam konten pendaftaran. Terjemahan yang diinput manual juga akan ditimpa. Apakah Anda setuju?"],["⚠ 1箱工数が未登録のため先行・遅れは表示されません（マスター管理 → 要領書・工数）","⚠ Waktu standar per kotak belum diatur. Selisih waktu tidak ditampilkan (Master → Lembar Kerja dan Waktu Standar)."],["ハンガー名：標準ハンガーA\nサイズ：W500 × H800 mm\n材質：SS400","Nama gantungan：Gantungan standar A\nUkuran：W500 × H800 mm\nMaterial：SS400"],["工程によって収容数が変わる場合に入力します（例：材料70個入り／出荷96個入り）。","Masukkan jika kapasitas berubah tergantung proses (Contoh: bahan 70 unit per kotak / pengiriman 96 unit per kotak)."],["この品番を、類似品と見分けるための形状の特徴です。作業前に必ず確認してください。","Ini adalah karakteristik bentuk untuk membedakan nomor produk ini dari produk serupa. Pastikan untuk mempengecekan sebelum memulai pekerjaan."],["納入箱の確認を行います。製品の入った箱を確認し、指定の場所に納めてください。","Lakukan pengecekan kotak pengiriman. Periksa kotak yang berisi produk dan tempatkan di lokasi yang ditentukan."],["⚠ 工程を1つ以上選択しないと、各工程の作業画面にこの製品が表示されません。","⚠ Jika tidak memilih setidaknya satu proses, produk ini tidak akan ditampilkan di layar kerja setiap proses."],["この品番の識別マークは以下の通りです。製品の識別・工程管理に使用します。","Tanda identifikasi untuk nomor produk ini adalah sebagai berikut. Digunakan untuk identifikasi produk dan manajemen proses."],["この品番の収容数と梱包荷姿は以下の通りです。作業時に確認してください。","Kapasitas dan bentuk kemasan untuk nomor produk ini adalah sebagai berikut. Pengecekan saat bekerja."],["この品番の作業で使用する道具・備品です。作業前に準備してください。","Ini adalah alat dan perlengkapan yang digunakan untuk pekerjaan nomor produk ini. Siapkan sebelum memulai pekerjaan."],["製品を伴わない作業です。完了したら「作業終了」を押してください。","Ini adalah pekerjaan tanpa produk. Tekan \"Selesai Kerja\" setelah selesai."],["上記のポイントを確認し、類似品と間違えないようにしてください。","Pengecekan poin di atas dan pastikan untuk tidak keliru dengan produk serupa."],["工程を選択（工程ごとに要領書・1箱工数・収容数を登録します）","Pilih proses (daftarkan prosedur kerja, jam kerja per kotak, dan kapasitas untuk setiap proses)"],["開始済みの行です。削除すると実績も消えます。よろしいですか？","Ini adalah baris yang sudah dimulai. Jika dihapus, data hasil kerja juga akan hilang. Apakah Anda yakin?"],["試行回数が多すぎます。しばらく待ってから再試行してください","Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi"],["登録済みのスケジュール・実績の呼称も自動で付け替わります。","Nama panggilan pada jadwal dan hasil kerja yang sudah terdaftar juga akan berubah secara otomatis."],["荷姿ごとに収容数を入れなかった場合は、この値が使われます。","Jika jumlah penerimaan tidak dimasukkan untuk setiap bentuk kemasan, nilai ini akan digunakan."],["マスター管理 →「工程名」でこの工程を登録してください。","Manajemen Master → Daftarkan proses ini dengan \"Nama Proses\"."],["梱包荷姿（最大4種類）― 荷姿ごとに収容数を設定できます","Bentuk kemasan (maksimal 4 jenis) ― Jumlah penerimaan dapat diatur untuk setiap bentuk kemasan"],["開始予定・終了予定の時刻はここを基準に自動計算されます。","Waktu mulai yang direncanakan dan waktu selesai yang direncanakan akan dihitung secara otomatis berdasarkan standar ini."],["日野・三菱ふそう・デンソー・三菱・川重・日立 検査","Inspeksi Hino/Fuso/Denso dll"],["アウトライン工程 / Proses Outline","Proses Outline / Proses Outline"],["例: 製品同士がぶつからないように置いてください","Contoh: Letakkan produk sehingga tidak saling bertabrakan"],["メールアドレスまたはパスワードが間違っています","Alamat email atau kata sandi salah"],["スケジュールの更新に失敗したため中止しました:","Dibatalkan karena gagal memperbarui jadwal:"],["不明な場合は、必ず管理者に確認してください。","Jika tidak jelas, selalu tanyakan kepada pengelola."],["この品番で使用するハンガーの写真と仕様です。","Ini adalah foto dan spesifikasi gantungan yang digunakan untuk nomor produk ini."],["この品番で使用するかんばんの種類と内容です。","Jenis dan isi kanban yang digunakan untuk nomor produk ini."],["未入力なら「収容数・荷姿」タブの代表の収容数","Jika tidak diisi, jumlah kapasitas perwakilan dari tab \"Jumlah Kapasitas・Bentuk Kemasan\""],["箱のフタを開け、製品の入れ方を確認します。","Buka tutup kotak dan periksa cara penyusunan produk."],["ハンディスキャナーでスキャンしてください","Silakan pindai dengan scanner"],["製品に付いている識別マークの位置（全体）","Posisi tanda identifikasi yang terpasang pada produk (keseluruhan)"],["工程名（この製品が通る工程・複数選択可）","Nama Proses (proses yang dilalui produk ini・pilihan ganda)"],["用途 例: 製品の取扱い時に使用します。","Kegunaan Contoh: Digunakan saat penanganan produk."],["作業指示の端数計算にもこの値を使います。","Nilai ini juga digunakan dalam perhitungan sisa instruksi kerja."],["製品イメージ（未設定なら製品写真を使用）","Gambar produk (menggunakan foto produk jika tidak diatur)"],["サイズ 例: W100 × H70 mm","Ukuran, contoh: W100 × H70 mm"],["メールアドレスの形式が正しくありません","Format alamat email tidak benar"],["ロケ番号 / Nomor Lokasi","Nomor Lokasi / Nomor Lokasi"],["製品写真ページの注意事項（1行1項目）","Catatan halaman foto produk (1 item per baris)"],["例: 丸穴あり（穴径：φ10±0.1）","Contoh: Berlubang bulat (diameter lubang: φ10±0.1)"],["ハンガー仕様（「項目：値」を1行ずつ）","Spesifikasi gantungan (「Item：Nilai」satu baris per item)"],["確認手順（「見出し：説明」を1行ずつ）","Langkah pengecekan (\"Judul: Penjelasan\", satu langkah per baris)"],["コピー元の日付（YYYY-MM-DD）","Tanggal sumber duplikasi (YYYY-MM-DD)"],["JTEKT・MAZDA・GCT 検査","Inspeksi JTEKT/MAZDA/GCT"],["かんばんQR / QR Kanban","QR Kanban / QR Kanban"],["② スケジュール・実績を更新中...","② Sedang memperbarui jadwal dan hasil aktual..."],["保存する（未翻訳分を自動でID翻訳）","Simpan (terjemahkan teks yang belum tersedia ke bahasa Indonesia)"],["QRスキャナー導入後に利用できます","Tersedia setelah scanner QR dipasang"],["メールアドレスが登録されていません","Alamat email belum terdaftar"],["4MB以下の画像を選択してください","Pilih gambar berukuran 4MB atau kurang"],["主な特徴（確認ポイント・最大4件）","Ciri utama (poin pengecekan, maksimal 4)"],["納入箱の品番、ラベルを確認します。","Periksa nomor produk dan label kotak pengiriman."],["作業名と所要時間を入力してください","Masukkan nama pekerjaan dan waktu yang diperlukan"],["例: 設備故障で15分停止したため","Peralatan mengalami gangguan sehingga berhenti selama 15 menit"],["津田・刈谷紙器・村谷・製品箱詰め","Pengepakan Produk"],["製品QR / QR Produk","QR Produk / QR Produk"],["説明・注意事項（インドネシア語）","Penjelasan dan perhatian (bahasa Indonesia)"],["箱名 例: 納入箱 A（標準箱）","Nama kotak Contoh: Kotak pengiriman A (kotak standar)"],["上の欄から行を追加してください。","Tambahkan baris dari kolom di atas."],["満数でない最後の箱の個数（任意）","Jumlah produk dalam kotak terakhir yang tidak penuh (opsional)"],["この呼称はすでに使われています","Sebutan ini sudah dipakai"],["類似品の品番 例: B-123","Nomor seri produk serupa Contoh: B-123"],["作業の流れ（手順ごとにカード）","Alur kerja (Kartu per langkah)"],["製品の識別マークを確認します。","Periksa tanda identifikasi produk."],["確認後、指定の場所に納めます。","Setelah pengecekan, simpan di tempat yang ditentukan."],["備考 例: 製造数の管理に使用","Catatan Contoh: Digunakan untuk manajemen jumlah produksi"],["この工程の収容数（1箱あたり）","Kapasitas proses ini (per kotak)"],["要領書：手順（写真＋コメント）","Manual operasional: Prosedur (foto + komentar)"],["該当する品番が見つかりません:","Nomor produk yang sesuai tidak ditemukan:"],["ガイドQRを読み取ってください","Silakan pindai QR panduan"],["該当する製品が見つかりません","Produk tidak ditemukan"],["Indonesian（任意）","Indonesian (opsional)"],["コード 例: KBN0001","Kode Contoh: KBN0001"],["作業内容・コメント（日本語）","Isi pekerjaan dan komentar (bahasa Jepang)"],["）の全ての日に適用されます。","), berlaku untuk semua hari."],["品番と数量を入力してください","Masukkan nomor produk dan kuantitas"],["例: ハンガーマン / 清掃","Contoh: Penggantung / Pembersihan"],["この工程の製品がありません","Tidak ada produk untuk proses ini"],["作業手順を確認してください","Silakan periksa prosedur kerja"],["パスワードが間違っています","Kata sandi salah"],["呼称・品番で絞り込み...","Filter berdasarkan nama dan nomor produk..."],["呼称が登録されていません。","Nama panggilan belum terdaftar."],["① マスターを複製中...","① Sedang menduplikasi master..."],["③ 旧データを削除中...","③ Sedang menghapus data lama..."],["例: 1234-56789","Contoh: 1234-56789"],["例: ブラケット ASSY","Contoh: Braket ASSY"],["端数品置き場所（ロケ番号）","Lokasi Penyimpanan Sisa Produk (Nomor Lokasi)"],["類似品との違い（最大3件）","Perbedaan dengan produk serupa (maksimal 3 item)"],["使用時の注意（1行1項目）","Perhatian saat penggunaan (1 item per baris)"],["注意ポイント（1行1項目）","Poin Perhatian (1 item per baris)"],["代表の収容数（1箱あたり）","Jumlah isi standar (per kotak)"],["マークの種類（赤字で表示）","Jenis tanda (ditampilkan dalam warna merah)"],["かんばん情報（最大4種類）","Informasi kanban (maksimal 4 jenis)"],["アウトライン工程システム","Sistem Proses Outline"],["担当者QR文字列（任意）","String QR Penanggung Jawab (Opsional)"],["説明・注意事項（日本語）","Penjelasan dan perhatian (bahasa Jepang)"],["例: フック形状（上部）","Contoh: Bentuk kait (bagian atas)"],["収容数（この荷姿のとき）","Jumlah isi untuk kemasan ini"],["種類 例: 生産かんばん","Jenis Contoh: Kanban produksi"],["使用工程 例: 掛け工程","Proses yang digunakan Contoh: Proses penangguhan"],["担当者が見つかりません:","Penanggung jawab tidak ditemukan:"],["・遅れを取り消すなら＋）","・Jika membatalkan keterlambatan, gunakan +)"],["工程を選択してください","Silakan pilih proses"],["ログインに失敗しました","Gagal masuk"],["すでに登録されています","Sudah terdaftar"],["新しい呼称を追加...","Tambahkan nama baru..."],["氏名 例: 山田 太郎","Nama Lengkap Contoh: Yamada Taro"],["品名（インドネシア語）","Nama Produk (Bahasa Indonesia)"],["QR照合文字列（製品）","Teks Pengecekan QR (produk)"],["かんばんQR照合文字列","Teks Pengecekan QR Kanban"],["本品の写真（最大3枚）","Foto produk ini (maksimal 3 lembar)"],["注意事項（1行1項目）","Catatan peringatan (1 item per baris)"],["用途 例: 生産指示用","Kegunaan Contoh: Untuk instruksi produksi"],["発行先 例: Aライン","Tujuan penerbitan Contoh: Lini A"],["荷姿により異なります","Berbeda menurut kemasan"],["工程により異なります","Berbeda menurut proses"],["スキャン待機中...","Menunggu pemindaian..."],["識別マークの拡大写真","Foto pembesaran tanda identifikasi"],["▦ かんばんQR照合","▦ Pengecekan QR Kanban"],["担当者が未登録です。","Penanggung jawab belum terdaftar."],["未設定なら品番で照合","Jika belum diatur, lakukan pengecekan dengan nomor produk"],["本品の特徴（番号順）","Fitur produk ini (sesuai urutan nomor)"],["手順の内容（日本語）","Isi langkah (Bahasa Jepang)"],["納入箱（最大4種類）","Kotak pengiriman (maksimal 4 jenis)"],["例: 丸マーク（●）","Contoh: Tanda bulat (●)"],["1箱あたり工数（分）","Waktu standar per kotak (menit)"],["要領書・工数 未登録","Lembar kerja dan waktu standar belum terdaftar"],["データがありません","Tidak ada data"],["工程名が未登録です","Nama proses belum terdaftar"],["この製品が通る工程","Proses yang dilalui produk ini"],["1箱あたりの収容数","Jumlah per kotak"],["接続に失敗しました","Koneksi gagal"],["要領書が未登録です","Lembar kerja belum terdaftar"],["：かんばんQR照合",": Pengecekan QR Kanban"],["呼称の変更に失敗:","Gagal mengubah nama:"],["アップロード失敗:","Gagal mengunggah:"],["違い（1行1項目）","Perbedaan (1 item per baris)"],["道具名 例: 軍手","Nama alat Contoh: Sarung tangan kerja"],["所定の場所に納める","Simpan di tempat yang ditentukan"],["の計画がありません","Tidak ada rencana untuk"],["早く終わりました","lebih cepat"],["呼称・品番で検索","Cari dengan sebutan / nomor produk"],["この工程の収容数","Jumlah isi proses ini"],["製品が未登録です","Produk belum terdaftar"],["動画が未登録です","Video belum terdaftar"],["要領書を呼び出す","Buka lembar kerja"],["計画がありません","Belum ada jadwal"],["スケジュール編集","Edit Jadwal"],["選択してください","Silakan pilih"],["形状確認ポイント","Poin Pengecekan Bentuk"],["収容数・梱包荷姿","Jumlah Isi dan Bentuk Kemasan"],["長坂コーティング","Nagasaka Coating"],["パスワードを入力","Masukkan Kata Sandi"],["ログイン中...","Sedang masuk..."],["上記以外の工程（","Proses selain yang disebutkan di atas ("],["▦ かんばん照合","▦ Pengecekan Kanban"],["👤 担当者管理","👤 Manajemen petugas"],["🌐 全て再翻訳","🌐 Terjemahkan Ulang Semua"],["✓ 保存しました","✓ Tersimpan"],["ハンガー全体写真","Foto lengkap gantungan"],["例: 縦 × 横","Contoh: Panjang × Lebar"],["この品番で使用中","Sedang digunakan dengan nomor item ini"],["⧉ 前日から複製","⧉ Duplikasi dari hari sebelumnya"],["履歴がありません","Tidak ada riwayat"],["始業・休憩設定","Pengaturan Jam Kerja"],["予定どおりです","Tepat sesuai rencana"],["製品情報を見る","Lihat info produk"],["作業動画を再生","Putar Video Kerja"],["類似品との違い","Perbedaan dengan Produk Serupa"],["工程別の収容数","Jumlah isi per proses"],["作業指示ホーム","Beranda Instruksi"],["その他付帯作業","Pekerjaan Pendukung"],["端数品置き場所","Tempat penyimpanan produk sisa"],["メールアドレス","Alamat Email"],["（最大4種類）","（Maksimal 4 jenis）"],["：製品QR照合",": Pengecekan QR Produk"],["（品名未設定）","(Nama produk belum diatur)"],["品名（日本語）","Nama Produk (Bahasa Jepang)"],["例: A-12","Contoh: A-12"],["作業動画URL","URL Video Kerja"],["箱の外観を確認","Periksa penampilan kotak"],["全体写真の説明","Penjelasan foto keseluruhan"],["拡大写真の説明","Penjelasan foto yang diperbesar"],["かんばんを追加","Tambahkan kanban"],["例: 12.5","Contoh: 12.5"],["） ↓ 遅れ（",") ↓ Terlambat ("],["＋ 休憩を追加","＋ Tambah Istirahat"],["かんばんの異常","Abnormalitas kanban"],["開始 → 終了","Mulai → Selesai"],["マスター管理","Manajemen Master"],["スタート画面","Layar Mulai"],["読込中...","Memuat..."],["かかりました","lebih lambat"],["変更中...","Mengubah..."],["工程名未登録","Proses belum terdaftar"],["PDFで表示","Tampilkan PDF"],["使用時の注意","Perhatian Penggunaan"],["製品イメージ","Gambar Produk"],["代表の収容数","Jumlah isi standar"],["保存中...","Menyimpan..."],["保存しました","Tersimpan"],["担当者を選択","Pilih petugas"],["進行中の作業","Pekerjaan berjalan"],["確認しました","Sudah dilakukan pengecekan"],["ハンガー写真","Foto penggantung"],["注意ポイント","Poin perhatian"],["かんばん情報","Informasi kanban"],["接続中...","Sedang terhubung..."],["追加に失敗:","Gagal menambahkan:"],["削除に失敗:","Gagal menghapus:"],["現在の呼称：","Nama panggilan saat ini:"],["保存に失敗:","Gagal menyimpan:"],["収容数・荷姿","Jumlah Isi dan Kemasan"],["要領書・工数","Lembar Kerja dan Waktu Standar"],["マスター編集","Pengeditan Master"],["1行に1項目","1 Item per Baris"],["類似品を追加","Tambah produk serupa"],["テーキン写真","Foto Teekin"],["例: 縦向き","Contoh: Orientasi vertikal"],["納入箱を追加","Tambah kotak pengiriman"],["を使います。","akan digunakan."],["（製品なし）","(Tanpa produk)"],["更新に失敗:","Pembaruan gagal:"],["開始に失敗:","Gagal memulai:"],["（直近7日）","（7 hari terakhir）"],["ログアウト","Keluar"],["キーワード","Kata kunci"],["作業を追加","Tambah pekerjaan"],["終業見込み","Perkiraan selesai kerja"],["評価を調整","Sesuaikan evaluasi"],["次の作業へ","Ke pekerjaan berikutnya"],["今日の累計","Total hari ini"],["呼称を変更","Ubah Sebutan"],["新しい呼称","Sebutan baru"],["製品を選ぶ","Pilih Produk"],["前の項目へ","Item Sebelumnya"],["次の項目へ","Item Selanjutnya"],["一覧に戻る","Kembali ke Daftar"],["本品の特徴","Ciri Produk Ini"],["担当者QR","QR Petugas"],["ライン応援","Bantu Lini"],["一時停止中","Dijeda"],["作業に戻る","Kembali ke pekerjaan"],["端数（個）","Sisa (pcs)"],["担当者なし","Tanpa petugas"],["本日の計画","Jadwal hari ini"],["今の担当者","Petugas saat ini"],["工程一覧へ","Daftar Proses"],["Vミゾ修正","Perbaikan Alur V"],["作業の流れ","Alur pekerjaan"],["必要道具類","Peralatan yang diperlukan"],["識別マーク","Tanda identifikasi"],["パスワード","Kata Sandi"],["品番未設定","Nomor produk belum diatur"],["担当者管理","Manajemen petugas"],["アップ中…","Sedang Mengunggah…"],["特徴を追加","Tambah fitur"],["手順を追加","Tambah langkah"],["道具を追加","Tambah alat"],["例: 42","Contoh: 42"],["荷姿を追加","Tambah bentuk kemasan"],["箱を開ける","Buka kotak"],["製品を確認","Periksa produk"],["例: 70","Contoh: 70"],["↑ 先行（","↑ Lebih cepat ("],["この工程（","Untuk proses ini ("],["→ 作業中","→ Sedang dikerjakan"],["例: 30","Contoh: 30"],["例: 20","Contoh: 20"],["設備の異常","Abnormalitas peralatan"],["素材の異常","Abnormalitas bahan baku"],["塗装の異常","Abnormalitas pengecatan"],["例: 15","Contoh: 15"],["キャンセル","Batal"],["QR照合","Pengecekan QR"],["作業指示","Instruksi Pekerjaan"],["絞り込み","Filter"],["検索結果","Hasil pencarian"],["予定時間","Waktu rencana"],["開始予定","Rencana mulai"],["終了予定","Perkiraan selesai"],["始業時刻","Jam mulai"],["製品の行","Baris produk"],["作業の行","Baris pekerjaan"],["所要時間","Durasi"],["追加する","Tambah"],["担当者別","Per petugas"],["調整時間","Waktu penyesuaian"],["作業完了","Pekerjaan Selesai"],["予定より","Dibanding rencana"],["変更する","Ubah"],["製品検索","Pencarian Produk"],["印刷する","Cetak"],["注意事項","Perhatian"],["工程一覧","Daftar Proses"],["情報項目","Item Informasi"],["全体写真","Foto Keseluruhan"],["拡大写真","Foto Perbesaran"],["主な特徴","Ciri Utama"],["梱包荷姿","Bentuk Kemasan"],["使用工程","Proses"],["保存する","Simpan"],["照合成功","Cocok"],["目標箱数","Target kotak"],["1箱工数","Waktu standar per kotak"],["作業開始","Mulai"],["完了箱数","Kotak selesai"],["1箱完了","1 Kotak Selesai"],["1つ戻す","Batal 1"],["作業終了","Selesai Kerja"],["現在時刻","Waktu sekarang"],["コメント","Komentar"],["記録する","Catat"],["スキップ","Lewati"],["次の作業","Pekerjaan berikutnya"],["行を追加","Tambah baris"],["マスター","Master"],["該当なし","Tidak ada"],["製品揃え","Penyiapan Produk"],["小物掛け","Penggantungan Part Kecil"],["小物検査","Inspeksi Part Kecil"],["製品写真","Foto produk"],["テーキン","Teekin"],["写真なし","Tidak ada foto"],["ユーザー","Pengguna"],["ログイン","Masuk"],["基本情報","Informasi dasar"],["形状確認","Pengecekan Bentuk"],["ハンガー","Penggantung"],["必要道具","Peralatan yang diperlukan"],["かんばん","Kanban"],["＋ 画像","＋ Gambar"],["色を選択","Pilih warna"],["部品不足","Kekurangan suku cadang"],["ホーム","Beranda"],["クリア","Hapus"],["更新日","Tanggal Update"],["工程名","Nama Proses"],["昼休憩","Istirahat siang"],["作業名","Nama pekerjaan"],["達成率","Tingkat capaian"],["製品別","Per produk"],["調整後","Setelah penyesuaian"],["調整前","Sebelum penyesuaian"],["全工程","Semua proses"],["未登録","Belum terdaftar"],["収容数","Jumlah Isi"],["仕切り","Sekat"],["使用中","Digunakan"],["未使用","Tidak digunakan"],["仕切数","Jumlah Sekat"],["発行先","Penerbit"],["サイズ","Ukuran"],["不一致","Tidak cocok"],["再試行","Coba lagi"],["閉じる","Tutup"],["担当者","Petugas"],["要領書","Lembar Kerja"],["計画表","Jadwal Kerja"],["未着手","Belum mulai"],["作業中","Berjalan"],["未割当","Belum ditugaskan"],["手吹き","Semprot Manual"],["ハガシ","Pengelupasan"],["納入箱","Kotak pengiriman"],["類似品","Produk Serupa"],["ピンク","Merah muda"],["品番:","Nomor produk:"],["休憩1","Istirahat 1"],["休憩2","Istirahat 2"],["行 /","Baris /"],["その他","Lainnya"],["（調整","（Penyesuaian"],["戻る","Kembali"],["更新","Perbarui"],["言語","Bahasa"],["品番","Nomor Produk"],["品名","Nama Produk"],["選択","Pilih"],["呼称","Sebutan"],["予定","Rencana"],["実績","Aktual"],["1箱","per kotak"],["休憩","Istirahat"],["設定","Pengaturan"],["評価","Evaluasi"],["推移","Grafik"],["調整","Penyesuaian"],["理由","Alasan"],["中断","Jeda"],["前へ","Sebelumnya"],["次へ","Selanjutnya"],["仕様","Spesifikasi"],["向き","Arah"],["外寸","Ukuran Luar"],["材質","Material"],["用途","Kegunaan"],["備考","Catatan"],["種類","Jenis"],["削除","Hapus"],["追加","Tambah"],["再開","Lanjutkan"],["異常","Kelainan"],["先行","Lebih cepat"],["遅れ","Terlambat"],["経過","Berlalu"],["実働","Kerja aktif"],["履歴","Riwayat"],["完了","Selesai"],["標準","Standar"],["進捗","Progres"],["任意","opsional"],["順番","No"],["数量","Jumlah"],["状態","Status"],["上へ","Naik"],["下へ","Turun"],["合計","Total"],["日付","Tanggal"],["割当","Ditugaskan"],["達成","Tercapai"],["残り","Sisa"],["変更","Ubah"],["補足","Catatan tambahan"],["名称","Nama"],["作業","Pekerjaan"],["なし","Tidak ada"],["操作","Operasi"],["開始","Mulai"],["終了","Selesai"],["工程","Proses"],["停止","Berhenti"],["確認","Pengecekan"],["件","item"],["差","Selisih"],["日","Harian"],["月","Bulanan"],["年","Tahunan"],["色","Warna"],["分","menit"],["箱","kotak"],["個","Satuan"],["緑","Hijau"],["黄","Kuning"],["青","Biru"],["赤","Merah"],["白","Putih"],["火","Selasa"],["水","Rabu"],["木","Kamis"],["金","Jumat"],["土","Sabtu"]];
 /* 表示専用の二言語レイヤー。登録済みの日本語・手入力の翻訳を変更しない。 */
+function rowHasPhoto(value){
+  if(!value||typeof value!=='object')return false;
+  return Object.entries(value).some(([key,v])=>((/img|image|photo/i.test(key))&&typeof v==='string'&&!!v)||(v&&typeof v==='object'&&rowHasPhoto(v)));
+}
+
 const HAS_JAPANESE=/[\u3041-\u3096\u30a1-\u30fa\u3400-\u9fff]/;
+Object.assign(DICT,{"画像を拡大表示":"Perbesar gambar","写真を削除":"Hapus foto","この写真を削除しますか？":"Hapus foto ini?","削除する":"Hapus","この項目と写真を削除しますか？":"Hapus item ini beserta fotonya?","QRコード":"Kode QR"});
 const biPairs=new Map(),biReverse=new Map(),biPending=new Map(),biFailed=new Set();
 const biListeners=new Set(),biQueue=[];
 let biVersion=0,biActive=0;
@@ -8309,8 +8259,8 @@ function LocalizedSelect({children,value,onChange,style,disabled,id,name,...prop
   </span>;
 }
 let biDialog=null;const biDialogQueue=[];
-function showBiDialog(kind,message,initial=''){
-  return new Promise(resolve=>{biDialogQueue.push({kind,message,initial,resolve});if(!biDialog){biDialog=biDialogQueue.shift();notifyBi();}});
+function showBiDialog(kind,message,initial='',options={}){
+  return new Promise(resolve=>{biDialogQueue.push({kind,message,initial,resolve,...options});if(!biDialog){biDialog=biDialogQueue.shift();notifyBi();}});
 }
 function BilingualDialog(){
   React.useSyncExternalStore(subscribeBi,()=>biVersion,()=>0);
@@ -8331,13 +8281,14 @@ function BilingualDialog(){
     <div id="bi-dialog-message" style={{fontSize:17,lineHeight:1.6}}><BiText value={job.message}/></div>
     {job.kind==='prompt'&&<input ref={field} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&close(true)} style={{marginTop:16}}/>}
     <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:24}}>
-      {job.kind!=='alert'&&<button onClick={()=>close(false)} className="bi-cancel"><BiText value="キャンセル"/></button>}
-      <button ref={job.kind==='prompt'?undefined:field} onClick={()=>close(true)} className="bi-ok"><BiText value={job.kind==='alert'?'閉じる':'確認'}/></button>
+      {job.kind!=='alert'&&<button ref={job.destructive?field:undefined} onClick={()=>close(false)} className="bi-cancel"><BiText value="キャンセル"/></button>}
+      <button ref={job.kind==='prompt'||job.destructive?undefined:field} onClick={()=>close(true)} className={job.destructive?'bi-ok bi-danger':'bi-ok'}><BiText value={job.confirmLabel||(job.kind==='alert'?'閉じる':'確認')}/></button>
     </div>
   </div></div>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 </script>
 </body>
 </html>
