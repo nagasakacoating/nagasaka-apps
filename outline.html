@@ -25,6 +25,8 @@ input:focus,textarea:focus{border-color:#12306B;box-shadow:0 0 0 3px rgba(18,48,
 @keyframes spin{to{transform:rotate(360deg)}}
 .panel{background:#fff;border:1px solid #E3E7ED;border-radius:10px;overflow:hidden}
 .panel-h{background:#EEF4FC;padding:10px 16px;font-size:15px;font-weight:700;color:#1B4A9C;border-bottom:1px solid #E3E7ED}
+/* ブラウザーの表示領域に追従し、編集画面の保存ボタンまで収める。 */
+@supports (height:100dvh){.master-editor-dialog{height:calc(100dvh - 40px)!important}}
 </style>
 </head>
 <body>
@@ -1052,6 +1054,15 @@ function MasterAdmin({master,workers,user,onBack}){
   const[showWorkers,setShowWorkers]=useState(false);
   const[newH,setNewH]=useState('');
   const[q,setQ]=useState('');
+  const modalOpen=!!sel||showWorkers;
+  // 編集中はページ全体も固定する。一覧内の位置は overflow の切替で保持する。
+  useEffect(()=>{
+    if(!modalOpen)return;
+    const elements=[document.documentElement,document.body];
+    const previous=elements.map(el=>({el,overflow:el.style.overflow}));
+    elements.forEach(el=>{el.style.overflow='hidden';});
+    return()=>previous.forEach(({el,overflow})=>{el.style.overflow=overflow;});
+  },[modalOpen]);
   const list=Object.keys(master).sort().filter(h=>matchHinban(master,h,q.trim().toLowerCase()));
 
   async function add(){
@@ -1062,8 +1073,9 @@ function MasterAdmin({master,workers,user,onBack}){
   }
   return(
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
+      <div inert={modalOpen?'':undefined} style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
       <TopBar title={b('マスター管理')} onBack={onBack} user={user}/>
-      <div style={{flex:1,overflowY:'auto',padding:'20px 28px'}}>
+      <div style={{flex:1,minHeight:0,overflowY:modalOpen?'hidden':'auto',overscrollBehavior:'contain',padding:'20px 28px'}}>
         <div style={{display:'flex',gap:12,marginBottom:16,maxWidth:900}}>
           <input value={newH} onChange={e=>setNewH(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="新しい呼称を追加..."/>
           <button onClick={add} disabled={!newH.trim()} style={{minHeight:46,padding:'0 24px',borderRadius:8,background:newH.trim()?NAVY:'#C7CDD6',color:'#fff',fontSize:15,fontWeight:700,whiteSpace:'nowrap'}}>{t('追加')}</button>
@@ -1090,6 +1102,7 @@ function MasterAdmin({master,workers,user,onBack}){
           })}
         </div>
       </div>
+      </div>
       {sel&&<MasterEditor key={sel} hinban={sel} data={master[sel]||{}} taken={Object.keys(master)}
         onClose={()=>setSel(null)} onRenamed={()=>setSel(null)}/>}
       {showWorkers&&<WorkersPanel workers={workers} onClose={()=>setShowWorkers(false)}/>}
@@ -1113,12 +1126,12 @@ function WorkersPanel({workers,onClose}){
   }
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:600,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'calc(100vh - 40px)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div role="dialog" aria-modal="true" aria-label="担当者管理" style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'calc(100vh - 40px)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
         <div style={{background:NAVY,padding:'14px 20px',display:'flex',alignItems:'center'}}>
           <div style={{fontSize:18,fontWeight:700,color:'#fff',flex:1}}>👤 担当者管理</div>
           <button onClick={onClose} style={{width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.18)',color:'#fff',fontSize:20}}>×</button>
         </div>
-        <div style={{padding:18,overflowY:'auto'}}>
+        <div style={{minHeight:0,padding:18,overflowY:'auto',overscrollBehavior:'contain'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:10}}>
             <input value={name} onChange={e=>setName(e.target.value)} placeholder="氏名 例: 山田 太郎" onKeyDown={e=>e.key==='Enter'&&add()}/>
             <input value={qr} onChange={e=>setQr(e.target.value)} placeholder="担当者QR文字列（任意）"/>
@@ -1267,23 +1280,23 @@ function MasterEditor({hinban,data,taken,onClose,onRenamed}){
   ];
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:600,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:1000,height:'calc(100vh - 40px)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        <div style={{background:NAVY,padding:'14px 20px',display:'flex',alignItems:'center',gap:14}}>
+      <div className="master-editor-dialog" role="dialog" aria-modal="true" aria-label={hinban+' マスター編集'} inert={renaming?'':undefined} style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:1000,height:'calc(100vh - 40px)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{background:NAVY,padding:'14px 20px',display:'flex',alignItems:'center',gap:14,flexShrink:0}}>
           <div style={{fontSize:20,fontWeight:700,color:'#fff',flex:1}}>{hinban}</div>
           <button onClick={()=>setRenaming(true)} style={{padding:'7px 16px',borderRadius:7,background:'rgba(255,255,255,.18)',color:'#fff',fontSize:13,fontWeight:700}}>✎ {t('呼称を変更')}</button>
           <button onClick={del} style={{padding:'7px 16px',borderRadius:7,background:'rgba(255,255,255,.15)',color:'#FFD9D9',fontSize:13,fontWeight:700}}>削除</button>
           <button onClick={onClose} style={{width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.18)',color:'#fff',fontSize:20}}>×</button>
         </div>
-        <div style={{display:'flex',gap:5,padding:'10px 16px',borderBottom:'1px solid '+LINE,overflowX:'auto',flexShrink:0}}>
+        <div style={{display:'flex',gap:5,padding:'10px 16px',borderBottom:'1px solid '+LINE,overflowX:renaming?'hidden':'auto',overscrollBehaviorX:'contain',flexShrink:0}}>
           {TABS.map(([k,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{padding:'7px 13px',borderRadius:18,whiteSpace:'nowrap',fontSize:13,fontWeight:tab===k?700:600,background:tab===k?NAVY:'#F2F4F7',color:tab===k?'#fff':'#4A5460'}}>{l}</button>
           ))}
         </div>
-        <div style={{flex:1,overflowY:'auto',padding:'18px 20px'}}>
+        <div style={{flex:1,minHeight:0,overflowY:renaming?'hidden':'auto',overscrollBehavior:'contain',padding:'18px 20px'}}>
           <EditorBody tab={tab} d={d} upd={upd} upImg={upImg} busy={busy} hinban={hinban}/>
         </div>
-        <div style={{padding:'12px 20px',borderTop:'1px solid '+LINE,display:'flex',gap:12,alignItems:'center',background:'#F7F8FA'}}>
+        <div style={{padding:'12px 20px',borderTop:'1px solid '+LINE,display:'flex',gap:12,alignItems:'center',background:'#F7F8FA',flexShrink:0}}>
           <button onClick={()=>save(false)} disabled={saving} style={{flex:1,minHeight:48,borderRadius:10,background:saving?'#AEB6C2':NAVY,color:'#fff',fontSize:16,fontWeight:700}}>
             {trProg?`🌐 翻訳中 ${trProg.done}/${trProg.total}`:(saving?'保存中...':'保存する（未翻訳分を自動でID翻訳）')}
           </button>
@@ -1344,16 +1357,70 @@ function RepList({items,onChange,render,addLabel,blank,max}){
     </div>
   );
 }
-/* 1行1項目のテキストエリア ⇄ 配列 */
-function LinesArea({value,onChange,height,ph}){
-  return <textarea
-    value={(value||[]).join('\n')}
-    onChange={e=>onChange(e.target.value.split('\n'))}
-    onBlur={e=>onChange(e.target.value.split('\n').map(s=>s.trim()).filter(Boolean))}
-    style={{width:'100%',height:height||80,resize:'vertical'}}
-    placeholder={ph||'1行に1項目'}/>;
+/* 文章量と表示幅に合わせて、すべての複数行入力欄の高さを調整する。 */
+function AutoTextarea({style,onInput,...props}){
+  const element=useRef(null);
+  function fit(){
+    const el=element.current;
+    if(!el||!el.getClientRects().length)return;
+    const css=getComputedStyle(el);
+    const border=(parseFloat(css.borderTopWidth)||0)+(parseFloat(css.borderBottomWidth)||0);
+    el.style.height='0px';
+    el.style.height=Math.ceil(el.scrollHeight+border)+'px';
+  }
+  React.useLayoutEffect(()=>{fit();});
+  useEffect(()=>{
+    const el=element.current;
+    let width=-1;
+    const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(()=>{
+      const next=el.getBoundingClientRect().width;
+      if(next!==width){width=next;fit();}
+    });
+    if(observer)observer.observe(el);
+    window.addEventListener('resize',fit);
+    let active=true;
+    if(document.fonts)document.fonts.ready.then(()=>{if(active)fit();});
+    return()=>{active=false;if(observer)observer.disconnect();window.removeEventListener('resize',fit);};
+  },[]);
+  return <textarea {...props} ref={element}
+    onInput={e=>{fit();if(onInput)onInput(e);}}
+    style={{...style,height:'auto',minHeight:style&&style.minHeight||50,resize:'none',overflowY:'hidden',boxSizing:'border-box'}}/>;
 }
 
+/* 1行1項目のテキストエリア ⇄ 配列 */
+function LinesArea({value,onChange,height,ph}){
+  return <AutoTextarea value={(value||[]).join('\n')}
+    onChange={e=>onChange(e.target.value.split('\n'))}
+    onBlur={e=>onChange(e.target.value.split('\n').map(s=>s.trim()).filter(Boolean))}
+    style={{width:'100%',height:height||80,resize:'vertical'}} placeholder={ph||'1行に1項目'}/>;
+}
+
+/* 入力中の改行・空白は保持し、保存用の手順データだけを整形する。 */
+function BoxStepsArea({value,onChange}){
+  const format=steps=>(steps||[]).map(s=>`${s.title||''}：${s.desc||''}`).join('\n');
+  const formatted=format(value);
+  const[draft,setDraft]=useState(formatted);
+  const emitted=useRef(formatted);
+  useEffect(()=>{
+    if(formatted!==emitted.current){
+      emitted.current=formatted;
+      setDraft(formatted);
+    }
+  },[formatted]);
+  function edit(text){
+    setDraft(text);
+    const steps=text.split(/\r?\n/).filter(line=>line.trim()).map((line,i)=>{
+      const p=line.indexOf('：')>=0?line.indexOf('：'):line.indexOf(':');
+      return {...((value||[])[i]||{}),
+        title:(p<0?line:line.slice(0,p)).trim(),
+        desc:p<0?'':line.slice(p+1).trim()};
+    });
+    emitted.current=format(steps);
+    onChange(steps);
+  }
+  return <AutoTextarea value={draft} onChange={e=>edit(e.target.value)}
+    style={{width:'100%',height:90,resize:'vertical'}}/>;
+}
 
 function EditorBody({tab,d,upd,upImg,busy,hinban}){
   const[sheetProc,setSheetProc]=useState(PROCESSES[0].id);
@@ -1437,9 +1504,9 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
       <FLbl>テーキン写真</FLbl>
       <ImgSlot url={tk.img} busy={busy==='teekin/img'} h={150} onPick={f=>upImg('teekin/img',f,u=>sub('teekin',{img:u}))} onClear={()=>sub('teekin',{img:''})}/>
       <FLbl>説明・注意事項（日本語）</FLbl>
-      <textarea value={tk.note||''} onChange={e=>sub('teekin',{note:e.target.value})} style={{width:'100%',height:90,resize:'vertical'}}/>
+      <AutoTextarea value={tk.note||''} onChange={e=>sub('teekin',{note:e.target.value})} style={{width:'100%',height:90,resize:'vertical'}}/>
       <FLbl>説明・注意事項（インドネシア語）</FLbl>
-      <textarea value={tk.note_id||''} onChange={e=>sub('teekin',{note_id:e.target.value})} style={{width:'100%',height:90,resize:'vertical'}}/>
+      <AutoTextarea value={tk.note_id||''} onChange={e=>sub('teekin',{note_id:e.target.value})} style={{width:'100%',height:90,resize:'vertical'}}/>
     </>);
   }
 
@@ -1456,10 +1523,10 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
             <ImgSlot url={it.img} busy={busy==='hanger/f'+i} h={90} onPick={f=>upImg('hanger/f'+i,f,u=>set({...it,img:u}))} onClear={()=>set({...it,img:''})}/>
           </Row>
           <FLbl>補足</FLbl>
-          <textarea value={it.note||''} onChange={e=>set({...it,note:e.target.value})} style={{width:'100%',height:60,resize:'vertical'}}/>
+          <AutoTextarea value={it.note||''} onChange={e=>set({...it,note:e.target.value})} style={{width:'100%',height:60,resize:'vertical'}}/>
         </>)}/>
       <FLbl>ハンガー仕様（「項目：値」を1行ずつ）</FLbl>
-      <textarea value={(hg.spec||[]).map(r=>`${r.k}：${r.v}`).join('\n')}
+      <AutoTextarea value={(hg.spec||[]).map(r=>`${r.k}：${r.v}`).join('\n')}
         onChange={e=>sub('hanger',{spec:e.target.value.split('\n').map(l=>{const i=l.indexOf('：')>=0?l.indexOf('：'):l.indexOf(':');return i<0?null:{k:l.slice(0,i).trim(),v:l.slice(i+1).trim()};}).filter(Boolean)})}
         style={{width:'100%',height:150,resize:'vertical'}} placeholder={'ハンガー名：標準ハンガーA\nサイズ：W500 × H800 mm\n材質：SS400'}/>
       <FLbl>使用時の注意（1行1項目）</FLbl>
@@ -1473,8 +1540,8 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
       render={(it,set,i)=>(<>
         <Row cols="1fr 170px">
           <div>
-            <textarea value={it.text||''} onChange={e=>set({...it,text:e.target.value})} style={{width:'100%',height:60,resize:'vertical'}} placeholder="手順の内容（日本語）"/>
-            <textarea value={it.text_id||''} onChange={e=>set({...it,text_id:e.target.value})} style={{width:'100%',height:50,resize:'vertical',marginTop:6}} placeholder="Indonesian（任意）"/>
+            <AutoTextarea value={it.text||''} onChange={e=>set({...it,text:e.target.value})} style={{width:'100%',height:60,resize:'vertical'}} placeholder="手順の内容（日本語）"/>
+            <AutoTextarea value={it.text_id||''} onChange={e=>set({...it,text_id:e.target.value})} style={{width:'100%',height:50,resize:'vertical',marginTop:6}} placeholder="Indonesian（任意）"/>
           </div>
           <ImgSlot url={it.img} busy={busy==='step'+i} h={100} onPick={f=>upImg('step'+i,f,u=>set({...it,img:u}))} onClear={()=>set({...it,img:''})}/>
         </Row>
@@ -1493,7 +1560,7 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
         <Row cols="1fr 170px">
           <div>
             <input value={it.name||''} onChange={e=>set({...it,name:e.target.value})} placeholder="道具名 例: 軍手"/>
-            <textarea value={it.note||''} onChange={e=>set({...it,note:e.target.value})} style={{width:'100%',height:56,resize:'vertical',marginTop:6}} placeholder="用途 例: 製品の取扱い時に使用します。"/>
+            <AutoTextarea value={it.note||''} onChange={e=>set({...it,note:e.target.value})} style={{width:'100%',height:56,resize:'vertical',marginTop:6}} placeholder="用途 例: 製品の取扱い時に使用します。"/>
           </div>
           <ImgSlot url={it.img} busy={busy==='tool'+i} h={100} onPick={f=>upImg('tool'+i,f,u=>set({...it,img:u}))} onClear={()=>set({...it,img:''})}/>
         </Row>
@@ -1560,9 +1627,7 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
           </div>
         </Row>
         <FLbl>確認手順（「見出し：説明」を1行ずつ）</FLbl>
-        <textarea value={(it.steps||[]).map(s=>`${s.title}：${s.desc}`).join('\n')}
-          onChange={e=>set({...it,steps:e.target.value.split('\n').map(l=>{const p=l.indexOf('：')>=0?l.indexOf('：'):l.indexOf(':');return p<0?null:{title:l.slice(0,p).trim(),desc:l.slice(p+1).trim()};}).filter(Boolean)})}
-          style={{width:'100%',height:90,resize:'vertical'}}/>
+        <BoxStepsArea value={it.steps} onChange={steps=>set({...it,steps})}/>
       </>)}/>
   </>);
 
@@ -1651,8 +1716,8 @@ function EditorBody({tab,d,upd,upImg,busy,hinban}){
         render={(it,set,i)=>(<Row cols="200px 1fr">
           <ImgSlot url={it.img} busy={busy===`sheet/${sheetProc}/${i}`} h={130} onPick={f=>upImg(`sheet/${sheetProc}/${i}`,f,u=>set({...it,img:u}))} onClear={()=>set({...it,img:''})}/>
           <div>
-            <textarea value={it.text||''} onChange={e=>set({...it,text:e.target.value})} style={{width:'100%',height:80,resize:'vertical'}} placeholder="作業内容・コメント（日本語）"/>
-            <textarea value={it.text_id||''} onChange={e=>set({...it,text_id:e.target.value})} style={{width:'100%',height:50,resize:'vertical',marginTop:6}} placeholder="Indonesian（任意）"/>
+            <AutoTextarea value={it.text||''} onChange={e=>set({...it,text:e.target.value})} style={{width:'100%',height:80,resize:'vertical'}} placeholder="作業内容・コメント（日本語）"/>
+            <AutoTextarea value={it.text_id||''} onChange={e=>set({...it,text_id:e.target.value})} style={{width:'100%',height:50,resize:'vertical',marginTop:6}} placeholder="Indonesian（任意）"/>
           </div>
         </Row>)}/>
       <FLbl>注意事項（1行1項目）</FLbl>
@@ -2504,7 +2569,7 @@ function AnomalyModal({onClose,onSave}){
           <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
             {quick.map(q=><button key={q} onClick={()=>setC(s=>s?s+'／'+q:q)} style={{padding:'7px 12px',borderRadius:16,border:'1px solid '+LINE,background:'#F7F9FC',fontSize:13,fontWeight:600,color:'#3A4552'}}>{q}</button>)}
           </div>
-          <textarea value={c} onChange={e=>setC(e.target.value)} placeholder={t('コメント')} style={{height:100,resize:'vertical'}} autoFocus/>
+          <AutoTextarea value={c} onChange={e=>setC(e.target.value)} placeholder={t('コメント')} style={{height:100,resize:'vertical'}} autoFocus/>
         </div>
         <div style={{padding:'0 20px 20px',display:'flex',gap:10}}>
           <button onClick={onClose} style={{flex:1,minHeight:46,borderRadius:10,border:'1px solid '+LINE,background:'#fff',fontSize:14,color:'#555'}}>{t('閉じる')}</button>
@@ -2722,7 +2787,7 @@ function AdjustModal({order,onClose}){
             <button onClick={()=>setV('')} style={{minHeight:38,padding:'0 12px',borderRadius:8,border:'1px solid '+LINE,background:'#fff',color:'#B71C1C',fontSize:13,fontWeight:700}}>クリア</button>
           </div>
           <div style={{fontSize:12.5,fontWeight:700,color:'#4A5460',margin:'14px 0 6px'}}>{b('理由')}</div>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="例: 設備故障で15分停止したため" style={{height:80,resize:'vertical'}}/>
+          <AutoTextarea value={note} onChange={e=>setNote(e.target.value)} placeholder="例: 設備故障で15分停止したため" style={{height:80,resize:'vertical'}}/>
         </div>
         <div style={{padding:'0 20px 20px',display:'flex',gap:10}}>
           <button onClick={onClose} disabled={busy} style={{flex:1,minHeight:48,borderRadius:10,border:'1px solid '+LINE,background:'#fff',fontSize:14,color:'#555'}}>{t('閉じる')}</button>
