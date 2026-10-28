@@ -1346,9 +1346,14 @@ function RepList({items,onChange,render,addLabel,blank,max}){
 }
 /* 1行1項目のテキストエリア ⇄ 配列 */
 function LinesArea({value,onChange,height,ph}){
-  return <textarea value={(value||[]).join('\n')} onChange={e=>onChange(e.target.value.split('\n').map(s=>s.trim()).filter(Boolean))}
-    style={{width:'100%',height:height||80,resize:'vertical'}} placeholder={ph||'1行に1項目'}/>;
+  return <textarea
+    value={(value||[]).join('\n')}
+    onChange={e=>onChange(e.target.value.split('\n'))}
+    onBlur={e=>onChange(e.target.value.split('\n').map(s=>s.trim()).filter(Boolean))}
+    style={{width:'100%',height:height||80,resize:'vertical'}}
+    placeholder={ph||'1行に1項目'}/>;
 }
+
 
 function EditorBody({tab,d,upd,upImg,busy,hinban}){
   const[sheetProc,setSheetProc]=useState(PROCESSES[0].id);
