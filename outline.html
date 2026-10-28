@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <title>長坂コーテング アウトライン工程</title>
 <script src="https://unpkg.com/firebase@8.10.1/firebase-app.js"></script>
@@ -47,6 +47,105 @@ button{line-height:1.4}.master-editor-tabs>button{flex-shrink:0;min-width:115px;
 .photo-delete:disabled{opacity:.45;cursor:default}.bi-danger{background:#B3261E}img[role=button]:focus-visible,canvas[role=button]:focus-visible{outline:3px solid #1B4A9C;outline-offset:3px}
 
 .bi-paired-label{font-size:10.5px;color:#647084;margin:0 0 4px;line-height:1.4}
+
+/* Responsive navigation and work layouts (2026-10-28). */
+html{ -webkit-text-size-adjust:100%;text-size-adjust:100% }
+body,#root{min-width:0;width:100%}
+button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
+.bi-text{overflow-wrap:break-word;word-break:normal}
+.app-screen{height:100dvh!important;min-width:0}
+.app-screen>div{min-width:0;min-height:0}
+.app-topbar{background:#12306B;color:white;padding:12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));display:grid;grid-template-columns:minmax(220px,1fr) minmax(160px,1fr) minmax(220px,1fr);gap:16px;align-items:center;flex-shrink:0;min-height:76px}
+.topbar-context{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar-back{color:white;font-size:16px;font-weight:600;display:flex;align-items:center;gap:6px;flex-shrink:0;min-height:44px;padding:6px 4px}
+.topbar-back .bi-text{overflow-wrap:normal;white-space:nowrap}
+.topbar-process{min-width:0;flex:1;line-height:1.5}
+.topbar-title{font-size:21px;font-weight:700;text-align:center;min-width:0;line-height:1.4}
+.lang-user{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+.language-switch{display:flex;align-items:center;gap:2px;background:white;border-radius:8px;padding:3px;flex-shrink:0;color:#8A93A0;font-size:13px}
+.language-switch button{min-width:44px;min-height:38px;padding:6px 10px;color:#12306B;font-size:14px;font-weight:700;border-radius:6px}
+.language-switch button[aria-pressed=true]{background:#12306B;color:white}
+.user-name{display:flex;align-items:center;gap:5px;min-width:0;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.user-name span{min-width:0}
+.app-footer{background:#EDEFF3;border-top:1px solid #E3E7ED;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));flex-shrink:0;min-width:0}
+.footer-context{display:flex;align-items:center;flex-wrap:wrap;gap:12px;flex:1 1 330px;min-width:0}
+.footer-actions{margin-left:auto;min-width:0;max-width:100%}
+.footer-actions>div{display:flex;flex-wrap:wrap;gap:8px}
+.app-footer button{min-height:44px;flex-shrink:0;padding-top:8px!important;padding-bottom:8px!important}
+.footer-button{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 18px;background:#fff;color:#12306B;border:1px solid #E3E7ED;border-radius:8px;font-size:15px;font-weight:700;max-width:100%}
+.footer-button.primary{background:#12306B;color:white}
+.footer-button:disabled{opacity:.6;color:#B0B7C0}
+.footer-clock{flex-wrap:wrap;flex:1 1 220px;font-variant-numeric:tabular-nums}
+.footer-clock .bi-text{overflow-wrap:normal;white-space:nowrap}
+.plan-mobile-label{display:none}
+.worker-picker>button{min-height:44px;flex-shrink:0;max-width:100%}
+.plan-table{min-width:900px}
+.search-screen table,.history-screen table{min-width:760px}
+.planner-screen table{min-width:1100px}
+.responsive-grid>*{min-width:0}
+@media(max-width:1100px){
+ .app-topbar{grid-template-columns:minmax(0,1fr) auto;gap:10px 16px}
+ .topbar-title{grid-column:1/-1;grid-row:1;text-align:left;font-size:20px}
+ .topbar-context{grid-column:1;grid-row:2}
+ .app-topbar>.lang-user{grid-column:2;grid-row:2;flex-wrap:wrap;max-width:260px;gap:6px}
+ .app-screen{height:auto!important;min-height:100vh;min-height:100dvh}
+ .app-screen>div{flex-shrink:0}
+ .app-footer{margin-top:auto}
+ .footer-actions{flex:1 1 100%;margin-left:0}
+ .plan-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch!important}
+ .plan-actions>button{min-width:0}
+ .worksheet-screen>div,.workrun-screen>div,.info-screen>div{flex-direction:column}
+ .worksheet-screen>div>div,.workrun-screen>div>div{flex:auto!important;min-width:0;max-width:100%;overflow-y:visible!important}
+ .info-screen>div>div:first-child{width:100%!important;max-height:220px;flex:none;display:flex;gap:8px;overflow-x:auto!important;padding:10px!important;border-bottom:1px solid #E3E7ED}
+ .info-screen>div>div:first-child>div{display:none}
+ .info-screen>div>div:first-child>button{width:200px!important;flex:0 0 200px;margin-bottom:0!important}
+ .info-screen>div>div:last-child{flex:auto!important}
+ .info-screen .responsive-grid{grid-template-columns:minmax(0,1fr)!important}
+}
+@media(max-width:700px){
+ .app-topbar{grid-template-columns:minmax(0,1fr);padding-top:10px;gap:10px}
+ .topbar-title{font-size:19px}
+ .topbar-context{grid-column:1;grid-row:2;align-items:flex-start}
+ .topbar-process>div{font-size:13px!important}
+ .app-topbar>.lang-user{grid-column:1;grid-row:3;max-width:none;justify-content:flex-start;flex-wrap:nowrap;gap:12px}
+ .app-screen>div{padding-left:12px!important;padding-right:12px!important}
+ .responsive-grid{grid-template-columns:minmax(0,1fr)!important}
+ .plan-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .worker-picker{flex-basis:100%!important;min-width:0!important}
+ .worker-picker>span:first-child{flex-basis:100%}
+ .work-plan-screen input[type=date]{width:100%!important;min-height:44px;font-size:16px!important}
+ .next-work{padding:14px!important;gap:12px!important}
+ .next-work>div{flex-basis:100%!important;min-width:0!important}
+ .next-work>button{width:100%;padding:12px!important;min-height:56px!important;font-size:18px!important}
+ .app-footer{gap:12px;padding:12px 12px max(12px,env(safe-area-inset-bottom))}
+ .footer-context{flex-basis:100%;gap:10px}
+ .footer-context>.footer-button{width:100%}
+ .footer-clock{flex-basis:100%;font-size:13px!important;gap:4px!important}
+ .plan-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .app-footer button{padding-left:10px!important;padding-right:10px!important}
+ .master-admin-toolbar{grid-template-columns:minmax(0,1fr)!important}
+ .master-admin-toolbar input{max-width:none!important}
+ .master-editor-dialog{height:calc(100dvh - 16px)!important;max-width:calc(100vw - 16px)!important}
+ .photo-viewer{width:96vw;height:90vh;height:90dvh}
+ input,textarea,select{font-size:16px}
+ .plan-table-wrap{overflow:visible!important;background:transparent!important;border:0!important}
+ .plan-table{display:block;min-width:0;width:100%}
+ .plan-table thead{display:none}
+ .plan-table tbody{display:grid;gap:12px}
+ .plan-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #D4DCE8;border-radius:10px;padding:8px;gap:0 12px}
+ .plan-table td{display:block;min-width:0;padding:8px 4px!important;overflow-wrap:break-word}
+ .plan-table td:nth-child(1),.plan-table td:nth-child(2),.plan-table td:last-child{grid-column:1/-1}
+ .plan-table td:nth-child(1){font-size:12px!important;padding-bottom:2px!important;border:0!important}
+ .plan-table td:nth-child(1) .plan-mobile-label{display:inline-block;margin-right:8px}
+ .plan-table td:nth-child(2){padding-top:2px!important}
+ .plan-table td:last-child{border:0!important}
+ .plan-table td:last-child button{width:100%;min-height:48px!important;font-size:15px!important}
+ .plan-table td:last-child .plan-mobile-label,.plan-table td:nth-child(2) .plan-mobile-label{display:none}
+ .plan-table .plan-mobile-label{display:block;font-size:11px;font-weight:600;color:#647084;margin-bottom:4px}
+ .plan-table tr:has(td[colspan]){display:block}
+}
+@media(max-width:380px){.plan-actions{grid-template-columns:minmax(0,1fr)}.user-name{font-size:12px}.language-switch button{padding:6px}}
+
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -840,159 +939,39 @@ function WarnBox({
       </div>
     </div>;
 }
-/* 言語トグル＋ユーザー */
-function LangUser({
-  user
-}) {
-  const {
-    lang,
-    setLang
-  } = useLang();
-  const seg = (v, label) => <button key={v} onClick={() => setLang(v)} style={{
-    padding: '6px 16px',
-    borderRadius: 6,
-    fontSize: 14,
-    fontWeight: 700,
-    background: lang === v ? NAVY : 'transparent',
-    color: lang === v ? '#fff' : NAVY
-  }}><BiText value={label} /></button>;
-  return <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    flexShrink: 0
-  }}>
-      <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 2,
-      background: '#fff',
-      borderRadius: 8,
-      padding: 3
-    }}>
-        <BiText value={seg('ja', 'JP')} /><span style={{
-        color: '#8A93A0',
-        fontSize: 13
-      }}>⇄</span><BiText value={seg('id', 'ID')} />
-      </div>
-      <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: 600,
-      whiteSpace: 'normal'
-    }}>
-        <span style={{
-        fontSize: 16
-      }}>👤</span><BiText value={user?.displayName || user?.email?.split('@')[0] || 'ユーザー'} />
-      </div>
-    </div>;
+/* 幅に応じて段組みを切り替える共通ナビゲーション */
+function LangUser({ user }) {
+  const { lang, setLang } = useLang();
+  return <div className="lang-user">
+    <div className="language-switch" role="group" aria-label="言語 / Bahasa">
+      <button onClick={() => setLang('ja')} aria-pressed={lang === 'ja'}>JP</button>
+      <span aria-hidden="true">⇄</span>
+      <button onClick={() => setLang('id')} aria-pressed={lang === 'id'}>ID</button>
+    </div>
+    {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
+  </div>;
 }
-/* 濃紺ヘッダー */
-function TopBar({
-  title,
-  left,
-  onBack,
-  user
-}) {
-  const {
-    t
-  } = useLang();
-  return <div style={{
-    background: NAVY,
-    padding: '0 20px',
-    minHeight: 76,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    flexShrink: 0,
-    flexWrap: 'wrap'
-  }}>
-      <div style={{
-      width: 260,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      flexShrink: 0
-    }}>
-        <BiText value={onBack && <button onClick={onBack} style={{
-        color: '#fff',
-        fontSize: 17,
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 4px'
-      }}>‹ <BiText value={t('戻る')} /></button>} />
-        <BiText value={left} />
-      </div>
-      <div style={{
-      flex: 1,
-      textAlign: 'center',
-      color: '#fff',
-      fontSize: 21,
-      fontWeight: 700,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'normal'
-    }}><BiText value={title} /></div>
-      <div style={{
-      width: 260,
-      display: 'flex',
-      justifyContent: 'flex-end',
-      flexShrink: 0
-    }}><LangUser user={user} /></div>
-    </div>;
+function TopBar({ title, left, onBack, user }) {
+  const { t } = useLang();
+  return <header className="app-topbar">
+    <div className="topbar-context">
+      {onBack && <button className="topbar-back" onClick={onBack}>‹ <BiText value={t('戻る')} /></button>}
+      {left && <div className="topbar-process">{left}</div>}
+    </div>
+    <div className="topbar-title"><BiText value={title} /></div>
+    <LangUser user={user} />
+  </header>;
 }
-/* フッターバー */
-function FooterBar({
-  left,
-  right
-}) {
-  return <div style={{
-    background: '#EDEFF3',
-    borderTop: '1px solid ' + LINE,
-    padding: '10px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    flexShrink: 0
-  }}>
-      <div style={{
-      display: 'flex',
-      gap: 12,
-      flex: 1
-    }}><BiText value={left} /></div>
-      <div style={{
-      display: 'flex',
-      gap: 12
-    }}><BiText value={right} /></div>
-    </div>;
+function FooterBar({ left, right }) {
+  return <footer className="app-footer">
+    {left && <div className="footer-context">{left}</div>}
+    {right && <div className="footer-actions">{right}</div>}
+  </footer>;
 }
-function FBtn({
-  onClick,
-  children,
-  primary,
-  disabled
-}) {
-  return <button onClick={onClick} disabled={disabled} style={{
-    minHeight: 46,
-    padding: '0 22px',
-    borderRadius: 8,
-    fontSize: 15,
-    fontWeight: 700,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    background: primary ? NAVY : '#fff',
-    color: primary ? '#fff' : disabled ? '#B0B7C0' : NAVY,
-    border: primary ? 'none' : '1px solid ' + LINE,
-    opacity: disabled ? .6 : 1
-  }}>
-      <BiText value={children} />
-    </button>;
+function FBtn({ onClick, children, primary, disabled }) {
+  return <button className={'footer-button' + (primary ? ' primary' : '')} onClick={onClick} disabled={disabled}>
+    <BiText value={children} />
+  </button>;
 }
 /* QR照合モーダル（ハンディスキャナー方式） */
 function QRScannerModal({
@@ -1308,7 +1287,7 @@ function ProcessSelect({
     t,
     b
   } = useLang();
-  return <div style={{
+  return <div className="app-screen process-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -1325,9 +1304,9 @@ function ProcessSelect({
         color: '#5A6472',
         marginBottom: 18
       }}><BiText value={b('工程を選択してください')} /></div>
-        <div style={{
+        <div className="responsive-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
+        gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,300px),1fr))',
         gap: 14,
         maxWidth: 1400
       }}>
@@ -1402,7 +1381,7 @@ function SearchScreen({
     color: '#1A1A1A',
     borderBottom: '1px solid ' + LINE
   };
-  return <div style={{
+  return <div className="app-screen search-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -1609,7 +1588,7 @@ function InfoViewer({
     const n = idx + d;
     if (n >= 0 && n < INFO_PAGES.length) setPageKey(INFO_PAGES[n].key);
   };
-  return <div style={{
+  return <div className="app-screen info-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -1818,9 +1797,9 @@ function PageBody({
   const L = (o, k) => dv(o, k, lang);
   if (pageKey === 'product') {
     return <>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))',
+        gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))',
         gap: 14
       }}>
         <P><H><BiText value={b('全体写真')} /></H><Body><TapPhoto src={m.productImg} style={{
@@ -1891,7 +1870,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u3092\u3001\u985E\u4F3C\u54C1\u3068\u898B\u5206\u3051\u308B\u305F\u3081\u306E\u5F62\u72B6\u306E\u7279\u5FB4\u3067\u3059\u3002\u4F5C\u696D\u524D\u306B\u5FC5\u305A\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(320px,1fr) minmax(340px,1.3fr)',
         gap: 14,
@@ -1900,7 +1879,7 @@ function PageBody({
         <P><H>{hinban}（<BiText value={b('本品の特徴')} />）</H><Body>
           <BiText value={(() => {
               const imgs = [m.shape?.img, m.shape?.img2, m.shape?.img3].filter(Boolean);
-              return imgs.length ? <div style={{
+              return imgs.length ? <div className="responsive-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${imgs.length},1fr)`,
                 gap: 8,
@@ -1945,7 +1924,7 @@ function PageBody({
           </div>
         </Body></P>
         <P><H><BiText value={b('類似品との違い')} /></H><Body>
-          <div style={{
+          <div className="responsive-grid" style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${Math.max(1, Math.min(3, sims.length || 1))},1fr)`,
               gap: 12
@@ -1988,9 +1967,9 @@ function PageBody({
   }
   if (pageKey === 'teekin') {
     return <>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))',
+        gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))',
         gap: 14
       }}>
         <P><H><BiText value={b('全体写真')} /></H><Body><TapPhoto src={m.teekin?.img} style={{
@@ -2014,7 +1993,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u3067\u4F7F\u7528\u3059\u308B\u30CF\u30F3\u30AC\u30FC\u306E\u5199\u771F\u3068\u4ED5\u69D8\u3067\u3059\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(260px,1fr) minmax(300px,1.1fr) minmax(280px,1fr)',
         gap: 14,
@@ -2028,7 +2007,7 @@ function PageBody({
               display: 'block'
             }} ratio={300} /></Body></P>
         <P><H><BiText value={b('主な特徴')} /></H><Body>
-          <div style={{
+          <div className="responsive-grid" style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: 12
@@ -2195,7 +2174,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u4F5C\u696D\u3067\u4F7F\u7528\u3059\u308B\u9053\u5177\u30FB\u5099\u54C1\u3067\u3059\u3002\u4F5C\u696D\u524D\u306B\u6E96\u5099\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
         gap: 12
@@ -2242,7 +2221,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u53CE\u5BB9\u6570\u3068\u68B1\u5305\u8377\u59FF\u306F\u4EE5\u4E0B\u306E\u901A\u308A\u3067\u3059\u3002\u4F5C\u696D\u6642\u306B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14,
@@ -2414,7 +2393,7 @@ function PageBody({
             }} ratio={170} /></Body></P>
       </div>
       <P><H><BiText value={b('梱包荷姿')} /><BiText value={"\uFF08\u6700\u59274\u7A2E\u985E\uFF09"} /></H><Body>
-        <div style={{
+        <div className="responsive-grid" style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, pats.length || 1))},1fr)`,
             gap: 12
@@ -2510,7 +2489,7 @@ function PageBody({
           color: BLUE
         }}><BiText value={"\u7D0D\u5165\u7BB1\u306E\u78BA\u8A8D\u3092\u884C\u3044\u307E\u3059\u3002\u88FD\u54C1\u306E\u5165\u3063\u305F\u7BB1\u3092\u78BA\u8A8D\u3057\u3001\u6307\u5B9A\u306E\u5834\u6240\u306B\u7D0D\u3081\u3066\u304F\u3060\u3055\u3044\u3002"} /></span>
       </div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14
@@ -2600,7 +2579,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u8B58\u5225\u30DE\u30FC\u30AF\u306F\u4EE5\u4E0B\u306E\u901A\u308A\u3067\u3059\u3002\u88FD\u54C1\u306E\u8B58\u5225\u30FB\u5DE5\u7A0B\u7BA1\u7406\u306B\u4F7F\u7528\u3057\u307E\u3059\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14
@@ -2658,7 +2637,7 @@ function PageBody({
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u3067\u4F7F\u7528\u3059\u308B\u304B\u3093\u3070\u3093\u306E\u7A2E\u985E\u3068\u5185\u5BB9\u3067\u3059\u3002"} /></div>
-      <div style={{
+      <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14
@@ -2821,9 +2800,9 @@ function PageBody({
       </Body></P>;
   }
   if (pageKey === 'qr') {
-    return <div style={{
+    return <div className="responsive-grid" style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
+      gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))',
       gap: 14
     }}>
         <P><H><BiText value={"\u88FD\u54C1QR / QR Produk"} /></H><Body>
@@ -2943,7 +2922,7 @@ function MasterAdmin({
       showBiDialog("alert", '追加に失敗: ' + e.message);
     }
   }
-  return <div style={{
+  return <div className="app-screen master-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -3001,7 +2980,7 @@ function MasterAdmin({
           color: '#9AA3AF',
           fontSize: 14
         }}><BiText value={"\u547C\u79F0\u304C\u767B\u9332\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u3002"} /></div>} />
-        <div style={{
+        <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
           gap: 10
@@ -3145,7 +3124,7 @@ function WorkersPanel({
         overflowY: 'auto',
         overscrollBehavior: 'contain'
       }}>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr auto',
           gap: 10
@@ -3605,7 +3584,7 @@ function Row({
   children,
   cols
 }) {
-  return <div style={{
+  return <div className="responsive-grid" style={{
     display: 'grid',
     gridTemplateColumns: cols || '1fr 1fr',
     gap: 12
@@ -4156,7 +4135,7 @@ function EditorBody({
             ...it,
             img: ''
           })} />
-            <div style={{
+            <div className="responsive-grid" style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 10
@@ -4819,7 +4798,7 @@ function HinbanPicker({
         overflowY: 'auto',
         padding: '0 18px 18px'
       }}>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
           gap: 10
@@ -5152,7 +5131,7 @@ function WorkPlanScreen({
     whiteSpace: 'normal',
     verticalAlign: 'bottom'
   };
-  return <div style={{
+  return <div className="app-screen work-plan-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -5178,13 +5157,13 @@ function WorkPlanScreen({
         alignItems: 'center',
         marginBottom: 14
       }}>
-          <div style={{
+          <div className="worker-picker" style={{
           display: 'flex',
           gap: 8,
           flexWrap: 'wrap',
           alignItems: 'center',
           flex: 1,
-          minWidth: 300
+          minWidth: 0
         }}>
             <span style={{
             fontSize: 13,
@@ -5231,7 +5210,7 @@ function WorkPlanScreen({
       }}>
           ⏰ <BiText value={b('始業時刻')} /> <BiText value={(settings || DEFAULT_SETTINGS).startTime} />　/　<BiText value={b('休憩')} /> <BiText value={((settings || DEFAULT_SETTINGS).breaks || []).map((x) => `${x.label} ${x.from}-${x.to}`).join('　')} />
         </div>
-        <div style={{
+        <div className="responsive-grid plan-summary" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))',
         gap: 10,
@@ -5254,7 +5233,7 @@ function WorkPlanScreen({
             </div>)} />
         </div>
         {/* 次の作業（大きく強調） */}
-        <BiText value={nextRow && <div style={{
+        <BiText value={nextRow && <div className="next-work" style={{
         background: '#F2F6FD',
         border: '2px solid ' + NAVY,
         borderRadius: 12,
@@ -5270,7 +5249,7 @@ function WorkPlanScreen({
           alignItems: 'center',
           gap: 12,
           flex: 1,
-          minWidth: 260
+          minWidth: 0
         }}>
               <NumBadge n={rows.indexOf(nextRow) + 1} size={36} />
               <div>
@@ -5314,13 +5293,13 @@ function WorkPlanScreen({
             </button>
           </div>} />
         {/* 計画表 */}
-        <div style={{
+        <div className="plan-table-wrap" style={{
         border: '1px solid ' + LINE,
         borderRadius: 10,
         overflowX: 'auto',
         background: '#fff'
       }}>
-          <table style={{
+          <table className="plan-table" style={{
           width: '100%',
           borderCollapse: 'collapse'
         }}>
@@ -5392,11 +5371,11 @@ function WorkPlanScreen({
                   ...td,
                   fontWeight: 700,
                   color: '#5A6472'
-                }}><BiText value={i + 1} /></td>
+                }}><span className="plan-mobile-label"><BiText value={b('順番')} /></span><BiText value={i + 1} /></td>
                     <td style={{
                   ...td,
                   whiteSpace: 'normal'
-                }}>
+                }}><span className="plan-mobile-label"><BiText value={b('呼称')} /></span>
                       <div style={{
                     fontWeight: 700,
                     fontSize: 15,
@@ -5410,20 +5389,20 @@ function WorkPlanScreen({
                         <BiText value={isTask ? '（製品なし）' : [(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
                       </div>
                     </td>
-                    <td style={td}><BiText value={isTask ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
+                    <td style={td}><span className="plan-mobile-label"><BiText value={b('数量')} /></span><BiText value={isTask ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
                     <td style={{
                   ...td,
                   color: '#5A6472'
-                }}><BiText value={isTask ? '—' : Number(o.kosu) > 0 ? o.kosu + t('分') : '—'} /></td>
+                }}><span className="plan-mobile-label"><BiText value={b('1箱')} /></span><BiText value={isTask ? '—' : Number(o.kosu) > 0 ? o.kosu + t('分') : '—'} /></td>
                     <td style={{
                   ...td,
                   fontWeight: 700,
                   color: NAVY
-                }}><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} /></td>
+                }}><span className="plan-mobile-label"><BiText value={b('予定時間')} /></span><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} /></td>
                     <td style={{
                   ...td,
                   fontVariantNumeric: 'tabular-nums'
-                }}>
+                }}><span className="plan-mobile-label"><BiText value={b('予定')} /></span>
                       <div style={{
                     fontWeight: 700,
                     color: NAVY
@@ -5436,7 +5415,7 @@ function WorkPlanScreen({
                     <td style={{
                   ...td,
                   fontVariantNumeric: 'tabular-nums'
-                }}>
+                }}><span className="plan-mobile-label"><BiText value={b('実績')} /></span>
                       <div style={{
                     fontWeight: 700,
                     color: o.startAt ? '#1A1A1A' : '#C7CDD6'
@@ -5446,7 +5425,7 @@ function WorkPlanScreen({
                     color: '#6B7480'
                   }}><BiText value={o.endAt ? '→ ' + fmtHM(new Date(o.endAt)) : o.startAt ? '→ 作業中' : ''} /></div>
                     </td>
-                    <td style={td}>
+                    <td style={td}><span className="plan-mobile-label"><BiText value={b('進捗')} /></span>
                       <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -5481,13 +5460,13 @@ function WorkPlanScreen({
                   ...td,
                   fontWeight: 800,
                   color: o.status === 'done' ? Number(o.kosu) > 0 || isTask ? d >= 0 ? '#1B5E20' : '#B71C1C' : '#9AA3AF' : '#C7CDD6'
-                }}>
+                }}><span className="plan-mobile-label"><BiText value={b('差')} /></span>
                       <BiText value={o.status === 'done' ? Number(o.kosu) > 0 || isTask ? (d >= 0 ? '+' : '−') + Math.abs(Math.round(d)) : '—' : '—'} />
                     </td>
                     <td style={{
                   ...td,
                   textAlign: 'center'
-                }}>
+                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span>
                       <BiText value={o.status === 'done' ? <span style={{
                     fontSize: 13,
                     color: '#9AA3AF'
@@ -5518,7 +5497,7 @@ function WorkPlanScreen({
       </div>
       <FooterBar left={<>
           <FBtn onClick={onBack}>‹ <BiText value={t('工程一覧へ')} /></FBtn>
-          <span style={{
+          <span className="footer-clock" style={{
         display: 'flex',
         alignItems: 'center',
         gap: 8,
@@ -5527,7 +5506,7 @@ function WorkPlanScreen({
         fontWeight: 600,
         whiteSpace: 'normal'
       }}>🕐 <BiText value={stamp} other={stamp_id} /></span>
-        </>} right={<div style={{
+        </>} right={<div className="plan-actions" style={{
       display: 'flex',
       gap: 8,
       flexWrap: 'wrap',
@@ -5754,7 +5733,7 @@ function SchedulePlanner({
     borderBottom: '1px solid ' + LINE,
     whiteSpace: 'normal'
   };
-  return <div style={{
+  return <div className="app-screen planner-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -6243,7 +6222,7 @@ function WorkSheetScreen({
       setStarting(false);
     }
   }
-  return <div style={{
+  return <div className="app-screen worksheet-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -6350,7 +6329,7 @@ function WorkSheetScreen({
               marginLeft: 4
             }}><BiText value={t('箱')} /></span></div>
           </div>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 10
@@ -6579,7 +6558,7 @@ function WorkRunScreen({
     gap: 10,
     opacity: busy ? .7 : 1
   }}><BiText value={label} /></button>;
-  return <div style={{
+  return <div className="app-screen workrun-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -6664,7 +6643,7 @@ function WorkRunScreen({
         gap: 10,
         overflowY: 'auto'
       }}>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: 8
@@ -6686,7 +6665,7 @@ function WorkRunScreen({
             }}><BiText value={v} /></div>
               </div>)} />
           </div>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 10
@@ -6783,7 +6762,7 @@ function WorkRunScreen({
           <BiText value={!isTask && bigBtn(<><span style={{
             fontSize: 34
           }}>📦</span><BiText value={t('1箱完了')} /></>, addBox, '#2E7D4F', paused, 112)} />
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
           gap: 8
@@ -6814,7 +6793,7 @@ function WorkRunScreen({
             fontWeight: 800
           }}>🤝 <BiText value={t('ライン応援')} /></button>
           </div>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 8
@@ -6991,7 +6970,7 @@ function OutModal({
         <div style={{
         padding: 20
       }}>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 10,
@@ -7211,7 +7190,7 @@ function AnalyticsScreen({
         </table>
       </div>
     </div>;
-  return <div style={{
+  return <div className="app-screen analytics-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -7286,7 +7265,7 @@ function AnalyticsScreen({
       }}><BiText value={t('読込中...')} /></div>} />
 
         <BiText value={rows !== null && <>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit,minmax(135px,1fr))',
           gap: 10,
@@ -7431,7 +7410,7 @@ function AdjustModal({
             color: '#B71C1C'
           }}>⚠ <BiText value={(order.anomalies || []).map((a) => a.comment).join('／')} /></span>} />
           </div>
-          <div style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 10,
@@ -7741,7 +7720,7 @@ function WorkHistory({
     diff: 0,
     anom: 0
   });
-  return <div style={{
+  return <div className="app-screen history-screen" style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
