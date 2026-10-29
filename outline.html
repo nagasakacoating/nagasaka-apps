@@ -10,6 +10,7 @@
 <script src="https://unpkg.com/firebase@8.10.1/firebase-firestore.js"></script>
 <script src="https://unpkg.com/firebase@8.10.1/firebase-storage.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
@@ -163,6 +164,21 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .master-screen>.master-list-layout{flex:1 1 0;min-height:0;min-width:0;overflow:hidden}
 .master-list-scroll{min-height:0;min-width:0;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom;scrollbar-gutter:stable}
 .master-list-scroll:focus-visible{outline:2px solid #4285d4;outline-offset:-2px}
+
+.kanban-qr-backdrop{position:fixed;inset:0;z-index:2700;background:#000b;display:flex;align-items:center;justify-content:center;padding:12px;overscroll-behavior:contain}
+.kanban-qr-dialog{background:white;border-radius:12px;width:min(620px,100%);max-height:94vh;max-height:94dvh;display:flex;flex-direction:column;overflow:hidden;color:#17253b}
+.kanban-qr-dialog>header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 14px;background:#12306b;color:white;flex-shrink:0;font-size:17px}
+.kanban-qr-dialog>header button{color:white;background:#ffffff24;border-radius:7px;padding:8px 14px;min-height:44px;font-size:12px}.kanban-qr-body{padding:14px;overflow:auto;min-height:0;overscroll-behavior:contain;touch-action:pan-y pinch-zoom}
+.kanban-qr-body button,.kanban-qr-settings button,.kanban-plan-check{min-height:44px;background:#eef4fc;color:#12306b;border:1px solid #b9c7dd;border-radius:7px;padding:8px 12px;font-size:12px;line-height:1.4;margin:5px 4px 5px 0}
+.kanban-qr-body button:disabled,.kanban-plan-check:disabled{opacity:.5;cursor:wait}.kanban-qr-body .qr-accept{display:block;width:100%;font-size:16px;background:#237544;color:white;font-weight:700;margin-top:12px}
+.qr-selected{display:grid;gap:5px;padding:10px;background:#eef4fc;border-radius:8px}.qr-selected strong{font-size:22px}.qr-selected code,.qr-result code,.qr-preview code{display:block;font-size:17px;white-space:pre-wrap;overflow-wrap:anywhere}
+.qr-input-panel label{display:block;margin-top:7px;font-size:12px}.qr-input-panel textarea{font-size:15px;resize:vertical;min-height:56px}.qr-camera-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.qr-camera-tools select{width:auto;max-width:100%;min-height:44px;font-size:12px}.qr-camera-video{width:100%;max-height:32vh;background:#111;object-fit:contain;border-radius:7px}.qr-file-button{padding:8px;border:1px dashed #acb9cb;border-radius:7px}.qr-file-button input{font-size:12px;border:0;padding:5px 0}
+.qr-result{padding:12px;border-radius:9px;margin:10px 0;line-height:1.5}.qr-result>strong{display:block;font-size:21px}.qr-ok{background:#eaf2ff;color:#1351ad;border:2px solid #1260d0}.qr-ng,.qr-error{background:#fce8e7;color:#9f2020;border:1px solid #e1aaa6;padding:10px;border-radius:8px;margin-top:8px;font-size:13px}
+.kanban-verdict{position:fixed;inset:0;z-index:2800;display:flex;align-items:center;justify-content:center;background:#000b;padding:16px;touch-action:none}.kanban-verdict-card{width:min(600px,92vw);max-height:92vh;max-height:92dvh;overflow:auto;background:white;border:10px solid currentColor;border-radius:24px;text-align:center;padding:8px 20px 24px;box-shadow:0 15px 70px #0008}.kanban-verdict-ok{color:#1260d0}.kanban-verdict-ng{color:#d02029}.kanban-verdict-symbol{font-family:Arial,sans-serif;font-size:clamp(150px,42vmin,300px);font-weight:700;line-height:1.1}.kanban-verdict-card>strong{display:block;font-size:clamp(30px,7vmin,56px);line-height:1.2}.kanban-verdict-card p{font-size:clamp(15px,3.5vmin,23px);line-height:1.4;margin-top:12px}.kanban-verdict-card .bi-sub{opacity:1;font-size:.55em}
+.kanban-qr-settings{border:1px solid #c7d6eb;background:#f7faff;border-radius:9px;padding:12px;margin:12px 0}.kanban-qr-settings label,.qr-part-editor label{display:block;font-size:13px;margin:8px 0}.qr-checkbox{display:flex!important;gap:8px;align-items:center}.qr-checkbox input{width:20px;height:20px;flex-shrink:0}.qr-config-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qr-help{font-size:11px;line-height:1.6;color:#59697e;margin:7px 0}.qr-preview{padding:9px;border:1px solid #b9c7dd;background:white;margin-top:8px}.kanban-qr-settings summary{cursor:pointer;padding:8px 0}.kanban-plan-check{display:block;width:100%;margin:5px 0;font-size:11px}.qr-start-gate{padding:10px;border:1px solid #b9c7dd;border-radius:8px;font-size:13px}
+.qr-cooldown{padding:14px;margin:12px 0;border:2px solid #bf7700;border-radius:12px;background:#fff5dc;color:#653c00;text-align:center;line-height:1.5}.qr-cooldown>strong{display:block;font-size:48px;font-variant-numeric:tabular-nums;line-height:1.2}.qr-cooldown .bi-text{display:flex}.qr-ng>button{display:block;margin-top:12px;min-height:56px;background:#b3261e;color:white;padding:12px 18px;border-radius:8px;font-size:16px}
+.kanban-info-list{display:grid;gap:14px}.kanban-info-photo{padding:12px}.kanban-info-detail{padding:10px}.kanban-info-detail>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid #e3e7ed;font-size:13px}.kanban-info-detail code{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:600px){.qr-config-row{grid-template-columns:minmax(0,1fr)}.kanban-qr-body{padding:10px}.kanban-info-detail>div{grid-template-columns:minmax(0,1fr)}.qr-selected strong{font-size:18px}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -180,6 +196,279 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 <div id="root"></div>
 
 <script type="text/babel">
+function qrStamp(value){return value&&typeof value.toMillis==='function'?value.toMillis():value&&typeof value.seconds==='number'?value.seconds*1000:typeof value==='number'?value:0;}
+function qrCooldownEnd(order){return qrStamp(order&&order.qrLastCountAt)+(Number(order&&order.qrCooldownMs)||0);}
+function qrInterval(order,m){const minutes=Number(order.kosu)||Number(m.sheets&&m.sheets[order.procId]&&m.sheets[order.procId].kosu)||0;return minutes>0?Math.ceil(minutes*60000*.3):0;}
+function qrSeconds(until,now=Date.now()){return Math.max(0,Math.ceil((until-now)/1000));}
+function qrClock(seconds){return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');}
+function qrLocalKey(orderId){return 'outline-qr-block-v1:'+orderId;}
+function qrReadLocal(orderId){try{return JSON.parse(localStorage.getItem(qrLocalKey(orderId))||'null');}catch(e){return null;}}
+function qrKeepLocal(orderId,lock){try{if(lock)localStorage.setItem(qrLocalKey(orderId),JSON.stringify(lock));else localStorage.removeItem(qrLocalKey(orderId));}catch(e){}}
+function qrServerStamp(){return firebase.firestore.FieldValue.serverTimestamp();}
+async function qrGuardReady(){
+  const snap=await db.collection('kanbanSettings').doc('runtime').get({source:'server'});if(!snap.exists||snap.data().enabled!==true||snap.data().protocol!==1)return false;
+  try{await db.collection('kanbanPrivate').doc('ruleProbe').get();return false;}catch(e){return e.code==='permission-denied'||e.code==='firestore/permission-denied';}
+}
+async function lockKanbanOrder(orderId,lockId,code=''){
+  const ref=db.collection('workOrders').doc(orderId);return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
+    if(order.status==='done')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    if(order.qrBlocked)return order.qrLockId;
+    tx.update(ref,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)});return lockId;
+  });
+}
+async function managerQrHash(raw){
+  const token=String(raw||'').replace(/[\r\n]+$/,'').trim();if(!/^OUTLINE-MANAGER-V1:[A-Za-z0-9_-]{43}$/.test(token))throw new Error('管理者の解除用QRを読んでください。');
+  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function unlockKanbanOrder(orderId,raw){
+  const tokenHash=await managerQrHash(raw),orderRef=db.collection('workOrders').doc(orderId),snap=await orderRef.get();
+  if(!snap.exists||!snap.data().qrBlocked)throw new Error('解除対象のロックを確認できません。');const order=snap.data();
+  const ticket=db.collection('kanbanUnlocks').doc(),batch=db.batch();
+  batch.set(ticket,{orderId,lockId:order.qrLockId,tokenHash,createdAt:qrServerStamp(),uid:auth.currentUser.uid});
+  batch.update(orderRef,{qrBlocked:false,qrUnlockTicketId:ticket.id,qrUnlockOf:order.qrLockId,qrUnlockedAt:qrServerStamp()});
+  await batch.commit();qrKeepLocal(orderId,null);return true;
+}
+const DEFAULT_QR_PART={mode:'full',start:1,length:1,delimiter:',',field:1,trim:true};
+function qrPart(raw,part={}){
+  const text=String(raw==null?'':raw).replace(/[\r\n]+$/,'');
+  if(!text||text.length>16384)return {ok:false,error:'QRの内容を読み取れませんでした。'};
+  const p={...DEFAULT_QR_PART,...part};let value=text;
+  if(p.mode==='range'){
+    const start=Number(p.start),length=Number(p.length);
+    if(!Number.isInteger(start)||start<1||!Number.isInteger(length)||length<1||start+length-1>text.length)return {ok:false,error:'開始位置・文字数がQRの範囲外です。'};
+    value=text.slice(start-1,start-1+length);
+  }else if(p.mode==='field'){
+    const delimiter=String(p.delimiter||'').replace(/\\t/g,'\t').replace(/\\n/g,'\n'),field=Number(p.field);
+    if(!delimiter||!Number.isInteger(field)||field<1)return {ok:false,error:'区切り文字・項目番号を設定してください。'};
+    const fields=text.split(delimiter);if(field>fields.length)return {ok:false,error:'指定した項目がQRにありません。'};value=fields[field-1];
+  }else if(p.mode!=='full')return {ok:false,error:'QRの抽出方法を確認してください。'};
+  if(p.trim!==false)value=value.trim();
+  return value?{ok:true,value}:{ok:false,error:'抽出したコードが空です。'};
+}
+function kanbanRules(m){
+  const configured=(m&&m.kanbans||[]).map((item,index)=>({item,index,rule:item.qrCheck})).filter(x=>x.rule&&x.rule.enabled);
+  if(configured.length||(m&&m.kanbans||[]).some(x=>x.qrCheck))return configured;
+  return m&&String(m.kanbanQr||'').trim()?[{index:-1,item:{type:'かんばんQR'},rule:{...DEFAULT_QR_PART,enabled:true,expected:String(m.kanbanQr)}}]:[];
+}
+function kanbanSignature(m){return JSON.stringify(kanbanRules(m).map(({rule,item,index})=>({rule,expected:rule.expected==null?item.code:rule.expected,index})));}
+function matchKanbanRule(raw,record){
+  const result=qrPart(raw,record.rule),literal=String(record.rule.expected==null?record.item.code||'':record.rule.expected),expected=record.rule.trim===false?literal:literal.trim();
+  if(!expected.trim())return {ok:false,error:'マスターに照合コードを設定してください。'};
+  if(!result.ok)return result;
+  if(result.value!==expected)return {ok:false,error:'品番が一致しません。作業を止めて確認してください。',code:result.value};
+  let serial='';if(record.rule.uniqueEnabled){const id=qrPart(raw,record.rule.unique);if(!id.ok)return {ok:false,error:'箱ごとの番号を抽出できません。'};serial=id.value;}
+  return {ok:true,code:result.value,serial,ruleIndex:record.index};
+}
+function verifyKanban(raw,hinban,m,allMaster={}){
+  const rules=kanbanRules(m);if(!rules.length)return {ok:false,error:'この品番のQR照合は未設定です。'};
+  const results=rules.map(r=>matchKanbanRule(raw,r)),success=results.find(r=>r.ok);
+  if(!success)return results.find(r=>r.error==='マスターに照合コードを設定してください。')||results[0];
+  for(const [other,data] of Object.entries(allMaster))if(other!==hinban&&kanbanRules(data).some(r=>matchKanbanRule(raw,r).ok))return {ok:false,error:'同じQRが複数の品番に一致します。マスターを確認してください。'};
+  return {...success,raw:String(raw),hinban};
+}
+async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master}){
+  const orderRef=db.collection('workOrders').doc(orderId),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
+  return db.runTransaction(async tx=>{
+    const orderSnap=await tx.get(orderRef),masterSnap=await tx.get(masterRef),guard=await tx.get(guardRef);
+    if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
+    if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
+    if(order.hinban!==hinban||order.procId!==procId||order.kind==='task'||order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    const oldEvents=order.qrCountEvents||[];if(oldEvents.some(e=>e.id===eventId))return {count:Number(order.doneBoxes)||0,until:qrCooldownEnd(order)};
+    if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
+    if(qrCooldownEnd(order)>Date.now())return {ignored:true,until:qrCooldownEnd(order),count:Number(order.doneBoxes)||0};
+    const interval=qrInterval(order,current);if(!interval)throw new Error('1箱工数を設定してからQRを読み取ってください。');
+    const checked=verifyKanban(raw,hinban,current,{...master,[hinban]:current});if(!checked.ok)throw new Error(checked.error);
+    const done=Number(order.doneBoxes)||0,target=Number(order.targetBoxes)||0;if(target>0&&done>=target)throw new Error('目標箱数に達しています。計画表を確認してください。');
+    const used=order.qrUsedBoxKeys||[],key=checked.serial?JSON.stringify([hinban,checked.serial]):'';if(key&&used.includes(key))throw new Error('この箱のQRはすでに完了登録されています。');
+    const event={id:eventId,at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex,serial:checked.serial||'',doneAfter:done+1};
+    const patch={qrMode:'kanban-v1',kosu:Number(order.kosu)||Number(current.sheets&&current.sheets[order.procId]&&current.sheets[order.procId].kosu),doneBoxes:done+1,qrLastCheck:event,qrCountEvents:[...oldEvents,event],qrLastCountAt:qrServerStamp(),qrCooldownMs:interval};if(key)patch.qrUsedBoxKeys=[...used,key];
+    tx.update(orderRef,patch);return {count:done+1,until:Date.now()+interval};
+  });
+}
+async function undoVerifiedKanban(orderId){
+  const ref=db.collection('workOrders').doc(orderId);return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
+    if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
+    if(order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    const count=Number(order.doneBoxes)||0,events=order.qrCountEvents||[],last=events[events.length-1];if(count<=0)return;
+    if(last&&last.doneAfter!==count)throw new Error('QR完了履歴と箱数が異なります。管理者に確認してください。');
+    const patch={doneBoxes:count-1};if(last){patch.qrCountEvents=events.slice(0,-1);patch.qrLastCheck=events.length>1?events[events.length-2]:null;if(last.serial){const key=JSON.stringify([order.hinban,last.serial]);patch.qrUsedBoxKeys=(order.qrUsedBoxKeys||[]).filter(x=>x!==key);}}
+    tx.update(ref,patch);
+  });
+}
+async function startQrCheckedOrder({order,hinban,procId,raw,master,payload}){
+  const ref=db.collection('workOrders').doc(order.id),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
+  return db.runTransaction(async tx=>{
+    const os=await tx.get(ref),ms=await tx.get(masterRef),guard=await tx.get(guardRef);
+    if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
+    if(!os.exists||!ms.exists)throw new Error('作業またはマスターが見つかりません。');const current=os.data(),data=ms.data();
+    if(current.hinban!==hinban||current.procId!==procId||current.status!=='pending')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    if(current.qrBlocked||qrReadLocal(order.id))throw new Error('管理者の解除が必要です。');
+    const checked=verifyKanban(raw,hinban,data,{...master,[hinban]:data});if(!checked.ok)throw new Error(checked.error);
+    tx.update(ref,{...payload,qrMode:'kanban-v1',qrStartCheck:{at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex}});
+  });
+}
+function QrDialog({title,onClose,busy,children}){
+  const ref=useRef(null),close=useRef(null);
+  useEffect(()=>{const previous=document.activeElement,els=[document.documentElement,document.body],old=els.map(el=>el.style.overflow);els.forEach(el=>el.style.overflow='hidden');close.current&&close.current.focus();return()=>{els.forEach((el,i)=>el.style.overflow=old[i]);if(previous&&previous.isConnected)previous.focus();};},[]);
+  return ReactDOM.createPortal(<div className="kanban-qr-backdrop" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget&&!busy)onClose();}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'&&!busy){e.preventDefault();onClose();}if(e.key==='Tab'){const controls=Array.from(ref.current.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex="0"]')).filter(x=>x.getClientRects().length);const first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}}>
+    <section ref={ref} role="dialog" aria-modal="true" aria-labelledby="kanban-qr-title" className="kanban-qr-dialog">
+      <header><strong id="kanban-qr-title"><BiText value={title}/></strong><button type="button" ref={close} onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></header>
+      <div className="kanban-qr-body">{children}</div>
+    </section>
+  </div>,document.body);
+}
+function decodeQrImage(media){
+  if(typeof window.jsQR!=='function')throw new Error('QR読取機能を読み込めません。通信を確認してください。');
+  const width=media.videoWidth||media.naturalWidth||media.width,height=media.videoHeight||media.naturalHeight||media.height;if(!width||!height)return '';
+  const scale=Math.min(1,1400/Math.max(width,height)),canvas=document.createElement('canvas');canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(media,0,0,canvas.width,canvas.height);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const code=window.jsQR(pixels.data,canvas.width,canvas.height,{inversionAttempts:'attemptBoth'});return code&&code.data||'';
+}
+function QrInputPanel({onRead,disabled}){
+  const video=useRef(null),stream=useRef(null),timer=useRef(null),generation=useRef(0),active=useRef(true),callback=useRef(onRead),input=useRef(null);
+  callback.current=onRead;
+  const [running,setRunning]=useState(false),[starting,setStarting]=useState(false),[error,setError]=useState(''),[text,setText]=useState(''),[camera,setCamera]=useState('environment');
+  function stop(){generation.current++;clearTimeout(timer.current);timer.current=null;if(stream.current){stream.current.getTracks().forEach(t=>t.stop());stream.current=null;}if(video.current)video.current.srcObject=null;if(active.current){setRunning(false);setStarting(false);}}
+  useEffect(()=>{active.current=true;const hide=()=>{if(document.hidden)stop();};document.addEventListener('visibilitychange',hide);return()=>{active.current=false;stop();document.removeEventListener('visibilitychange',hide);};},[]);
+  useEffect(()=>{if(disabled)stop();},[disabled]);
+  function read(raw){if(!raw||disabled)return;stop();setText('');callback.current(raw);}
+  async function start(){
+    stop();setError('');if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setError('公開アプリをHTTPSで開き、カメラを許可してください。');return;}
+    if(typeof window.jsQR!=='function'){setError('QR読取機能を読み込めません。通信を確認してください。');return;}
+    setStarting(true);const gen=generation.current;
+    try{
+      const media=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:camera},width:{ideal:1280},height:{ideal:720}},audio:false});
+      if(!active.current||gen!==generation.current){media.getTracks().forEach(t=>t.stop());return;}
+      stream.current=media;video.current.srcObject=media;await video.current.play();if(!active.current||gen!==generation.current)return;setRunning(true);setStarting(false);
+      function scan(){if(gen!==generation.current||!active.current)return;try{const raw=decodeQrImage(video.current);if(raw){read(raw);return;}}catch(e){setError(e.message);stop();return;}timer.current=setTimeout(scan,140);}
+      scan();
+    }catch(e){if(active.current&&gen===generation.current){stop();setError('カメラを使用できません。カメラの許可・接続を確認してください。');}}
+  }
+  async function readFile(e){const file=e.target.files&&e.target.files[0];e.target.value='';if(!file||disabled)return;stop();setError('');let decoded;try{decoded=await decodePhoto(file);const raw=decodeQrImage(decoded.image);if(!raw)throw new Error('QRが見つかりません。明るさ・距離を変えてください。');if(active.current)read(raw);}catch(err){if(active.current)setError(err.message);}finally{if(decoded)decoded.release();}}
+  return <div className="qr-input-panel">
+    <div className="qr-camera-tools"><button type="button" onClick={running?stop:start} disabled={disabled||starting}><BiText value={starting?'カメラ起動中…':running?'カメラを止める':'カメラでQRを読む'}/></button>
+      <select aria-label="カメラ / Kamera" value={camera} disabled={running||starting||disabled} onChange={e=>setCamera(e.target.value)}><option value="environment">背面カメラ / Kamera belakang</option><option value="user">前面カメラ / Kamera depan</option></select>
+      <button type="button" onClick={()=>input.current&&input.current.focus()} disabled={disabled}><BiText value="ハンディ・手入力"/></button></div>
+    <video ref={video} className="qr-camera-video" autoPlay playsInline muted style={{display:running||starting?'block':'none'}}/>
+    <label className="qr-file-button"><BiText value="撮影したQR画像から読む"/><input type="file" accept="image/*" capture="environment" onChange={readFile} disabled={disabled}/></label>
+    <label><span><BiText value="QRの読取内容"/></span><textarea ref={input} rows={2} value={text} onChange={e=>setText(e.target.value)} disabled={disabled} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();read(text);}}}/></label>
+    <button type="button" className="qr-manual-check" onClick={()=>read(text)} disabled={disabled||!text}><BiText value="この内容で照合"/></button>
+    {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
+  </div>;
+}
+function KanbanVerdict({ok,kind}){
+  return ReactDOM.createPortal(<div className={'kanban-verdict '+(ok?'kanban-verdict-ok':'kanban-verdict-ng')} role="alert" aria-live="assertive" onClick={e=>{e.preventDefault();e.stopPropagation();}}>
+    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
+  </div>,document.body);
+}
+function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose}){
+  const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
+  const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
+  const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running';
+  useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
+  useEffect(()=>{if(order&&local&&order.qrUnlockOf===local.lockId&&!order.qrBlocked){qrKeepLocal(order.id,null);setLocal(null);}},[order&&order.qrUnlockOf,order&&order.qrBlocked]);
+  useEffect(()=>{if(initial.current!==signature){setResult(null);setFlash(null);setError('マスターが変更されました。もう一度QRを読んでください。');initial.current=signature;}},[signature]);
+  useEffect(()=>{if(!flash)return;const timer=setTimeout(()=>{
+    setFlash(null);
+    if(flash.kind==='verify'){onAccepted&&onAccepted({...flash.checked,signature});onClose();}
+  },2000);return()=>clearTimeout(timer);},[flash]);
+  useEffect(()=>{if(!remaining&&result&&result.ok&&mode==='count'&&!flash)setResult(null);},[remaining,flash]);
+  async function persistBlock(message,code){
+    setResult({ok:false,error:message});setFlash({ok:false});
+    const lock={lockId:'block-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)};
+    if(order){qrKeepLocal(order.id,lock);setLocal(lock);try{const id=await lockKanbanOrder(order.id,lock.lockId,code);if(alive.current){const saved={lockId:id};qrKeepLocal(order.id,saved);setLocal(saved);}}catch(e){if(alive.current)setError('ロックの保存を確認できません。通信を確認し、管理者を呼んでください。');}}
+  }
+  async function read(raw){
+    if(pending.current||flash||guard!==true)return;
+    if(managerMode){
+      pending.current=true;setBusy(true);setError('');
+      try{
+        if(order&&local&&!order.qrBlocked)await lockKanbanOrder(order.id,local.lockId);
+        await unlockKanbanOrder(order.id,raw);if(!alive.current)return;setLocal(null);setManagerMode(false);setResult(null);setFlash({ok:true,kind:'unlock'});setError('解除しました。かんばんQRをもう一度照合してください。');
+      }catch(e){if(alive.current){setError('解除できません。管理者の解除用QRを確認してください。');setFlash({ok:false,kind:'manager'});}}
+      finally{pending.current=false;if(alive.current)setBusy(false);}return;
+    }
+    if(blocked||remaining||(mode==='count'&&!running))return;
+    const checked=verifyKanban(raw,hinban,m,master);setError('');
+    if(!checked.ok){pending.current=true;setBusy(true);try{await persistBlock(checked.error,checked.code||'');}finally{pending.current=false;if(alive.current)setBusy(false);}return;}
+    if(mode!=='count'){setResult(checked);setFlash({ok:true,kind:'verify',checked});return;}
+    pending.current=true;setBusy(true);
+    try{
+      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
+      if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}}
+    }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
+    finally{pending.current=false;if(alive.current)setBusy(false);}
+  }
+  const disabled=busy||!!flash||guard!==true||(!managerMode&&(blocked||remaining>0||(mode==='count'&&!running)));
+  return <QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>
+    <div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>
+    {guard!==true&&<div className="qr-error" role="alert"><BiText value={guard===null?'設定を確認中…':'管理者解除の初期設定が必要です。管理者に確認してください。'}/></div>}
+    {blocked&&<div className="qr-result qr-ng"><strong><BiText value="管理者解除待ち・作業停止"/></strong><BiText value="作業者は解除できません。管理者を呼んでください。"/>
+      {!managerMode&&<button type="button" onClick={()=>{setManagerMode(true);setResult(null);setError('');}} disabled={busy||guard!==true}><BiText value="管理者の解除用QRを読む"/></button>}
+    </div>}
+    {managerMode&&<p className="qr-help"><BiText value="解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。"/></p>}
+    {!managerMode&&remaining>0&&<div className="qr-cooldown" role="timer"><BiText value="二度読み防止・読取停止中"/><strong>{qrClock(remaining)}</strong><BiText value="1箱工数の30％が経過すると読み取りできます。"/></div>}
+    <QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled}/>
+    {result&&<div className={result.ok?'qr-result qr-ok':'qr-result qr-ng'} role={result.ok?'status':'alert'}><strong><BiText value={result.ok?(mode==='count'?'一致・1箱完了登録済み':'一致：選択中の品番です'):'不一致：作業を止めて確認'}/></strong>{result.error&&<div><BiText value={result.error}/></div>}{result.code&&<code>{result.code}</code>}</div>}
+    {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
+    {mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
+    {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind}/>}
+  </QrDialog>;
+}
+function QrPartEditor({value,onChange,prefix}){
+  const p={...DEFAULT_QR_PART,...value},set=(k,v)=>onChange({...p,[k]:v});
+  return <div className="qr-part-editor">
+    <label><BiText value="QRのどの部分を拾うか"/><select aria-label={prefix+'抽出方法'} value={p.mode} onChange={e=>set('mode',e.target.value)}><option value="full">QR全体 / Seluruh isi QR</option><option value="range">文字位置・文字数 / Posisi dan panjang</option><option value="field">区切り文字・項目番号 / Pemisah dan nomor kolom</option></select></label>
+    {p.mode==='range'&&<div className="qr-config-row"><label><BiText value="開始位置（1文字目から）"/><input aria-label={prefix+'開始位置'} type="number" min="1" step="1" value={p.start} onChange={e=>set('start',e.target.value)}/></label><label><BiText value="文字数"/><input aria-label={prefix+'文字数'} type="number" min="1" step="1" value={p.length} onChange={e=>set('length',e.target.value)}/></label></div>}
+    {p.mode==='field'&&<div className="qr-config-row"><label><BiText value="区切り文字"/><input aria-label={prefix+'区切り文字'} value={p.delimiter} onChange={e=>set('delimiter',e.target.value)} placeholder=", / ; / \\t"/></label><label><BiText value="項目番号（1番目から）"/><input aria-label={prefix+'項目番号'} type="number" min="1" step="1" value={p.field} onChange={e=>set('field',e.target.value)}/></label></div>}
+    <label className="qr-checkbox"><input type="checkbox" checked={p.trim!==false} onChange={e=>set('trim',e.target.checked)}/><BiText value="抽出した前後の空白を除く"/></label>
+  </div>;
+}
+function KanbanQrSettings({item,onChange}){
+  const rule={...DEFAULT_QR_PART,...item.qrCheck},expected=rule.expected==null?item.code||'':rule.expected;
+  const [sample,setSample]=useState(''),[capture,setCapture]=useState(false);const part=sample?qrPart(sample,rule):null;
+  function set(p){onChange({...item,qrCheck:{...rule,...p}});}
+  return <div className="kanban-qr-settings">
+    <label className="qr-checkbox"><input className="qr-rule-enabled" type="checkbox" checked={!!rule.enabled} onChange={e=>set({enabled:e.target.checked,expected})}/><BiText value="このかんばんをQR照合に使う"/></label>
+    <label><BiText value="QR照合コード（完全一致）"/><input className="qr-expected" value={expected} onChange={e=>onChange({...item,code:e.target.value,qrCheck:{...rule,expected:e.target.value}})} placeholder="001234-AB"/></label>
+    <QrPartEditor value={rule} onChange={next=>set(next)} prefix="品番"/>
+    <details><summary><BiText value="箱ごとの重複登録を防ぐ設定"/></summary>
+      <label className="qr-checkbox"><input type="checkbox" checked={!!rule.uniqueEnabled} onChange={e=>set({uniqueEnabled:e.target.checked})}/><BiText value="箱ごとに異なる番号を照合する"/></label>
+      {rule.uniqueEnabled&&<QrPartEditor value={rule.unique} onChange={unique=>set({unique})} prefix="箱番号"/>}
+      <p className="qr-help"><BiText value="箱ごとに異なる番号がQRにある場合だけ設定します。同じQRが全箱共通の場合、箱の重複は判定できません。"/></p>
+    </details>
+    <div className="qr-sample"><label><BiText value="設定テスト用のQR内容"/><textarea rows={2} value={sample} onChange={e=>setSample(e.target.value)}/></label>
+      <button type="button" onClick={()=>setCapture(true)}><BiText value="実物のQRを読んで設定を確認"/></button>
+      {part&&<div className={part.ok?'qr-preview':'qr-error'}><BiText value={part.ok?'抽出した照合コード':part.error}/>{part.ok&&<code>{part.value}</code>}</div>}
+      {part&&part.ok&&<button type="button" onClick={()=>onChange({...item,code:part.value,qrCheck:{...rule,expected:part.value}})}><BiText value="この抽出結果を照合コードに設定"/></button>}
+    </div>
+    <p className="qr-help"><BiText value="先頭の0・ハイフンも区別して完全一致で照合します。設定後は保存してください。"/></p>
+    {capture&&<QrDialog title="設定テスト用のQR読取" onClose={()=>setCapture(false)}><QrInputPanel onRead={raw=>{setSample(raw);setCapture(false);}}/></QrDialog>}
+  </div>;
+}
+function KanbanEditor({items,onChange,upImg,busy,hinban}){
+  return <><FLbl><BiText value="かんばん情報（最大4種類）"/></FLbl>
+    <RepList items={items} onChange={onChange} max={4} addLabel="かんばんを追加" blank={{type:'',color:'',code:'',img:'',use:'',process:'',issuer:'',size:'W100 × H70 mm',note:'',qrCheck:{...DEFAULT_QR_PART,enabled:false,expected:''}}} render={(it,set,i)=><>
+      <ImgSlot url={it.img} label="かんばんの写真" h={180} busy={busy==='kanban/'+i} imageKey={hinban+':kanban/'+i} targetOwner={it} onPick={f=>upImg('kanban/'+i,f,u=>set({...it,img:u}))} onPasteUpload={(f,apply)=>upImg('kanban/'+i,f,apply)} onApply={u=>set({...it,img:u})} onClear={()=>set({...it,img:''})}/>
+      <Row><div><FLbl><BiText value="種類"/></FLbl><LocalizedArea value={it.type||''} onChange={e=>set({...it,type:e.target.value})} source="ja" counterpart={it.type_id||''}/></div>
+        <div><FLbl><BiText value="色"/></FLbl><LocalizedSelect value={it.color||''} onChange={e=>set({...it,color:e.target.value})}><LocalizedOption value="">色を選択</LocalizedOption>{['緑','黄','青','ピンク','赤','白'].map(c=><LocalizedOption key={c} value={c}>{c}</LocalizedOption>)}</LocalizedSelect></div></Row>
+      <KanbanQrSettings item={it} onChange={set}/>
+      {['size','use','process','issuer','note'].map((key,i)=><div key={key}><FLbl><BiText value={['サイズ','用途','使用工程','発行先','備考'][i]}/></FLbl><LocalizedArea value={it[key]||''} onChange={e=>set({...it,[key]:e.target.value})} source="ja" counterpart={it[key+'_id']||''}/></div>)}
+    </>}/>
+  </>;
+}
+function KanbanPlanButton({order,master}){
+  const [open,setOpen]=useState(false);if(order.kind==='task')return null;const m=master[order.hinban]||{};
+  return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} disabled={order.status==='done'}><BiText value={order.qrBlocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
+    {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={order.status==='running'?'count':'verify'} onClose={()=>setOpen(false)}/>}</>;
+}
+function KanbanInfo({m,hinban,allMaster}){
+  return <div className="kanban-info-list">{(m.kanbans||[]).map((item,i)=><section className="panel" key={i}><div className="kanban-info-photo"><TapPhoto src={item.img} caption="かんばんの写真" style={{width:'100%',height:220,objectFit:'contain'}}/></div><div className="panel-h"><BiText value={item.type||'かんばん'}/></div><div className="kanban-info-detail">{[['QR照合コード（完全一致）',item.qrCheck?.expected??item.code],['用途',item.use],['使用工程',item.process],['発行先',item.issuer],['サイズ',item.size],['備考',item.note]].map(([label,value])=><div key={label}><strong><BiText value={label}/></strong><span>{label.startsWith('QR')?<code>{value||'—'}</code>:<BiText value={value||'—'}/>}</span></div>)}</div></section>)}<WarnBox items={m.kanbanNotes||[]}/></div>;
+}
+
+
 
 let copiedPhoto=null;
 const copiedPhotoListeners=new Set();
@@ -1887,7 +2176,7 @@ function InfoViewer({
                 ▶ <BiText value={t('作業動画を再生')} />
               </button>
             </div>
-            <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} />
+            <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} allMaster={master} />
           </div>
           <FooterBar left={<><FBtn onClick={() => go(-1)} disabled={idx === 0}>◀ <BiText value={t('前の項目へ')} /></FBtn><FBtn onClick={() => go(1)} disabled={idx === INFO_PAGES.length - 1}><BiText value={t('次の項目へ')} /> ▶</FBtn><FBtn onClick={onBack}>☰ <BiText value={t('一覧に戻る')} /></FBtn></>} right={<><FBtn primary onClick={() => window.print()}>📄 <BiText value={t('PDFで表示')} /></FBtn><FBtn onClick={() => window.print()}>🖨 <BiText value={t('印刷する')} /></FBtn></>} />
         </div>
@@ -1903,7 +2192,8 @@ function PageBody({
   m,
   hinban,
   proc,
-  onScan
+  onScan,
+  allMaster
 }) {
   const {
     lang,
@@ -2762,159 +3052,7 @@ function PageBody({
       </div>
     </>;
   }
-  if (pageKey === 'kanban') {
-    const kb = m.kanbans || [];
-    const COL = {
-      '緑': '#2E7D32',
-      '黄': '#F1C40F',
-      '青': '#1B4A9C',
-      'ピンク': '#E48AA5',
-      '赤': '#C0392B',
-      '白': '#FFFFFF'
-    };
-    return <>
-      <div style={{
-        fontSize: 14,
-        color: '#5A6472',
-        marginBottom: 12
-      }}><BiText value={"\u3053\u306E\u54C1\u756A\u3067\u4F7F\u7528\u3059\u308B\u304B\u3093\u3070\u3093\u306E\u7A2E\u985E\u3068\u5185\u5BB9\u3067\u3059\u3002"} /></div>
-      <div className="responsive-grid" style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 14
-      }}>
-        <BiText value={kb.length ? kb.map((k, i) => <div key={i} className="panel">
-            <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '11px 14px'
-          }}>
-              <NumBadge n={i + 1} size={24} /><span style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: BLUE
-            }}><BiText value={L(k, 'type')} /></span>
-            </div>
-            <div style={{
-            padding: '0 14px 14px',
-            display: 'flex',
-            gap: 14
-          }}>
-              {/* かんばん見本 */}
-              <div style={{
-              width: 215,
-              flexShrink: 0,
-              border: '1px solid #333',
-              borderRadius: 4,
-              overflow: 'hidden',
-              background: '#fff'
-            }}>
-                <div style={{
-                display: 'flex'
-              }}>
-                  <div style={{
-                  flex: 1,
-                  background: COL[k.color] || '#DDD',
-                  color: k.color === '黄' || k.color === '白' ? '#333' : '#fff',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: '5px 8px'
-                }}><BiText value={L(k, 'type')} /></div>
-                  <div style={{
-                  width: 64,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '5px 6px',
-                  textAlign: 'center',
-                  borderLeft: '1px solid #333'
-                }}>{hinban}</div>
-                </div>
-                <div style={{
-                padding: '12px 8px 8px',
-                textAlign: 'center'
-              }}>
-                  <div style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  letterSpacing: 1
-                }}>{hinban}</div>
-                  <div style={{
-                  fontSize: 12,
-                  color: '#333',
-                  marginTop: 2
-                }}><BiText value={dv(m, 'name', lang)} /></div>
-                  <div style={{
-                  marginTop: 8,
-                  height: 34,
-                  background: 'repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px)'
-                }} />
-                  <div style={{
-                  fontSize: 11,
-                  marginTop: 3,
-                  fontFamily: 'monospace'
-                }}><BiText value={k.code || ''} /></div>
-                </div>
-              </div>
-              <div style={{
-              flex: 1
-            }}>
-                <BiText value={[[b('用途'), L(k, 'use')], [b('使用工程'), L(k, 'process')], [b('発行先'), L(k, 'issuer')], [b('色'), k.color], [b('サイズ'), k.size], [b('備考'), L(k, 'note')]].map(([kk, vv], j) => <div key={j} style={{
-                display: 'flex',
-                borderBottom: '1px solid ' + LINE
-              }}>
-                    <div style={{
-                  width: 96,
-                  padding: '7px 9px',
-                  fontSize: 12,
-                  color: '#5A6472',
-                  background: '#F7F9FC',
-                  flexShrink: 0
-                }}><BiText value={kk} /></div>
-                    <div style={{
-                  padding: '7px 9px',
-                  fontSize: 12.5,
-                  color: '#2A3340',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}>
-                      <BiText value={kk === b('色') && vv && <span style={{
-                    width: 13,
-                    height: 13,
-                    borderRadius: 3,
-                    background: COL[vv] || '#DDD',
-                    border: '1px solid #B0B7C0',
-                    display: 'inline-block'
-                  }} />} />
-                      <BiText value={vv || '—'} />
-                    </div>
-                  </div>)} />
-              </div>
-            </div>
-          </div>) : none} />
-      </div>
-      <WarnBox items={dva(m, 'kanbanNotes', lang)} />
-      <BiText value={QR_ENABLED && m.kanbanQr && <div style={{
-        marginTop: 14,
-        display: 'flex',
-        justifyContent: 'center'
-      }}>
-          <button onClick={() => onScan({
-          expected: m.kanbanQr,
-          label: hinban + '：かんばんQR照合'
-        })} style={{
-          minHeight: 52,
-          padding: '0 34px',
-          borderRadius: 10,
-          background: '#D97706',
-          color: '#fff',
-          fontSize: 16,
-          fontWeight: 700
-        }}><BiText value={"\u25A6 \u304B\u3093\u3070\u3093QR\u7167\u5408"} /></button>
-        </div>} />
-    </>;
-  }
+  if(pageKey==='kanban')return <KanbanInfo m={m} hinban={hinban} allMaster={allMaster}/>;
   if (pageKey === 'loc') {
     return <P><H><BiText value={b('端数品置き場所')} /></H><Body>
         <div style={{
@@ -4464,79 +4602,7 @@ function EditorBody({
       })} placeholder="例: 丸マーク（●）" source="ja" counterpart={im.markType_id || ""} />
     </>;
   }
-  if (tab === 'kanban') return <>
-    <FLbl><BiText value={"\u304B\u3093\u3070\u3093\u60C5\u5831\uFF08\u6700\u59274\u7A2E\u985E\uFF09"} /></FLbl>
-    <RepList items={d.kanbans} onChange={(v) => S('kanbans', v)} max={4} addLabel="かんばんを追加" blank={{
-      type: '',
-      color: '',
-      code: '',
-      use: '',
-      process: '',
-      issuer: '',
-      size: 'W100 × H70 mm',
-      note: ''
-    }} render={(it, set) => <>
-        <Row>
-          <div><LocalizedArea value={it.type || ''} onChange={(e) => set({
-            ...it,
-            type: e.target.value
-          })} placeholder="種類 例: 生産かんばん" source="ja" counterpart={it.type_id || ""} /></div>
-          <div>
-            <LocalizedSelect value={it.color || ''} onChange={(e) => set({
-            ...it,
-            color: e.target.value
-          })}>
-              <LocalizedOption value="">色を選択</LocalizedOption>
-              {['緑', '黄', '青', 'ピンク', '赤', '白'].map((c) => <LocalizedOption key={c} value={c}>{c}</LocalizedOption>)}
-            </LocalizedSelect>
-          </div>
-        </Row>
-        <Row>
-          <div><LocalizedInput value={it.code || ''} onChange={(e) => set({
-            ...it,
-            code: e.target.value
-          })} placeholder="コード 例: KBN0001" style={{
-            marginTop: 8
-          }} /></div>
-          <div><LocalizedArea value={it.size || ''} onChange={(e) => set({
-            ...it,
-            size: e.target.value
-          })} placeholder="サイズ 例: W100 × H70 mm" style={{
-            marginTop: 8
-          }} source="ja" counterpart={it.size_id || ""} /></div>
-        </Row>
-        <Row>
-          <div><LocalizedArea value={it.use || ''} onChange={(e) => set({
-            ...it,
-            use: e.target.value
-          })} placeholder="用途 例: 生産指示用" style={{
-            marginTop: 8
-          }} source="ja" counterpart={it.use_id || ""} /></div>
-          <div><LocalizedArea value={it.process || ''} onChange={(e) => set({
-            ...it,
-            process: e.target.value
-          })} placeholder="使用工程 例: 掛け工程" style={{
-            marginTop: 8
-          }} source="ja" counterpart={it.process_id || ""} /></div>
-        </Row>
-        <Row>
-          <div><LocalizedArea value={it.issuer || ''} onChange={(e) => set({
-            ...it,
-            issuer: e.target.value
-          })} placeholder="発行先 例: Aライン" style={{
-            marginTop: 8
-          }} source="ja" counterpart={it.issuer_id || ""} /></div>
-          <div><LocalizedArea value={it.note || ''} onChange={(e) => set({
-            ...it,
-            note: e.target.value
-          })} placeholder="備考 例: 製造数の管理に使用" style={{
-            marginTop: 8
-          }} source="ja" counterpart={it.note_id || ""} /></div>
-        </Row>
-      </>} />
-    <FLbl><BiText value={"\u6CE8\u610F\u4E8B\u9805\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
-    <LinesArea value={d.kanbanNotes} onChange={(v) => S('kanbanNotes', v)} />
-  </>;
+  if(tab==='kanban')return <><KanbanEditor items={d.kanbans} onChange={v=>S('kanbans',v)} upImg={upImg} busy={busy} hinban={hinban}/><FLbl><BiText value="注意事項（1行1項目）"/></FLbl><LinesArea value={d.kanbanNotes} onChange={v=>S('kanbanNotes',v)}/></>;
   if (tab === 'sheet') {
     const sheets = d.sheets || {};
     const sh = sheets[sheetProc] || {};
@@ -5646,7 +5712,7 @@ function WorkPlanScreen({
                     <td style={{
                   ...td,
                   textAlign: 'center'
-                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span>
+                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span><KanbanPlanButton order={o} master={master}/>
                       <BiText value={o.status === 'done' ? <span style={{
                     fontSize: 13,
                     color: '#9AA3AF'
@@ -6381,26 +6447,17 @@ function WorkSheetScreen({
   const tgt = Number(order.targetBoxes) || 0;
   const [ack, setAck] = useState(false);
   const [starting, setStarting] = useState(false);
+const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const qrSignature=kanbanSignature(m),needsQr=kanbanRules(m).length>0||order.qrMode==='kanban-v1'||order.qrBlocked;const qrReady=!order.qrBlocked&&!qrReadLocal(order.id)&&(!needsQr||!!(qrAck&&qrAck.orderId===order.id&&qrAck.hinban===hinban&&qrAck.signature===qrSignature));
   const useWorker = worker || (order.assignedWorkerId ? {
     id: order.assignedWorkerId,
     name: order.assignedWorkerName
   } : null);
-  async function start() {
-    setStarting(true);
-    try {
-      await db.collection('workOrders').doc(order.id).update({
-        status: 'running',
-        startAt: Date.now(),
-        kosu,
-        capacity: cap,
-        workerId: useWorker ? useWorker.id : null,
-        workerName: useWorker ? useWorker.name : ''
-      });
+  async function start(){
+    if(starting||!ack||!qrReady)return;setStarting(true);
+    try{const payload={status:'running',startAt:Date.now(),kosu,capacity:cap,workerId:useWorker?useWorker.id:null,workerName:useWorker?useWorker.name:''};
+      if(needsQr)await startQrCheckedOrder({order,hinban,procId:proc.id,raw:qrAck.raw,master,payload});else await db.collection('workOrders').doc(order.id).update(payload);
       onStart(order.id);
-    } catch (e) {
-      showBiDialog("alert", '開始に失敗: ' + e.message);
-      setStarting(false);
-    }
+    }catch(e){showBiDialog('alert',e.message);setQrAck(null);setStarting(false);}
   }
   return <div className="app-screen worksheet-screen" style={{
     height: '100vh',
@@ -6563,6 +6620,7 @@ function WorkSheetScreen({
           padding: '8px 10px',
           borderRadius: 8
         }}><BiText value={"\u26A0 1\u7BB1\u5DE5\u6570\u304C\u672A\u767B\u9332\u306E\u305F\u3081\u5148\u884C\u30FB\u9045\u308C\u306F\u8868\u793A\u3055\u308C\u307E\u305B\u3093\uFF08\u30DE\u30B9\u30BF\u30FC\u7BA1\u7406 \u2192 \u8981\u9818\u66F8\u30FB\u5DE5\u6570\uFF09"} /></div>} />
+<div className="qr-start-gate"><BiText value={needsQr?(qrReady?'かんばんQR照合済み':'開始前にかんばんQRを照合してください。'):'この品番のQR照合は未設定です。'}/><button type="button" className="kanban-plan-check" onClick={()=>setQrOpen(true)} disabled={starting}><BiText value="かんばんQR照合"/></button></div>
           <label style={{
           display: 'flex',
           alignItems: 'center',
@@ -6584,10 +6642,10 @@ function WorkSheetScreen({
             color: ack ? '#1B5E20' : '#4A5460'
           }}><BiText value={b('確認しました')} /></span>
           </label>
-          <button onClick={start} disabled={starting || !ack} style={{
+          <button onClick={start} disabled={starting || !ack || !qrReady} style={{
           minHeight: 74,
           borderRadius: 12,
-          background: starting || !ack ? '#C7CDD6' : '#2E7D4F',
+          background: starting || !ack || !qrReady ? '#C7CDD6' : '#2E7D4F',
           color: '#fff',
           fontSize: 24,
           fontWeight: 800
@@ -6596,7 +6654,8 @@ function WorkSheetScreen({
           </button>
         </div>
       </div>
-      <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
+      {qrOpen&&<KanbanCheckModal key={order.id+hinban} hinban={hinban} m={m} master={master} order={order} onAccepted={check=>setQrAck({...check,orderId:order.id,signature:qrSignature})} onClose={()=>setQrOpen(false)}/>}
+<FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
     </div>;
 }
 
@@ -6621,9 +6680,11 @@ function WorkRunScreen({
   const [out, setOut] = useState(false);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+const [qrOpen,setQrOpen]=useState(false);
   const isTask = log.kind === 'task';
   const m = master[log.hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
+const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
   const c = calcLog(log, now);
   const taskPlanMin = Number(log.durMin) || 0;
   const taskDiff = taskPlanMin - c.active / 60000;
@@ -6632,7 +6693,7 @@ function WorkRunScreen({
   const paused = log.status === 'paused';
   const ref = db.collection('workOrders').doc(log.id);
   async function w(fn) {
-    if (busy) return;
+    if (busy) return;if(qrBlocked){setQrOpen(true);return;}
     setBusy(true);
     try {
       await fn();
@@ -6642,10 +6703,10 @@ function WorkRunScreen({
       setBusy(false);
     }
   }
-  const addBox = () => w(() => ref.update({
+  const addBox = () => needsQr ? setQrOpen(true) : w(() => ref.update({
     doneBoxes: (log.doneBoxes || 0) + 1
   }));
-  const undoBox = () => w(() => ref.update({
+  const undoBox = () => needsQr ? w(()=>undoVerifiedKanban(log.id)) : w(() => ref.update({
     doneBoxes: Math.max(0, (log.doneBoxes || 0) - 1)
   }));
   const pause = (type) => w(() => ref.update({
@@ -6823,7 +6884,7 @@ function WorkRunScreen({
         gap: 10,
         overflowY: 'auto'
       }}>
-          <div className="responsive-grid" style={{
+          {needsQr&&qrRemaining>0&&<div className="qr-cooldown"><BiText value="二度読み防止・読取停止中"/><strong>{qrClock(qrRemaining)}</strong></div>}<div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: 8
@@ -6941,7 +7002,7 @@ function WorkRunScreen({
           </div>
           <BiText value={!isTask && bigBtn(<><span style={{
             fontSize: 34
-          }}>📦</span><BiText value={t('1箱完了')} /></>, addBox, '#2E7D4F', paused, 112)} />
+          }}>📦</span><BiText value={qrBlocked?'管理者解除待ち':needsQr?'QR照合して1箱完了':t('1箱完了')} /></>, addBox, qrBlocked?'#b3261e':'#2E7D4F', !qrBlocked&&(paused||(needsQr&&qrRemaining>0)), 112)} />
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
@@ -7008,7 +7069,8 @@ function WorkRunScreen({
             </div>} />
         </div>
       </div>
-      <FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
+      {qrOpen&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} onClose={()=>setQrOpen(false)}/>}
+<FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
       <BiText value={anom && <AnomalyModal onClose={() => setAnom(false)} onSave={async (c) => {
       await addAnom(c);
       setAnom(false);
@@ -8275,6 +8337,7 @@ function rowHasPhoto(value) {
 const HAS_JAPANESE = /[\u3041-\u3096\u30a1-\u30fa\u3400-\u9fff]/;
 Object.assign(DICT, { "画像を拡大表示": "Perbesar gambar", "写真を削除": "Hapus foto", "この写真を削除しますか？": "Hapus foto ini?", "削除する": "Hapus", "この項目と写真を削除しますか？": "Hapus item ini beserta fotonya?", "QRコード": "Kode QR" });
 Object.assign(DICT,{"画像をコピー":"Salin gambar","画像を保存":"Simpan gambar","コピー中…":"Sedang menyalin…","画像を準備中…":"Menyiapkan gambar…","画像をコピーしました。貼り付け先で貼り付けてください。":"Gambar telah disalin. Tempel di tempat tujuan.","アプリ内にコピーしました。外部へは画像を保存して貼り付けてください。":"Gambar disalin di aplikasi ini. Untuk aplikasi lain, simpan gambar lalu sisipkan di sana.","保存した画像は他のアプリで選んで挿入できます。":"Pilih gambar yang disimpan untuk disisipkan ke aplikasi lain.","画像を開いて保存してください。":"Buka gambar lalu simpan.","画像を開いて保存":"Buka dan simpan gambar","アプリでコピーした画像を貼り付け":"Tempel gambar yang disalin di aplikasi ini","他のアプリから貼り付け":"Tempel dari aplikasi lain","この欄を選んでCtrl＋Vでも貼り付けできます。":"Pilih area ini lalu tekan Ctrl+V untuk menempel.","画像が見つかりません。写真をコピーしてから貼り付けてください。":"Tidak ada gambar. Salin foto terlebih dahulu lalu tempel.","この写真を貼り付けた画像に置き換えますか？":"Ganti foto ini dengan gambar yang ditempel?","置き換える":"Ganti","貼り付けをキャンセルしました。":"Penempelan dibatalkan.","画像を貼り付けました。保存ボタンで確定してください。":"Gambar ditempel. Tekan Simpan untuk menyimpan perubahan.","画像を貼り付けられませんでした。この欄を選んで貼り付けるか、画像ファイルを選んでください。":"Gagal menempel gambar. Pilih area ini untuk menempel, atau pilih berkas gambar.","画像を貼り付けられませんでした。もう一度お試しください。":"Gagal menempel gambar. Silakan coba lagi.","入力内容が変わりました。貼り付け先を確認してもう一度お試しください。":"Isian telah berubah. Periksa tujuan penempelan lalu coba lagi.","端末の貼り付けメニュー、またはCtrl＋Vを使ってください。画像ファイルの選択もできます。":"Gunakan menu Tempel di perangkat atau Ctrl+V. Anda juga dapat memilih berkas gambar."});
+Object.assign(DICT,{"QRの内容を読み取れませんでした。":"Isi QR tidak dapat dibaca.","開始位置・文字数がQRの範囲外です。":"Posisi awal atau panjang melebihi isi QR.","区切り文字・項目番号を設定してください。":"Atur pemisah dan nomor kolom.","指定した項目がQRにありません。":"Kolom yang ditentukan tidak ada dalam QR.","QRの抽出方法を確認してください。":"Periksa cara mengambil bagian QR.","抽出したコードが空です。":"Kode yang diambil kosong.","かんばんQR":"QR Kanban","マスターに照合コードを設定してください。":"Atur kode pengecekan di Master.","品番が一致しません。作業を止めて確認してください。":"Nomor produk tidak cocok. Hentikan pekerjaan dan lakukan pengecekan.","箱ごとの番号を抽出できません。":"Nomor unik kotak tidak dapat diambil.","この品番のQR照合は未設定です。":"Pengecekan QR untuk produk ini belum diatur.","同じQRが複数の品番に一致します。マスターを確認してください。":"QR yang sama cocok dengan beberapa produk. Periksa Master.","作業またはマスターが見つかりません。":"Pekerjaan atau data Master tidak ditemukan.","作業状態が変わりました。計画表を確認してください。":"Status pekerjaan berubah. Periksa jadwal kerja.","目標箱数に達しています。計画表を確認してください。":"Target jumlah kotak tercapai. Periksa jadwal kerja.","この箱のQRはすでに完了登録されています。":"QR kotak ini sudah dicatat selesai.","QR完了履歴と箱数が異なります。管理者に確認してください。":"Riwayat QR dan jumlah kotak berbeda. Hubungi pengelola.","閉じる":"Tutup","QR読取機能を読み込めません。通信を確認してください。":"Fitur pembaca QR gagal dimuat. Periksa koneksi.","公開アプリをHTTPSで開き、カメラを許可してください。":"Buka aplikasi terbit melalui HTTPS dan izinkan kamera.","カメラを使用できません。カメラの許可・接続を確認してください。":"Kamera tidak dapat digunakan. Periksa izin dan sambungan kamera.","QRが見つかりません。明るさ・距離を変えてください。":"QR tidak ditemukan. Sesuaikan cahaya dan jarak.","カメラ起動中…":"Memulai kamera…","カメラを止める":"Hentikan kamera","カメラでQRを読む":"Pindai QR dengan kamera","ハンディ・手入力":"Pemindai genggam / input manual","撮影したQR画像から読む":"Baca QR dari foto","QRの読取内容":"Isi QR yang dibaca","この内容で照合":"Lakukan pengecekan isi ini","一致":"Cocok","不一致":"Tidak cocok","選択中の品番と一致しました。":"Cocok dengan produk yang dipilih.","品番が違います。作業を止めて確認してください。":"Nomor produk berbeda. Hentikan pekerjaan dan lakukan pengecekan.","マスターが変更されました。もう一度QRを読んでください。":"Master telah berubah. Pindai QR sekali lagi.","かんばんQR照合":"Pengecekan QR Kanban","選択中の品番":"Produk yang dipilih","一致：選択中の品番です":"Cocok: produk yang dipilih","不一致：作業を止めて確認":"Tidak cocok: hentikan pekerjaan dan periksa","箱ごとの番号":"Nomor unik kotak","再読み取り":"Pindai lagi","登録中…":"Sedang mencatat…","一致したこの1箱を完了登録":"Catat satu kotak yang cocok ini sebagai selesai","一致を確認して戻る":"Konfirmasi kecocokan dan kembali","カメラを向けただけでは箱数は増えません。一致後に1箱ずつ完了登録してください。":"Mengarahkan kamera saja tidak menambah jumlah kotak. Setelah cocok, catat setiap kotak sebagai selesai.","QRのどの部分を拾うか":"Bagian QR yang diambil","抽出方法":"Cara mengambil bagian","開始位置（1文字目から）":"Posisi awal, dihitung dari karakter pertama","開始位置":"Posisi awal","文字数":"Jumlah karakter","区切り文字":"Pemisah","項目番号（1番目から）":"Nomor kolom, dimulai dari 1","項目番号":"Nomor kolom","抽出した前後の空白を除く":"Hapus spasi di awal dan akhir hasil","このかんばんをQR照合に使う":"Gunakan Kanban ini untuk pengecekan QR","QR照合コード（完全一致）":"Kode pengecekan QR, harus sama persis","品番":"Nomor produk","箱ごとの重複登録を防ぐ設定":"Pengaturan pencegahan pencatatan kotak ganda","箱ごとに異なる番号を照合する":"Periksa nomor yang berbeda untuk setiap kotak","箱番号":"Nomor kotak","箱ごとに異なる番号がQRにある場合だけ設定します。同じQRが全箱共通の場合、箱の重複は判定できません。":"Atur hanya jika QR memiliki nomor unik untuk setiap kotak. Jika semua kotak memakai QR yang sama, kotak ganda tidak dapat dikenali.","設定テスト用のQR内容":"Isi QR untuk menguji pengaturan","実物のQRを読んで設定を確認":"Pindai QR asli untuk memeriksa pengaturan","抽出した照合コード":"Kode pengecekan yang diambil","この抽出結果を照合コードに設定":"Gunakan hasil ini sebagai kode pengecekan","先頭の0・ハイフンも区別して完全一致で照合します。設定後は保存してください。":"Pengecekan harus sama persis, termasuk nol di awal dan tanda hubung. Simpan setelah mengatur.","設定テスト用のQR読取":"Pembacaan QR untuk uji pengaturan","かんばん情報（最大4種類）":"Informasi Kanban, maksimal 4 jenis","かんばんを追加":"Tambah Kanban","かんばんの写真":"Foto Kanban","種類":"Jenis","色":"Warna","緑":"Hijau","黄":"Kuning","青":"Biru","ピンク":"Merah muda","赤":"Merah","白":"Putih","サイズ":"Ukuran","用途":"Kegunaan","使用工程":"Proses penggunaan","発行先":"Penerbit","備考":"Catatan","かんばん":"Kanban","注意事項（1行1項目）":"Catatan perhatian, satu hal per baris","かんばんQR照合済み":"QR Kanban sudah cocok","開始前にかんばんQRを照合してください。":"Lakukan pengecekan QR Kanban sebelum mulai.","QR照合して1箱完了":"Periksa QR lalu selesaikan satu kotak","管理者の解除が必要です。":"Pembukaan kunci oleh pengelola diperlukan.","管理者解除の初期設定が必要です。管理者に確認してください。":"Pengaturan awal pembukaan kunci diperlukan. Hubungi pengelola.","管理者の解除用QRを読んでください。":"Pindai QR pembuka kunci milik pengelola.","解除対象のロックを確認できません。":"Kunci yang akan dibuka tidak dapat dikonfirmasi.","1箱工数を設定してからQRを読み取ってください。":"Atur waktu standar per kotak sebelum memindai QR.","ロックの保存を確認できません。通信を確認し、管理者を呼んでください。":"Penyimpanan kunci belum dapat dikonfirmasi. Periksa koneksi dan panggil pengelola.","解除しました。かんばんQRをもう一度照合してください。":"Kunci dibuka. Lakukan pengecekan QR Kanban sekali lagi.","解除できません。管理者の解除用QRを確認してください。":"Kunci tidak dapat dibuka. Periksa QR pembuka kunci pengelola.","管理者解除QRの読取":"Pindai QR pembuka kunci pengelola","設定を確認中…":"Memeriksa pengaturan…","管理者解除待ち・作業停止":"Pekerjaan dihentikan, menunggu pengelola","作業者は解除できません。管理者を呼んでください。":"Operator tidak dapat membuka kunci. Panggil pengelola.","管理者の解除用QRを読む":"Pindai QR pembuka kunci pengelola","解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。":"QR pembuka kunci tidak menambah jumlah kotak. Setelah dibuka, periksa ulang QR Kanban.","二度読み防止・読取停止中":"Pencegahan pemindaian ganda: pembacaan dijeda","1箱工数の30％が経過すると読み取りできます。":"Pemindaian tersedia setelah 30% waktu standar per kotak berlalu.","一致・1箱完了登録済み":"Cocok: satu kotak telah dicatat selesai","一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。":"Jika cocok, satu kotak otomatis dicatat selesai. Jika tidak cocok, jumlah kotak tidak bertambah dan pengelola harus membuka kunci.","解除完了":"Kunci dibuka","解除不可":"Tidak dapat dibuka","かんばんQRをもう一度照合してください。":"Lakukan pengecekan QR Kanban sekali lagi.","管理者の解除用QRを確認してください。":"Periksa QR pembuka kunci pengelola.","作業を止めて管理者を呼んでください。":"Hentikan pekerjaan dan panggil pengelola.","管理者解除待ち":"Menunggu pembukaan kunci pengelola"});
 const biPairs = new Map(),biReverse = new Map(),biPending = new Map(),biFailed = new Set();
 const biListeners = new Set(),biQueue = [];
 let biVersion = 0,biActive = 0;
@@ -8457,6 +8520,7 @@ function BilingualDialog() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 
 </script>
 </body>
