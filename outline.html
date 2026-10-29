@@ -157,6 +157,12 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .photo-paste-tools{max-width:180px;display:grid;gap:5px;margin-top:6px}.photo-paste-tools button{padding:7px 8px;border-radius:6px;border:1px solid #b9c7dd;background:#eef4fc;color:#12306b;font-size:11px;line-height:1.4;min-height:42px;overflow-wrap:anywhere}.photo-paste-tools button:disabled{opacity:.5;cursor:wait}
 .photo-paste-message{font-size:10.5px;color:#334155;line-height:1.5;margin-top:5px;max-width:190px;overflow-wrap:anywhere}
 @media(max-width:700px){.photo-viewer-header{gap:8px;padding-left:12px}.photo-copy-controls{padding:6px 10px}.photo-copy-buttons{gap:6px}.photo-copy-buttons button{font-size:11px;padding:7px 10px}}
+
+/* 一覧を端末の表示高に収め、外側へのスクロール連鎖に依存しない。 */
+.app-screen.master-screen{height:100vh!important;height:100dvh!important;min-height:0!important;max-height:100vh;max-height:100dvh;overflow:hidden}
+.master-screen>.master-list-layout{flex:1 1 0;min-height:0;min-width:0;overflow:hidden}
+.master-list-scroll{min-height:0;min-width:0;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom;scrollbar-gutter:stable}
+.master-list-scroll:focus-visible{outline:2px solid #4285d4;outline-offset:-2px}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -174,6 +180,7 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 <div id="root"></div>
 
 <script type="text/babel">
+
 let copiedPhoto=null;
 const copiedPhotoListeners=new Set();
 function useCopiedPhoto(){return React.useSyncExternalStore(fn=>{copiedPhotoListeners.add(fn);return()=>copiedPhotoListeners.delete(fn);},()=>copiedPhoto,()=>null);}
@@ -3061,14 +3068,14 @@ function MasterAdmin({
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <div inert={modalOpen ? '' : undefined} style={{
+      <div className="master-list-layout" inert={modalOpen ? '' : undefined} style={{
       flex: 1,
       minHeight: 0,
       display: 'flex',
       flexDirection: 'column'
     }}>
       <TopBar title={b('マスター管理')} onBack={onBack} user={user} />
-      <div style={{
+      <div className="master-list-scroll" tabIndex={0} role="region" aria-label="マスター一覧 / Daftar Master" style={{
         flex: 1,
         minHeight: 0,
         overflowY: modalOpen ? 'hidden' : 'auto',
@@ -8450,6 +8457,7 @@ function BilingualDialog() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 </script>
 </body>
 </html>
