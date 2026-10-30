@@ -269,6 +269,57 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 @container(max-width:480px){.sheet-readable-row{grid-template-columns:30px minmax(0,1fr)}.sheet-readable-row img{grid-column:2;height:190px!important}.sheet-readable-row>div:last-child{grid-column:2}}
 @media(min-width:761px){.info-screen>.app-topbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto;gap:10px;min-height:64px;padding:6px 12px}.info-screen .topbar-context{grid-column:1;grid-row:1}.info-screen .topbar-title{grid-column:2;grid-row:1;text-align:center;font-size:20px}.info-screen .app-topbar>.lang-user{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px;max-width:none}}
 @media(max-width:760px){.info-screen .info-main>.info-toolbar{flex-wrap:wrap;gap:6px;padding:6px 10px}.info-process-picker{width:100%;flex:1 0 100%}.info-screen .info-main .info-tabs{flex:1 0 100%!important}.info-screen .app-topbar{min-height:0;padding:8px 12px;gap:5px;grid-template-columns:minmax(0,1fr) auto}.info-screen .topbar-title{font-size:18px;grid-column:1;grid-row:1}.info-screen .topbar-context{grid-column:1;grid-row:2}.info-screen .app-topbar>.lang-user{grid-column:2;grid-row:1/3;max-width:140px;flex-wrap:wrap;gap:3px}.info-screen .user-name{font-size:12px}.info-identity{font-size:16px;gap:4px 10px}.info-identity>strong{font-size:21px}.info-screen .info-main>.info-content{padding:10px!important}.master-editor-dialog .shape-point-edit-row{grid-template-columns:minmax(0,1fr)}}
+
+/* Large photo review, including the master editor shown on the tablet. */
+.master-editor-dialog{width:calc(100vw - 24px)!important;max-width:none!important;height:calc(100dvh - 24px)!important}
+.master-editor-dialog>div:first-child{padding:8px 14px!important}
+.master-editor-dialog .master-editor-tabs{padding:6px 10px!important}
+.master-editor-dialog .master-editor-tabs>button{min-height:50px}
+.master-editor-dialog .editor-primary-photo-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:18px;align-items:start}
+.master-editor-dialog .editor-primary-photo,.master-editor-dialog .editor-primary-fields{min-width:0}
+.master-editor-dialog .editor-primary-fields .responsive-grid{grid-template-columns:minmax(0,1fr)!important;gap:8px!important}
+.master-editor-dialog .editor-photo-row,.master-editor-dialog .shape-point-edit-row{display:grid!important;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)!important;gap:18px!important;align-items:start}
+.master-editor-dialog .editor-photo-row>.photo-slot,.master-editor-dialog .shape-point-edit-row>.photo-slot{order:-1;min-width:0;width:100%}
+.master-editor-dialog .editor-photo-row>div:has(.photo-slot){order:-1;min-width:0}
+.master-editor-dialog .photo-slot{width:100%;max-width:none;min-width:0}
+.master-editor-dialog .photo-slot>div:has(>img){display:block!important;width:100%!important}
+.master-editor-dialog .photo-slot img,.master-editor-dialog .photo-slot>button{display:block!important;width:100%!important;max-width:none!important;height:clamp(340px,72dvh,900px)!important;max-height:none!important;object-fit:contain!important;background:#F0F2F5!important}
+.master-editor-dialog .photo-slot>button{display:flex!important;align-items:center;justify-content:center;font-size:20px!important}
+.master-editor-dialog textarea{font-size:22px!important;line-height:1.6!important}
+.master-editor-dialog textarea[style*="font-size: 12"]{font-size:18px!important}
+.master-editor-dialog .photo-slot-hint{font-size:13px;max-width:none}
+.master-editor-dialog .photo-paste-tools button{font-size:15px;padding:8px 12px}
+/* Give the reader the same large photo / explanation balance. */
+.product-info .shape-point-list{grid-template-columns:minmax(0,1fr)!important}
+.product-info .shape-point-card,.product-info .shape-point-list.is-single .shape-point-card{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px 18px;align-items:start}
+.product-info .shape-point-description{font-size:22px;line-height:1.6;margin-top:0}
+.product-info img[role="button"]{height:clamp(340px,72dvh,900px)!important;object-fit:contain!important}
+.product-info .info-overview-grid,.product-info .hanger-overview-grid{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)!important}
+.product-info .info-card-grid,.product-info .info-box-grid,.product-info .info-step-list{grid-template-columns:minmax(0,1fr)!important}
+.product-info .info-step-row{grid-template-columns:30px minmax(0,1.7fr) minmax(0,1fr)!important}
+.product-info .info-box-row{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)!important}
+.sheet-readable-row{grid-template-columns:30px minmax(0,1.7fr) minmax(0,1fr)!important}
+.sheet-readable-row img{height:clamp(340px,72dvh,900px)!important}
+.sheet-readable-row>div:last-child{font-size:22px!important}
+.large-photo-picker>div{max-width:calc(100vw - 24px)!important;width:100%!important}
+.large-photo-picker .responsive-grid{grid-template-columns:minmax(0,1fr)!important}
+.large-photo-picker .responsive-grid>button{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:start}
+.large-photo-picker .responsive-grid>button>div:first-child{height:clamp(340px,72dvh,900px)!important}
+.large-photo-picker img[role="button"]{width:100%!important;height:100%!important;object-fit:contain!important}
+.large-photo-picker .responsive-grid>button>div:last-child>div{font-size:21px!important;line-height:1.6!important}
+.worksheet-product-header{display:grid!important;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);grid-template-rows:auto 1fr;align-items:start!important}
+.worksheet-product-header>div{grid-column:2}
+.worksheet-product-header>img{grid-column:1;grid-row:1/span 2;width:100%!important;height:clamp(340px,72dvh,900px)!important;margin:0!important;object-fit:contain!important}
+.product-info[data-info-page="hanger"] .hanger-overview-grid>.panel:nth-child(2){grid-row:2;grid-column:1/-1}
+.product-info[data-info-page="hanger"] .hanger-overview-grid>div:last-child{grid-row:1;grid-column:2}
+.product-info[data-info-page="tools"] .info-card-grid>.panel,.product-info[data-info-page="packing"] .info-card-grid>div,.product-info[data-info-page="hanger"] .info-card-grid>div{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);grid-template-rows:auto 1fr;gap:8px 14px;align-items:start}
+.product-info [style*="font-size: 18px"],.product-info .kanban-info-detail>div{font-size:22px!important}
+.product-info[data-info-page="tools"] .info-card-grid>.panel>img,.product-info[data-info-page="packing"] .info-card-grid>div>img,.product-info[data-info-page="hanger"] .info-card-grid>div>img{grid-row:1/span 2;grid-column:1}
+.product-info[data-info-page="tools"] .info-card-grid>.panel>div,.product-info[data-info-page="packing"] .info-card-grid>div>div,.product-info[data-info-page="hanger"] .info-card-grid>div>div{grid-column:2}
+@media(max-width:700px){.master-editor-dialog{width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;height:calc(100dvh - 12px)!important}.master-editor-dialog .editor-primary-photo-layout,.master-editor-dialog .editor-photo-row,.master-editor-dialog .shape-point-edit-row,.large-photo-picker .responsive-grid>button,.worksheet-product-header{grid-template-columns:minmax(0,1fr)!important}.master-editor-dialog .photo-slot img,.master-editor-dialog .photo-slot>button,.large-photo-picker .responsive-grid>button>div:first-child,.worksheet-product-header>img{height:clamp(300px,52dvh,650px)!important}.worksheet-product-header>div,.worksheet-product-header>img{grid-column:1;grid-row:auto}.worksheet-product-header>img{order:-1}}
+@container(max-width:700px){.product-info .shape-point-card,.product-info .shape-point-list.is-single .shape-point-card,.product-info .info-overview-grid,.product-info .hanger-overview-grid,.product-info .info-box-row{grid-template-columns:minmax(0,1fr)!important}.product-info img[role="button"]{height:clamp(300px,52dvh,650px)!important}.product-info .info-step-row{grid-template-columns:30px minmax(0,1fr)!important}.product-info .info-step-row img,.product-info .info-step-row>div:last-child{grid-column:2}}
+@container(max-width:600px){.sheet-readable-row{grid-template-columns:30px minmax(0,1fr)!important}.sheet-readable-row img{height:clamp(300px,52dvh,650px)!important;grid-column:2}.sheet-readable-row>div:last-child{grid-column:2}}
+@container(max-width:700px){.product-info[data-info-page="hanger"] .hanger-overview-grid>div:last-child{grid-column:1;grid-row:auto}.product-info[data-info-page="tools"] .info-card-grid>.panel,.product-info[data-info-page="packing"] .info-card-grid>div,.product-info[data-info-page="hanger"] .info-card-grid>div{grid-template-columns:minmax(0,1fr)}.product-info[data-info-page="tools"] .info-card-grid>.panel>img,.product-info[data-info-page="packing"] .info-card-grid>div>img,.product-info[data-info-page="hanger"] .info-card-grid>div>img{grid-column:1;grid-row:auto}.product-info[data-info-page="tools"] .info-card-grid>.panel>div,.product-info[data-info-page="packing"] .info-card-grid>div>div,.product-info[data-info-page="hanger"] .info-card-grid>div>div{grid-column:1}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -3919,7 +3970,9 @@ function Row({
   children,
   cols
 }) {
-  return <div className="responsive-grid" style={{
+  const hasPhoto = (child) => React.isValidElement(child) && (child.type === ImgSlot || React.Children.toArray(child.props.children).some(hasPhoto));
+  const photoRow = React.Children.toArray(children).some(hasPhoto);
+  return <div className={'responsive-grid' + (photoRow ? ' editor-photo-row' : '')} style={{
     display: 'grid',
     gridTemplateColumns: cols || '1fr 1fr',
     gap: 12
@@ -4172,8 +4225,7 @@ function EditorBody({
       ...patch
     }
   });
-  if (tab === 'basic') return <>
-    <div style={{
+  if (tab === 'basic') return <><div className="editor-primary-photo-layout"><div className="editor-primary-photo"><FLbl><BiText value={"\u88FD\u54C1\u5199\u771F"} /></FLbl><ImgSlot url={d.productImg} busy={busy === 'productImg'} h={150} onPick={(f) => upImg('productImg', f, (u) => S('productImg', u))} onClear={() => S('productImg', '')} onApply={(u) => S('productImg', u)} onPasteUpload={(f, applyPastedPhoto) => upImg('productImg', f, applyPastedPhoto)} imageKey={hinban + ":" + 'productImg'} targetOwner={d} /></div><div className="editor-primary-fields"><div style={{
       padding: '10px 12px',
       background: '#F2F6FD',
       borderRadius: 8,
@@ -4184,14 +4236,14 @@ function EditorBody({
       <b style={{
         color: NAVY
       }}>{hinban}</b><BiText value={" \u304C\u300C\u547C\u79F0\u300D\u3067\u3059\uFF08\u4E0A\u306E\u300C\u270E \u547C\u79F0\u3092\u5909\u66F4\u300D\u3067\u5909\u66F4\u3067\u304D\u307E\u3059\uFF09\u3002\u5B9F\u969B\u306E\u54C1\u756A\u306F\u4E0B\u306E\u6B04\u306B\u767B\u9332\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-    <Row>
+<Row>
       <div><FLbl><BiText value={"\u54C1\u756A"} /></FLbl><LocalizedInput value={d.partNo || ''} onChange={(e) => S('partNo', e.target.value)} placeholder="例: 1234-56789" /></div>
       <div><FLbl><BiText value={"\u54C1\u540D\uFF08\u65E5\u672C\u8A9E\uFF09"} /></FLbl><LocalizedArea value={d.name || ''} onChange={(e) => S('name', e.target.value)} placeholder="例: ブラケット ASSY" source="ja" counterpart={d.name_id || ""} paired /></div>
     </Row>
-    <FLbl><BiText value={"\u54C1\u540D\uFF08\u30A4\u30F3\u30C9\u30CD\u30B7\u30A2\u8A9E\uFF09"} /></FLbl>
-    <LocalizedArea value={d.name_id || ''} onChange={(e) => S('name_id', e.target.value)} placeholder="Nama produk" source="id" counterpart={d.name || ""} paired />
-    <FLbl><BiText value={"\u5DE5\u7A0B\u540D\uFF08\u3053\u306E\u88FD\u54C1\u304C\u901A\u308B\u5DE5\u7A0B\u30FB\u8907\u6570\u9078\u629E\u53EF\uFF09"} /></FLbl>
-    <div style={{
+<FLbl><BiText value={"\u54C1\u540D\uFF08\u30A4\u30F3\u30C9\u30CD\u30B7\u30A2\u8A9E\uFF09"} /></FLbl>
+<LocalizedArea value={d.name_id || ''} onChange={(e) => S('name_id', e.target.value)} placeholder="Nama produk" source="id" counterpart={d.name || ""} paired />
+<FLbl><BiText value={"\u5DE5\u7A0B\u540D\uFF08\u3053\u306E\u88FD\u54C1\u304C\u901A\u308B\u5DE5\u7A0B\u30FB\u8907\u6570\u9078\u629E\u53EF\uFF09"} /></FLbl>
+<div style={{
       display: 'flex',
       gap: 6,
       flexWrap: 'wrap',
@@ -4216,24 +4268,21 @@ function EditorBody({
           </button>;
       })} />
     </div>
-    <BiText value={!(d.procIds || []).length && <div style={{
+<BiText value={!(d.procIds || []).length && <div style={{
       fontSize: 12,
       color: '#C2410C',
       marginTop: 6
     }}><BiText value={"\u26A0 \u5DE5\u7A0B\u30921\u3064\u4EE5\u4E0A\u9078\u629E\u3057\u306A\u3044\u3068\u3001\u5404\u5DE5\u7A0B\u306E\u4F5C\u696D\u753B\u9762\u306B\u3053\u306E\u88FD\u54C1\u304C\u8868\u793A\u3055\u308C\u307E\u305B\u3093\u3002"} /></div>} />
-    <FLbl><BiText value={"\u88FD\u54C1\u5199\u771F"} /></FLbl>
-    <ImgSlot url={d.productImg} busy={busy === 'productImg'} h={150} onPick={(f) => upImg('productImg', f, (u) => S('productImg', u))} onClear={() => S('productImg', '')} onApply={(u) => S('productImg', u)} onPasteUpload={(f, applyPastedPhoto) => upImg('productImg', f, applyPastedPhoto)} imageKey={hinban + ":" + 'productImg'} targetOwner={d} />
-    <Row>
+<Row>
       <div><FLbl><BiText value={"QR\u7167\u5408\u6587\u5B57\u5217\uFF08\u88FD\u54C1\uFF09"} /></FLbl><LocalizedInput value={d.qrText || ''} onChange={(e) => S('qrText', e.target.value)} placeholder="未設定なら品番で照合" /></div>
       <div><FLbl><BiText value={"\u304B\u3093\u3070\u3093QR\u7167\u5408\u6587\u5B57\u5217"} /></FLbl><LocalizedInput value={d.kanbanQr || ''} onChange={(e) => S('kanbanQr', e.target.value)} /></div>
     </Row>
-    <Row>
+<Row>
       <div><FLbl><BiText value={"\u7AEF\u6570\u54C1\u7F6E\u304D\u5834\u6240\uFF08\u30ED\u30B1\u756A\u53F7\uFF09"} /></FLbl><LocalizedInput value={d.locNo || ''} onChange={(e) => S('locNo', e.target.value)} placeholder="例: A-12" /></div>
       <div><FLbl><BiText value={"\u4F5C\u696D\u52D5\u753BURL"} /></FLbl><LocalizedInput value={d.videoUrl || ''} onChange={(e) => S('videoUrl', e.target.value)} placeholder="https://..." /></div>
     </Row>
-    <FLbl><BiText value={"\u88FD\u54C1\u5199\u771F\u30DA\u30FC\u30B8\u306E\u6CE8\u610F\u4E8B\u9805\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
-    <LinesArea value={d.productNotes} onChange={(v) => S('productNotes', v)} />
-  </>;
+<FLbl><BiText value={"\u88FD\u54C1\u5199\u771F\u30DA\u30FC\u30B8\u306E\u6CE8\u610F\u4E8B\u9805\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
+<LinesArea value={d.productNotes} onChange={(v) => S('productNotes', v)} /></div></div></>;
   if (tab === 'shape') {
     const sh = d.shape || {};
     return <>
@@ -4288,42 +4337,52 @@ function EditorBody({
   }
   if (tab === 'teekin') {
     const tk = d.teekin || {};
-    return <>
-      <FLbl><BiText value={"\u30C6\u30FC\u30AD\u30F3\u5199\u771F"} /></FLbl>
-      <ImgSlot url={tk.img} busy={busy === 'teekin/img'} h={150} onPick={(f) => upImg('teekin/img', f, (u) => sub('teekin', {
+    return <><div className="editor-primary-photo-layout"><div className="editor-primary-photo"><FLbl><BiText value={"\u30C6\u30FC\u30AD\u30F3\u5199\u771F"} /></FLbl><ImgSlot url={tk.img} busy={busy === 'teekin/img'} h={150} onPick={(f) => upImg('teekin/img', f, (u) => sub('teekin', {
         img: u
       }))} onClear={() => sub('teekin', {
         img: ''
-      })} onApply={(u) => sub('teekin', { img: u })} onPasteUpload={(f, applyPastedPhoto) => upImg('teekin/img', f, applyPastedPhoto)} imageKey={hinban + ":" + 'teekin/img'} targetOwner={tk} />
-      <FLbl><BiText value={"\u8AAC\u660E\u30FB\u6CE8\u610F\u4E8B\u9805\uFF08\u65E5\u672C\u8A9E\uFF09"} /></FLbl>
-      <LocalizedArea value={tk.note || ''} onChange={(e) => sub('teekin', {
+      })} onApply={(u) => sub('teekin', { img: u })} onPasteUpload={(f, applyPastedPhoto) => upImg('teekin/img', f, applyPastedPhoto)} imageKey={hinban + ":" + 'teekin/img'} targetOwner={tk} /></div><div className="editor-primary-fields"><FLbl><BiText value={"\u8AAC\u660E\u30FB\u6CE8\u610F\u4E8B\u9805\uFF08\u65E5\u672C\u8A9E\uFF09"} /></FLbl>
+<LocalizedArea value={tk.note || ''} onChange={(e) => sub('teekin', {
         note: e.target.value
       })} style={{
         width: '100%',
         height: 90,
         resize: 'vertical'
       }} source="ja" counterpart={tk.note_id || ""} paired />
-      <FLbl><BiText value={"\u8AAC\u660E\u30FB\u6CE8\u610F\u4E8B\u9805\uFF08\u30A4\u30F3\u30C9\u30CD\u30B7\u30A2\u8A9E\uFF09"} /></FLbl>
-      <LocalizedArea value={tk.note_id || ''} onChange={(e) => sub('teekin', {
+<FLbl><BiText value={"\u8AAC\u660E\u30FB\u6CE8\u610F\u4E8B\u9805\uFF08\u30A4\u30F3\u30C9\u30CD\u30B7\u30A2\u8A9E\uFF09"} /></FLbl>
+<LocalizedArea value={tk.note_id || ''} onChange={(e) => sub('teekin', {
         note_id: e.target.value
       })} style={{
         width: '100%',
         height: 90,
         resize: 'vertical'
-      }} source="id" counterpart={tk.note || ""} paired />
-    </>;
+      }} source="id" counterpart={tk.note || ""} paired /></div></div></>;
   }
   if (tab === 'hanger') {
     const hg = d.hanger || {};
-    return <>
-      <FLbl><BiText value={"\u30CF\u30F3\u30AC\u30FC\u5168\u4F53\u5199\u771F"} /></FLbl>
-      <ImgSlot url={hg.img} busy={busy === 'hanger/img'} h={150} onPick={(f) => upImg('hanger/img', f, (u) => sub('hanger', {
+    return <><div className="editor-primary-photo-layout"><div className="editor-primary-photo"><FLbl><BiText value={"\u30CF\u30F3\u30AC\u30FC\u5168\u4F53\u5199\u771F"} /></FLbl><ImgSlot url={hg.img} busy={busy === 'hanger/img'} h={150} onPick={(f) => upImg('hanger/img', f, (u) => sub('hanger', {
         img: u
       }))} onClear={() => sub('hanger', {
         img: ''
-      })} onApply={(u) => sub('hanger', { img: u })} onPasteUpload={(f, applyPastedPhoto) => upImg('hanger/img', f, applyPastedPhoto)} imageKey={hinban + ":" + 'hanger/img'} targetOwner={hg} />
-      <FLbl><BiText value={"\u4E3B\u306A\u7279\u5FB4\uFF08\u78BA\u8A8D\u30DD\u30A4\u30F3\u30C8\u30FB\u6700\u59274\u4EF6\uFF09"} /></FLbl>
-      <RepList items={hg.features} onChange={(v) => sub('hanger', {
+      })} onApply={(u) => sub('hanger', { img: u })} onPasteUpload={(f, applyPastedPhoto) => upImg('hanger/img', f, applyPastedPhoto)} imageKey={hinban + ":" + 'hanger/img'} targetOwner={hg} /></div><div className="editor-primary-fields"><FLbl><BiText value={"\u30CF\u30F3\u30AC\u30FC\u4ED5\u69D8\uFF08\u300C\u9805\u76EE\uFF1A\u5024\u300D\u30921\u884C\u305A\u3064\uFF09"} /></FLbl>
+<LocalizedArea value={(hg.spec || []).map((r) => `${r.k}：${r.v}`).join('\n')} onChange={(e) => sub('hanger', {
+        spec: e.target.value.split('\n').map((l) => {
+          const i = l.indexOf('：') >= 0 ? l.indexOf('：') : l.indexOf(':');
+          return i < 0 ? null : {
+            k: l.slice(0, i).trim(),
+            v: l.slice(i + 1).trim()
+          };
+        }).filter(Boolean)
+      })} style={{
+        width: '100%',
+        height: 150,
+        resize: 'vertical'
+      }} placeholder={'ハンガー名：標準ハンガーA\nサイズ：W500 × H800 mm\n材質：SS400'} />
+<FLbl><BiText value={"\u4F7F\u7528\u6642\u306E\u6CE8\u610F\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
+<LinesArea value={hg.cautions} onChange={(v) => sub('hanger', {
+        cautions: v
+      })} /></div></div><FLbl><BiText value={"\u4E3B\u306A\u7279\u5FB4\uFF08\u78BA\u8A8D\u30DD\u30A4\u30F3\u30C8\u30FB\u6700\u59274\u4EF6\uFF09"} /></FLbl>
+<RepList items={hg.features} onChange={(v) => sub('hanger', {
         features: v
       })} max={4} addLabel="特徴を追加" blank={{
         title: '',
@@ -4352,26 +4411,7 @@ function EditorBody({
           height: 60,
           resize: 'vertical'
         }} source="ja" counterpart={it.note_id || ""} />
-        </>} />
-      <FLbl><BiText value={"\u30CF\u30F3\u30AC\u30FC\u4ED5\u69D8\uFF08\u300C\u9805\u76EE\uFF1A\u5024\u300D\u30921\u884C\u305A\u3064\uFF09"} /></FLbl>
-      <LocalizedArea value={(hg.spec || []).map((r) => `${r.k}：${r.v}`).join('\n')} onChange={(e) => sub('hanger', {
-        spec: e.target.value.split('\n').map((l) => {
-          const i = l.indexOf('：') >= 0 ? l.indexOf('：') : l.indexOf(':');
-          return i < 0 ? null : {
-            k: l.slice(0, i).trim(),
-            v: l.slice(i + 1).trim()
-          };
-        }).filter(Boolean)
-      })} style={{
-        width: '100%',
-        height: 150,
-        resize: 'vertical'
-      }} placeholder={'ハンガー名：標準ハンガーA\nサイズ：W500 × H800 mm\n材質：SS400'} />
-      <FLbl><BiText value={"\u4F7F\u7528\u6642\u306E\u6CE8\u610F\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
-      <LinesArea value={hg.cautions} onChange={(v) => sub('hanger', {
-        cautions: v
-      })} />
-    </>;
+        </>} /></>;
   }
   if (tab === 'steps') return <>
     <FLbl><BiText value={"\u4F5C\u696D\u306E\u6D41\u308C\uFF08\u624B\u9806\u3054\u3068\u306B\u30AB\u30FC\u30C9\uFF09"} /></FLbl>
@@ -5032,7 +5072,7 @@ function HinbanPicker({
   const [q, setQ] = useState('');
   const kw = q.trim().toLowerCase();
   const list = hinbansOf(master, procId).filter((h) => matchHinban(master, h, kw));
-  return <div onClick={(e) => e.target === e.currentTarget && onClose()} style={{
+  return <div className="large-photo-picker" onClick={(e) => e.target === e.currentTarget && onClose()} style={{
     position: 'fixed',
     inset: 0,
     background: 'rgba(0,0,0,.5)',
@@ -6524,7 +6564,7 @@ const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const q
         overflowY: 'auto',
         padding: '18px 22px'
       }}>
-          <div style={{
+          <div className="worksheet-product-header" style={{
           display: 'flex',
           alignItems: 'center',
           gap: 14,
