@@ -200,6 +200,75 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 @media(min-width:761px) and (max-height:700px){.workrun-screen>.app-topbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto;gap:10px;min-height:64px;padding:6px 12px}.workrun-screen .topbar-context{grid-column:1;grid-row:1}.workrun-screen .topbar-title{grid-column:2;grid-row:1;text-align:center;font-size:18px}.workrun-screen .app-topbar>.lang-user{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px;max-width:none}}
 @media(max-width:760px){.workrun-screen .workrun-layout{display:flex!important;flex-direction:column!important;overflow:auto!important}.workrun-screen .workrun-layout>.workrun-observe,.workrun-screen .workrun-layout>.workrun-controls{flex:none!important;overflow:visible!important}.workrun-camera-card .qr-camera-video{height:clamp(180px,28dvh,280px)}}
 
+
+/* Shape photos and descriptions stay in one numbered card. */
+.shape-point-list{display:grid;gap:14px;min-width:0}
+.shape-point-card{border:1px solid #D5DBE3;border-radius:10px;padding:12px;background:#FAFBFC;min-width:0}
+.shape-point-heading{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:10px;color:#17365D}
+.shape-point-description{font-size:15px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;color:#2A3340}
+.shape-point-edit-row{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr);gap:16px;align-items:start;min-width:0}
+.shape-point-edit-row>.photo-slot{min-width:0}
+@media(max-width:640px){.shape-point-edit-row{grid-template-columns:minmax(0,1fr)}.shape-point-card{padding:10px}.shape-point-card img{height:190px!important}}
+
+/* Readable product photos: use available width, with bounded media heights. */
+.product-info{container-type:inline-size;min-width:0;width:100%;font-size:18px}
+.product-info .panel-h{font-size:19px;padding:8px 12px;line-height:1.4}
+.product-info .panel{min-width:0}
+.product-info .bi-sub{font-size:.78em;line-height:1.4}
+.product-info img[role="button"]{width:100%!important;height:clamp(220px,32dvh,330px)!important;max-height:none!important;object-fit:contain!important}
+.product-info .info-overview-grid,.product-info .hanger-overview-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))!important;gap:12px!important;align-items:start}
+.product-info .info-card-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr))!important;gap:12px!important}
+.product-info .info-box-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr))!important;gap:12px!important}
+.product-info .shape-overview-grid{grid-template-columns:minmax(0,1fr)!important;gap:0!important}
+.product-info .shape-point-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.product-info .shape-point-card{padding:10px;position:relative}
+.product-info .shape-point-heading{font-size:18px;margin:0;position:absolute;top:16px;left:16px;z-index:1}
+.product-info .shape-point-description{font-size:20px;line-height:1.6;margin-top:10px}
+.product-info .info-step-list{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr))!important;gap:12px!important}
+.product-info .info-step-row{display:grid!important;grid-template-columns:30px minmax(180px,.9fr) minmax(0,1.2fr);gap:12px!important;padding:12px!important;align-items:start}
+.product-info .info-step-row:not(:has(img)){grid-template-columns:30px minmax(0,1fr)}
+.product-info .info-step-row img{height:clamp(180px,25dvh,250px)!important}
+.product-info .info-box-row{display:grid!important;grid-template-columns:minmax(210px,1fr) minmax(0,1fr);gap:12px!important;padding:12px!important}
+.product-info .kanban-info-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,470px),1fr))}
+.product-info .kanban-info-detail>div{font-size:18px;grid-template-columns:minmax(120px,.8fr) minmax(0,1.2fr)}
+.product-info .kanban-info-list>.panel{display:flex;flex-direction:column}
+.product-info .kanban-info-list>div:last-child{grid-column:1/-1}
+.sheet-readable-steps{container-type:inline-size;min-width:0}
+.sheet-readable-row{display:grid!important;grid-template-columns:30px minmax(170px,.9fr) minmax(0,1.2fr);align-items:start;gap:12px!important;padding:12px!important}
+.sheet-readable-row:not(:has(img)){grid-template-columns:30px minmax(0,1fr)}
+.sheet-readable-row>div:last-child{font-size:19px!important;line-height:1.65!important;min-width:0}
+.sheet-readable-row img{width:100%!important;height:clamp(180px,25dvh,260px)!important;object-fit:contain!important}
+.master-editor-dialog .photo-slot img,.master-editor-dialog .photo-slot>button{max-width:100%!important;width:100%!important;height:clamp(170px,26dvh,240px)!important;object-fit:contain!important}
+.master-editor-dialog .photo-slot>div:has(>img){display:block!important;width:100%!important}
+.master-editor-dialog .photo-slot-hint{max-width:none;font-size:12px}
+.master-editor-dialog textarea{font-size:18px!important}
+.master-editor-dialog textarea[style*="font-size: 12"]{font-size:15px!important}
+.master-editor-dialog .shape-point-edit-row{grid-template-columns:minmax(220px,.8fr) minmax(0,1.7fr)}
+.info-screen{height:100dvh!important;min-height:0!important;overflow:hidden}
+.info-screen>.info-workspace{flex:1!important;min-height:0!important;display:flex!important;flex-direction:column!important}
+.info-screen .info-workspace>.info-main{width:100%!important;max-height:none!important;min-height:0!important;min-width:0!important;padding:0!important;display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important}
+.info-screen .info-main>.info-toolbar{display:flex!important;flex-direction:row;align-items:center;gap:10px;padding:6px 12px;background:white;min-height:0;flex:none!important;border-bottom:1px solid #E3E7ED}
+.info-process-picker{width:240px;flex:0 0 240px;min-width:0}
+.info-process-picker .bi-select-button{font-size:14px;padding:6px 9px;min-height:44px}
+.info-screen .info-main .info-tabs{display:flex!important;flex:1!important;min-width:0!important;overflow-x:auto!important;padding:0!important;border:0!important;gap:6px!important}
+.info-screen .info-tabs>button{font-size:15px!important;padding:6px 12px!important;min-height:44px}
+.info-screen .info-main>.info-content{display:block!important;min-height:0!important;min-width:0!important;flex:1!important;overflow-y:auto!important;overscroll-behavior:contain;padding:10px 14px!important}
+.info-identity{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;margin-bottom:10px;font-size:17px;color:#4A5460;min-width:0}
+.info-identity>strong{font-size:24px;color:#12306B;overflow-wrap:anywhere}
+.info-identity>span{min-width:0;overflow-wrap:anywhere}
+.info-product-name{flex:1}
+.info-video-button{padding:6px 10px;background:#E8F0FB;border-radius:8px;color:#12306B;font-size:14px;min-height:40px}
+.info-video-button:disabled{display:none}
+.info-screen .info-main>.app-footer{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:8px;padding:6px 12px!important;overflow-x:auto;min-height:52px;flex:none!important}
+.info-screen .app-footer .footer-context{display:flex;flex-wrap:nowrap;flex:1 0 auto!important;gap:6px}
+.info-screen .app-footer .footer-actions{display:flex;align-items:center;flex:0 0 auto!important;margin-left:auto;gap:6px}
+.info-screen .app-footer .footer-actions>div{flex-wrap:nowrap;gap:6px}
+.info-screen .app-footer button{font-size:14px;padding:6px 12px!important;min-height:40px!important;width:auto!important;white-space:nowrap}
+@container(min-width:650px){.product-info .shape-point-list.is-single .shape-point-card{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px 16px;align-items:start}.product-info .shape-point-list.is-single .shape-point-description{margin-top:0}}
+@container(max-width:600px){.product-info .info-step-row,.product-info .info-box-row{grid-template-columns:minmax(0,1fr)}.product-info .info-step-row:not(:has(img)){grid-template-columns:30px minmax(0,1fr)}.product-info .info-step-row>span:first-child{grid-column:1/-1}.product-info .info-step-row img{height:210px!important}.product-info .kanban-info-detail>div{grid-template-columns:minmax(0,1fr)}}
+@container(max-width:480px){.sheet-readable-row{grid-template-columns:30px minmax(0,1fr)}.sheet-readable-row img{grid-column:2;height:190px!important}.sheet-readable-row>div:last-child{grid-column:2}}
+@media(min-width:761px){.info-screen>.app-topbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto;gap:10px;min-height:64px;padding:6px 12px}.info-screen .topbar-context{grid-column:1;grid-row:1}.info-screen .topbar-title{grid-column:2;grid-row:1;text-align:center;font-size:20px}.info-screen .app-topbar>.lang-user{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px;max-width:none}}
+@media(max-width:760px){.info-screen .info-main>.info-toolbar{flex-wrap:wrap;gap:6px;padding:6px 10px}.info-process-picker{width:100%;flex:1 0 100%}.info-screen .info-main .info-tabs{flex:1 0 100%!important}.info-screen .app-topbar{min-height:0;padding:8px 12px;gap:5px;grid-template-columns:minmax(0,1fr) auto}.info-screen .topbar-title{font-size:18px;grid-column:1;grid-row:1}.info-screen .topbar-context{grid-column:1;grid-row:2}.info-screen .app-topbar>.lang-user{grid-column:2;grid-row:1/3;max-width:140px;flex-wrap:wrap;gap:3px}.info-screen .user-name{font-size:12px}.info-identity{font-size:16px;gap:4px 10px}.info-identity>strong{font-size:21px}.info-screen .info-main>.info-content{padding:10px!important}.master-editor-dialog .shape-point-edit-row{grid-template-columns:minmax(0,1fr)}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -2131,63 +2200,24 @@ function InfoViewer({
     flexDirection: 'column'
   }}>
       <TopBar title={page.ja} onBack={onBack} user={user} />
-      <div style={{
+      <div className="info-workspace" style={{
       flex: 1,
       display: 'flex',
       minHeight: 0
     }}>
-        {/* 左サイドバー：工程一覧 */}
-        <div style={{
-        width: 250,
-        background: '#fff',
-        borderRight: '1px solid ' + LINE,
-        overflowY: 'auto',
-        flexShrink: 0,
-        padding: '14px 12px'
-      }}>
-          <div style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: BLUE,
-          padding: '2px 6px 10px'
-        }}><BiText value={b('工程一覧')} /></div>
-          <BiText value={PROCESSES.map((p) => {
-          const on = p.id === proc.id;
-          return <button key={p.id} onClick={() => onChangeProc(p)} style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '11px 10px',
-            marginBottom: 5,
-            borderRadius: 8,
-            textAlign: 'left',
-            background: on ? '#E8F0FB' : '#fff',
-            border: '1px solid ' + (on ? '#C3D6F0' : LINE)
-          }}>
-                <NumBadge n={p.no} size={24} bg={on ? NAVY : '#5A6472'} />
-                <span style={{
-              fontSize: 12
-            }}><BiText value={p.icon} /></span>
-                <span style={{
-              fontSize: 12.5,
-              fontWeight: on ? 700 : 600,
-              color: on ? NAVY : '#3A4552',
-              lineHeight: 1.4,
-              flex: 1
-            }}><BiText value={p.ja} /></span>
-              </button>;
-        })} />
-        </div>
         {/* 右：情報ページ */}
-        <div style={{
+        <div className="info-main" style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0
       }}>
           {/* 情報項目タブ */}
-          <div style={{
+          <div className="info-toolbar">
+            <div className="info-process-picker"><LocalizedSelect aria-label="工程を選択" value={proc.id} onChange={(e) => {const next=procById(e.target.value);if(next)onChangeProc(next);}}>
+              {PROCESSES.map((p) => <LocalizedOption key={p.id} value={p.id}>{p.no + '. ' + p.ja}</LocalizedOption>)}
+            </LocalizedSelect></div>
+          <div className="info-tabs" style={{
           display: 'flex',
           gap: 6,
           padding: '10px 20px',
@@ -2216,72 +2246,16 @@ function InfoViewer({
               }}><BiText value={p.icon} /></span><BiText value={p.ja} />
                 </button>;
           })} />
-          </div>
-          <div style={{
+          </div></div>
+          <div className="info-content" style={{
           flex: 1,
           overflowY: 'auto',
           padding: '18px 24px'
         }}>
-            {/* ページ見出し */}
-            <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 16,
-            marginBottom: 14,
-            flexWrap: 'wrap'
-          }}>
-              <div style={{
-              flex: 1,
-              minWidth: 280
-            }}>
-                <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12
-              }}>
-                  <NumBadge n={page.no} size={32} />
-                  <div style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: BLUE
-                }}><BiText value={page.ja} /></div>
-                </div>
-              </div>
-              <div style={{
-              background: '#fff',
-              border: '1px solid ' + LINE,
-              borderRadius: 10,
-              padding: '12px 18px',
-              minWidth: 270
-            }}>
-                <BiText value={[[b('呼称'), hinban], [b('品番'), m.partNo || '—'], [b('品名'), dv(m, 'name', lang) || '—'], [b('更新日'), m.updatedAt || '—']].map(([k, v]) => <div key={k} style={{
-                display: 'flex',
-                gap: 12,
-                fontSize: 14,
-                lineHeight: 1.9
-              }}>
-                    <span style={{
-                  color: '#6B7480',
-                  minWidth: 88
-                }}><BiText value={k} /></span><span style={{
-                  fontWeight: 600
-                }}>：<BiText value={v} /></span>
-                  </div>)} />
-              </div>
-              <button onClick={() => m.videoUrl ? setVideo(true) : showBiDialog("alert", t('動画が未登録です'))} style={{
-              minHeight: 46,
-              padding: '0 20px',
-              borderRadius: 8,
-              background: m.videoUrl ? '#E8F0FB' : '#F2F4F7',
-              color: m.videoUrl ? NAVY : '#9AA3AF',
-              fontSize: 15,
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
-            }}>
-                ▶ <BiText value={t('作業動画を再生')} />
-              </button>
+            <div className="info-identity">
+              <strong>{hinban}</strong><span><BiText value="品番" />：{m.partNo || '—'}</span>
+              <span className="info-product-name"><BiText value={m.name || ''} other={m.name_id || ''} source="ja" /></span>
+              <button className="info-video-button" onClick={() => m.videoUrl ? setVideo(true) : showBiDialog('alert', t('動画が未登録です'))} disabled={!m.videoUrl}>▶ <BiText value="作業動画を再生" /></button>
             </div>
             <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} allMaster={master} />
           </div>
@@ -2294,7 +2268,23 @@ function InfoViewer({
 }
 
 /* ── 各情報ページの中身 ── */
-function PageBody({
+// Pair legacy photo slots with the same numbered explanation, without compacting gaps.
+function shapePointItems(shape = {}) {
+  const points = Array.isArray(shape.points) ? shape.points : [];
+  const photos = shape.pointPhotosPaired ? [] : [shape.img, shape.img2, shape.img3];
+  let length = points.length;
+  photos.forEach((photo, i) => { if (photo) length = Math.max(length, i + 1); });
+  return Array.from({ length }, (_, i) => ({
+    ...(points[i] || {}),
+    img: Object.prototype.hasOwnProperty.call(points[i] || {}, 'img') ? points[i].img || '' : photos[i] || ''
+  }));
+}
+
+function PageBody(props) {
+  return <section className="product-info" data-info-page={props.pageKey}><PageContent {...props} /></section>;
+}
+
+function PageContent({
   pageKey,
   m,
   hinban,
@@ -2323,11 +2313,11 @@ function PageBody({
   }}><BiText value={children} /></div>;
   const none = <div style={{
     color: '#9AA3AF',
-    fontSize: 14,
+    fontSize: 18,
     padding: '8px 0'
   }}><BiText value={t('未登録')} /></div>;
   const txt = (s) => s ? <div style={{
-    fontSize: 14.5,
+    fontSize: 18,
     lineHeight: 1.85,
     whiteSpace: 'pre-wrap',
     color: '#2A3340'
@@ -2335,7 +2325,7 @@ function PageBody({
   const L = (o, k) => dv(o, k, lang);
   if (pageKey === 'product') {
     return <>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))',
         gap: 14
@@ -2356,7 +2346,7 @@ function PageBody({
               marginBottom: 4
             }}>{hinban}</div>
           <BiText value={m.partNo && <div style={{
-              fontSize: 16,
+              fontSize: 18,
               color: '#5A6472',
               marginBottom: 4
             }}><BiText value={b('品番')} />：<b style={{
@@ -2376,7 +2366,7 @@ function PageBody({
             <BiText value={(m.procIds || []).map((pid) => {
                 const pp = procById(pid);
                 return pp ? <span key={pid} style={{
-                  fontSize: 11.5,
+                  fontSize: 18,
                   fontWeight: 700,
                   padding: '3px 9px',
                   borderRadius: 5,
@@ -2390,7 +2380,7 @@ function PageBody({
               alignItems: 'center',
               gap: 16
             }}><QRDisplay value={m.qrText} size={120} /><div style={{
-                fontSize: 12,
+                fontSize: 18,
                 color: '#6B7480',
                 wordBreak: 'break-all'
               }}>{m.qrText}</div></div>} />
@@ -2400,68 +2390,25 @@ function PageBody({
     </>;
   }
   if (pageKey === 'shape') {
-    const pts = m.shape?.points || [],
+    const pts = shapePointItems(m.shape),
       sims = m.shape?.similars || [];
     return <>
-      <div style={{
-        fontSize: 14,
-        color: '#5A6472',
-        marginBottom: 12
-      }}><BiText value={"\u3053\u306E\u54C1\u756A\u3092\u3001\u985E\u4F3C\u54C1\u3068\u898B\u5206\u3051\u308B\u305F\u3081\u306E\u5F62\u72B6\u306E\u7279\u5FB4\u3067\u3059\u3002\u4F5C\u696D\u524D\u306B\u5FC5\u305A\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid shape-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(320px,1fr) minmax(340px,1.3fr)',
         gap: 14,
         alignItems: 'start'
       }}>
-        <P><H>{hinban}（<BiText value={b('本品の特徴')} />）</H><Body>
-          <BiText value={(() => {
-              const imgs = [m.shape?.img, m.shape?.img2, m.shape?.img3].filter(Boolean);
-              return imgs.length ? <div className="responsive-grid" style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${imgs.length},1fr)`,
-                gap: 8,
-                marginBottom: 12
-              }}>
-                <BiText value={imgs.map((u, i) => <TapPhoto key={i} src={u} style={{
-                  width: '100%',
-                  height: imgs.length > 1 ? 150 : 250,
-                  objectFit: 'contain',
-                  borderRadius: 8,
-                  background: '#F0F2F5',
-                  display: 'block'
-                }} ratio={150} />)} />
-              </div> : <div style={{
-                marginBottom: 12
-              }}><TapPhoto src="" ratio={200} /></div>;
-            })()} />
-          <div style={{
-              display: 'flex',
-              gap: 14,
-              flexWrap: 'wrap'
-            }}>
-            <div style={{
-                flex: 1,
-                minWidth: 180,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12
-              }}>
-              <BiText value={pts.length ? pts.map((p, i) => <div key={i} style={{
-                  display: 'flex',
-                  gap: 10
-                }}>
-                  <NumBadge n={i + 1} size={22} bg="#C0392B" />
-                  <span style={{
-                    fontSize: 14,
-                    lineHeight: 1.7,
-                    color: '#2A3340'
-                  }}><BiText value={L(p, 'text')} /></span>
-                </div>) : none} />
-            </div>
+        <P><Body>
+          <div className={'shape-point-list' + (pts.length === 1 ? ' is-single' : '')}>
+            {pts.length ? pts.map((point, i) => <article className="shape-point-card" key={i}>
+              <div className="shape-point-heading"><NumBadge n={i + 1} size={28} bg="#C0392B" /></div>
+              {point.img && <TapPhoto src={point.img} caption={point.text || ''} style={{width:'100%',height:220,objectFit:'contain',borderRadius:8,background:'#F0F2F5',display:'block'}} ratio={220} />}
+              <div className="shape-point-description">{point.text || point.text_id ? <BiText value={point.text || ''} other={point.text_id || ''} source="ja" /> : none}</div>
+            </article>) : none}
           </div>
         </Body></P>
-        <P><H><BiText value={b('類似品との違い')} /></H><Body>
+        {sims.length > 0 && <P><H><BiText value={b('類似品との違い')} /></H><Body>
           <div className="responsive-grid" style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${Math.max(1, Math.min(3, sims.length || 1))},1fr)`,
@@ -2476,7 +2423,7 @@ function PageBody({
                   background: '#6B7480',
                   color: '#fff',
                   padding: '7px 10px',
-                  fontSize: 13,
+                  fontSize: 18,
                   fontWeight: 700,
                   textAlign: 'center'
                 }}><BiText value={'類似品'} />：<BiText value={L(s, 'name') || '—'} /></div>
@@ -2491,21 +2438,21 @@ function PageBody({
                   padding: '10px'
                 }}>
                   <BiText value={dva(s, 'diffs', lang).map((d, j) => <div key={j} style={{
-                    fontSize: 12.5,
+                    fontSize: 18,
                     lineHeight: 1.7,
                     color: '#2A3340'
                   }}>・<BiText value={d} /></div>)} />
                 </div>
               </div>) : none} />
           </div>
-        </Body></P>
+        </Body></P>}
       </div>
       <WarnBox items={(m.shape?.notes || []).length ? dva(m.shape, 'notes', lang) : ['上記のポイントを確認し、類似品と間違えないようにしてください。', '不明な場合は、必ず管理者に確認してください。']} />
     </>;
   }
   if (pageKey === 'teekin') {
     return <>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,320px),1fr))',
         gap: 14
@@ -2527,11 +2474,11 @@ function PageBody({
       sp = m.hanger?.spec || [];
     return <>
       <div style={{
-        fontSize: 14,
+        fontSize: 18,
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u3067\u4F7F\u7528\u3059\u308B\u30CF\u30F3\u30AC\u30FC\u306E\u5199\u771F\u3068\u4ED5\u69D8\u3067\u3059\u3002"} /></div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid hanger-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(260px,1fr) minmax(300px,1.1fr) minmax(280px,1fr)',
         gap: 14,
@@ -2545,7 +2492,7 @@ function PageBody({
               display: 'block'
             }} ratio={300} /></Body></P>
         <P><H><BiText value={b('主な特徴')} /></H><Body>
-          <div className="responsive-grid" style={{
+          <div className="responsive-grid info-card-grid" style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: 12
@@ -2563,7 +2510,7 @@ function PageBody({
                   background: LBLUE
                 }}>
                   <NumBadge n={i + 1} size={20} /><span style={{
-                    fontSize: 12.5,
+                    fontSize: 18,
                     fontWeight: 700,
                     color: BLUE
                   }}><BiText value={L(x, 'title')} /></span>
@@ -2577,7 +2524,7 @@ function PageBody({
                 }} ratio={120} />
                 <div style={{
                   padding: '8px 10px',
-                  fontSize: 12.5,
+                  fontSize: 18,
                   lineHeight: 1.6,
                   color: '#2A3340',
                   whiteSpace: 'pre-wrap'
@@ -2594,14 +2541,14 @@ function PageBody({
                 <div style={{
                   width: 130,
                   padding: '10px 12px',
-                  fontSize: 13,
+                  fontSize: 18,
                   color: '#5A6472',
                   background: '#F7F9FC',
                   flexShrink: 0
                 }}><BiText value={r.k} /></div>
                 <div style={{
                   padding: '10px 12px',
-                  fontSize: 13.5,
+                  fontSize: 18,
                   fontWeight: 600,
                   color: '#2A3340'
                 }}><BiText value={r.v} /></div>
@@ -2616,13 +2563,13 @@ function PageBody({
             padding: '12px 16px'
           }}>
               <div style={{
-              fontSize: 13,
+              fontSize: 18,
               fontWeight: 700,
               color: BLUE,
               marginBottom: 6
             }}><BiText value={b('使用時の注意')} /></div>
               <BiText value={dva(m.hanger, 'cautions', lang).map((c, i) => <div key={i} style={{
-              fontSize: 13,
+              fontSize: 18,
               lineHeight: 1.75,
               color: '#2A3340'
             }}>・<BiText value={c} /></div>)} />
@@ -2635,12 +2582,12 @@ function PageBody({
     const st = m.steps || [];
     return <>
       <P><H><BiText value={b('作業の流れ')} /></H><Body>
-        <BiText value={st.length ? <div style={{
+        <BiText value={st.length ? <div className="info-step-list" style={{
             display: 'flex',
             flexDirection: 'column',
             gap: 12
           }}>
-            <BiText value={st.map((s, i) => <div key={i} style={{
+            <BiText value={st.map((s, i) => <div className="info-step-row" key={i} style={{
               display: 'flex',
               gap: 14,
               alignItems: 'flex-start',
@@ -2660,7 +2607,7 @@ function PageBody({
               }} ratio={100} />} />
                 <div style={{
                 flex: 1,
-                fontSize: 15,
+                fontSize: 18,
                 lineHeight: 1.8,
                 color: '#2A3340',
                 whiteSpace: 'pre-wrap'
@@ -2690,11 +2637,11 @@ function PageBody({
                 <span style={{
                 color: '#C2410C',
                 fontWeight: 800,
-                fontSize: 17,
+                fontSize: 18,
                 flexShrink: 0
               }}>!</span>
                 <span style={{
-                fontSize: 15,
+                fontSize: 18,
                 lineHeight: 1.75,
                 color: '#7A3A08',
                 whiteSpace: 'pre-wrap'
@@ -2708,11 +2655,11 @@ function PageBody({
     const ts = m.tools || [];
     return <>
       <div style={{
-        fontSize: 14,
+        fontSize: 18,
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u4F5C\u696D\u3067\u4F7F\u7528\u3059\u308B\u9053\u5177\u30FB\u5099\u54C1\u3067\u3059\u3002\u4F5C\u696D\u524D\u306B\u6E96\u5099\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-card-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
         gap: 12
@@ -2726,7 +2673,7 @@ function PageBody({
             background: LBLUE
           }}>
               <NumBadge n={i + 1} size={21} /><span style={{
-              fontSize: 13,
+              fontSize: 18,
               fontWeight: 700,
               color: BLUE
             }}><BiText value={L(x, 'name')} /></span>
@@ -2740,7 +2687,7 @@ function PageBody({
           }} ratio={135} />
             <div style={{
             padding: '9px 11px',
-            fontSize: 12.5,
+            fontSize: 18,
             lineHeight: 1.65,
             color: '#2A3340',
             whiteSpace: 'pre-wrap'
@@ -2755,11 +2702,11 @@ function PageBody({
       pats = pk.patterns || [];
     return <>
       <div style={{
-        fontSize: 14,
+        fontSize: 18,
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u53CE\u5BB9\u6570\u3068\u68B1\u5305\u8377\u59FF\u306F\u4EE5\u4E0B\u306E\u901A\u308A\u3067\u3059\u3002\u4F5C\u696D\u6642\u306B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14,
@@ -2780,12 +2727,12 @@ function PageBody({
                   textAlign: 'center'
                 }}>
                 <div style={{
-                    fontSize: 13,
+                    fontSize: 18,
                     color: '#5A6472',
                     marginBottom: 6
                   }}>
                   <BiText value={proc ? <><BiText value={b('この工程の収容数')} /><br /><span style={{
-                        fontSize: 12,
+                        fontSize: 18,
                         color: BLUE,
                         fontWeight: 700
                       }}>（<BiText value={proc.ja} />）</span></> : b('1箱あたりの収容数')} />
@@ -2804,7 +2751,7 @@ function PageBody({
                   marginTop: 12
                 }}>
                   <div style={{
-                    fontSize: 12.5,
+                    fontSize: 18,
                     fontWeight: 700,
                     color: procVaries ? '#C2410C' : BLUE,
                     marginBottom: 7
@@ -2829,7 +2776,7 @@ function PageBody({
                       }}>
                           <NumBadge n={x.proc.no} size={21} bg={on ? NAVY : '#5A6472'} />
                           <span style={{
-                          fontSize: 12.5,
+                          fontSize: 18,
                           color: on ? NAVY : '#5A6472',
                           fontWeight: on ? 700 : 500,
                           flex: 1,
@@ -2843,7 +2790,7 @@ function PageBody({
                           color: NAVY,
                           fontVariantNumeric: 'tabular-nums'
                         }}><BiText value={x.capacity} /><span style={{
-                            fontSize: 11,
+                            fontSize: 18,
                             marginLeft: 2,
                             color: '#6B7480'
                           }}><BiText value={"\u500B"} /></span></span>
@@ -2859,16 +2806,16 @@ function PageBody({
                       padding: '7px 12px'
                     }}>
                         <span style={{
-                        fontSize: 12.5,
+                        fontSize: 18,
                         color: '#6B7480',
                         flex: 1
                       }}><BiText value={"\u4E0A\u8A18\u4EE5\u5916\u306E\u5DE5\u7A0B\uFF08"} /><BiText value={b('代表の収容数')} />）</span>
                         <span style={{
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: 700,
                         color: '#5A6472'
                       }}><BiText value={pk.capacity} /><span style={{
-                          fontSize: 11,
+                          fontSize: 18,
                           marginLeft: 2
                         }}><BiText value={"\u500B"} /></span></span>
                       </div>} />
@@ -2878,7 +2825,7 @@ function PageBody({
                   marginTop: 12
                 }}>
                   <div style={{
-                    fontSize: 12.5,
+                    fontSize: 18,
                     fontWeight: 700,
                     color: '#C2410C',
                     marginBottom: 7
@@ -2899,7 +2846,7 @@ function PageBody({
                     }}>
                         <NumBadge n={i + 1} size={21} />
                         <span style={{
-                        fontSize: 12.5,
+                        fontSize: 18,
                         color: '#5A6472',
                         flex: 1,
                         overflow: 'hidden',
@@ -2912,7 +2859,7 @@ function PageBody({
                         color: NAVY,
                         fontVariantNumeric: 'tabular-nums'
                       }}><BiText value={x.capacity || '—'} /><span style={{
-                          fontSize: 11,
+                          fontSize: 18,
                           marginLeft: 2,
                           color: '#6B7480'
                         }}><BiText value={"\u500B"} /></span></span>
@@ -2931,7 +2878,7 @@ function PageBody({
             }} ratio={170} /></Body></P>
       </div>
       <P><H><BiText value={b('梱包荷姿')} /><BiText value={"\uFF08\u6700\u59274\u7A2E\u985E\uFF09"} /></H><Body>
-        <div className="responsive-grid" style={{
+        <div className="responsive-grid info-card-grid" style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, pats.length || 1))},1fr)`,
             gap: 12
@@ -2950,7 +2897,7 @@ function PageBody({
                 background: LBLUE
               }}>
                 <span style={{
-                  fontSize: 13,
+                  fontSize: 18,
                   fontWeight: 700,
                   color: BLUE
                 }}><BiText value={b('梱包荷姿')} /></span><NumBadge n={i + 1} size={20} />
@@ -2966,12 +2913,12 @@ function PageBody({
                 padding: '10px'
               }}>
                 <div style={{
-                  fontSize: 12.5,
+                  fontSize: 18,
                   color: '#2A3340',
                   lineHeight: 1.8
                 }}><BiText value={b('仕切り')} />：<BiText value={L(p, 'divider') || '—'} /></div>
                 <div style={{
-                  fontSize: 12.5,
+                  fontSize: 18,
                   color: '#2A3340',
                   lineHeight: 1.8
                 }}><BiText value={b('向き')} />：<BiText value={L(p, 'direction') || '—'} /></div>
@@ -2983,7 +2930,7 @@ function PageBody({
                   padding: '7px 4px'
                 }}>
                   <div style={{
-                    fontSize: 10.5,
+                    fontSize: 18,
                     color: '#6B7480'
                   }}><BiText value={b('収容数')} /></div>
                   <div style={{
@@ -2993,7 +2940,7 @@ function PageBody({
                     lineHeight: 1.15,
                     fontVariantNumeric: 'tabular-nums'
                   }}><BiText value={p.capacity || (proc ? capacityOf(m, proc.id) : 0) || pk.capacity || '—'} /><span style={{
-                      fontSize: 12,
+                      fontSize: 18,
                       marginLeft: 2,
                       color: '#6B7480'
                     }}><BiText value={"\u500B"} /></span></div>
@@ -3022,12 +2969,12 @@ function PageBody({
           fontSize: 20
         }}>🗃</span>
         <span style={{
-          fontSize: 14,
+          fontSize: 18,
           fontWeight: 700,
           color: BLUE
         }}><BiText value={"\u7D0D\u5165\u7BB1\u306E\u78BA\u8A8D\u3092\u884C\u3044\u307E\u3059\u3002\u88FD\u54C1\u306E\u5165\u3063\u305F\u7BB1\u3092\u78BA\u8A8D\u3057\u3001\u6307\u5B9A\u306E\u5834\u6240\u306B\u7D0D\u3081\u3066\u304F\u3060\u3055\u3044\u3002"} /></span>
       </div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-box-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14
@@ -3042,13 +2989,13 @@ function PageBody({
           }}>
               <NumBadge n={i + 1} size={26} />
               <span style={{
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 700,
               color: BLUE,
               flex: 1
             }}><BiText value={L(x, 'name')} /></span>
               <span style={{
-              fontSize: 11.5,
+              fontSize: 18,
               fontWeight: 700,
               padding: '4px 10px',
               borderRadius: 5,
@@ -3056,7 +3003,7 @@ function PageBody({
               color: x.inUse ? '#7A5A00' : '#6B7480'
             }}><BiText value={x.inUse ? b('使用中') : b('未使用')} /></span>
             </div>
-            <div style={{
+            <div className="info-box-row" style={{
             padding: 14,
             display: 'flex',
             gap: 14
@@ -3081,11 +3028,11 @@ function PageBody({
               }}>
                     <NumBadge n={j + 1} size={19} />
                     <div><div style={{
-                    fontSize: 13,
+                    fontSize: 18,
                     fontWeight: 700,
                     color: BLUE
                   }}><BiText value={L(s, 'title')} /></div><div style={{
-                    fontSize: 12,
+                    fontSize: 18,
                     color: '#5A6472',
                     lineHeight: 1.55
                   }}><BiText value={L(s, 'desc')} /></div></div>
@@ -3098,7 +3045,7 @@ function PageBody({
             display: 'flex',
             gap: 16,
             flexWrap: 'wrap',
-            fontSize: 12.5,
+            fontSize: 18,
             color: '#5A6472'
           }}>
               <span><BiText value={b('外寸')} />：<BiText value={x.size || '—'} /></span><span>|</span>
@@ -3113,11 +3060,11 @@ function PageBody({
     const im = m.idMark || {};
     return <>
       <div style={{
-        fontSize: 14,
+        fontSize: 18,
         color: '#5A6472',
         marginBottom: 12
       }}><BiText value={"\u3053\u306E\u54C1\u756A\u306E\u8B58\u5225\u30DE\u30FC\u30AF\u306F\u4EE5\u4E0B\u306E\u901A\u308A\u3067\u3059\u3002\u88FD\u54C1\u306E\u8B58\u5225\u30FB\u5DE5\u7A0B\u7BA1\u7406\u306B\u4F7F\u7528\u3057\u307E\u3059\u3002"} /></div>
-      <div className="responsive-grid" style={{
+      <div className="responsive-grid info-overview-grid" style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 14
@@ -3131,7 +3078,7 @@ function PageBody({
               display: 'block'
             }} ratio={260} />
           <div style={{
-              fontSize: 13.5,
+              fontSize: 18,
               color: '#2A3340',
               marginTop: 10
             }}><BiText value={L(im, 'fullNote') || '製品に付いている識別マークの位置（全体）'} /></div>
@@ -3145,12 +3092,12 @@ function PageBody({
               display: 'block'
             }} ratio={260} />
           <div style={{
-              fontSize: 13.5,
+              fontSize: 18,
               color: '#2A3340',
               marginTop: 10
             }}><BiText value={L(im, 'zoomNote') || '識別マークの拡大写真'} /></div>
           <BiText value={im.markType && <div style={{
-              fontSize: 14,
+              fontSize: 18,
               fontWeight: 700,
               color: '#C0392B',
               marginTop: 6
@@ -3169,7 +3116,7 @@ function PageBody({
           textAlign: 'center'
         }}>
           <div style={{
-            fontSize: 14,
+            fontSize: 18,
             color: '#5A6472',
             marginBottom: 10
           }}><BiText value={"\u30ED\u30B1\u756A\u53F7 / Nomor Lokasi"} /></div>
@@ -3196,7 +3143,7 @@ function PageBody({
             textAlign: 'center'
           }}>
             <BiText value={m.qrText ? <><QRDisplay value={m.qrText} size={180} /><div style={{
-                fontSize: 12,
+                fontSize: 18,
                 color: '#6B7480',
                 marginTop: 10,
                 wordBreak: 'break-all'
@@ -3211,11 +3158,11 @@ function PageBody({
               borderRadius: 10,
               background: NAVY,
               color: '#fff',
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 700
             }}>▦ <BiText value={b('QR照合')} /></button> : <div style={{
               marginTop: 14,
-              fontSize: 12,
+              fontSize: 18,
               color: '#9AA3AF'
             }}>※ <BiText value={t('QRスキャナー導入後に利用できます')} /></div>} />
           </div>
@@ -3225,7 +3172,7 @@ function PageBody({
             textAlign: 'center'
           }}>
             <BiText value={m.kanbanQr ? <><QRDisplay value={m.kanbanQr} size={180} /><div style={{
-                fontSize: 12,
+                fontSize: 18,
                 color: '#6B7480',
                 marginTop: 10,
                 wordBreak: 'break-all'
@@ -3240,11 +3187,11 @@ function PageBody({
               borderRadius: 10,
               background: m.kanbanQr ? '#D97706' : '#C7CDD6',
               color: '#fff',
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 700
             }}><BiText value={"\u25A6 \u304B\u3093\u3070\u3093\u7167\u5408"} /></button> : <div style={{
               marginTop: 14,
-              fontSize: 12,
+              fontSize: 18,
               color: '#9AA3AF'
             }}>※ <BiText value={t('QRスキャナー導入後に利用できます')} /></div>} />
           </div>
@@ -4290,34 +4237,22 @@ function EditorBody({
   if (tab === 'shape') {
     const sh = d.shape || {};
     return <>
-      <FLbl><BiText value={"\u672C\u54C1\u306E\u5199\u771F\uFF08\u6700\u59273\u679A\uFF09"} /></FLbl>
-      <div style={{
-        display: 'flex',
-        gap: 12,
-        flexWrap: 'wrap'
-      }}>
-        <BiText value={['img', 'img2', 'img3'].map((k, i) => <ImgSlot key={k} label={`写真${i + 1}`} url={sh[k]} busy={busy === 'shape/' + k} h={150} onPick={(f) => upImg('shape/' + k, f, (u) => sub('shape', {
-          [k]: u
-        }))} onClear={() => sub('shape', {
-          [k]: ''
-        })} onApply={(u) => sub('shape', { [k]: u })} onPasteUpload={(f, applyPastedPhoto) => upImg('shape/' + k, f, applyPastedPhoto)} imageKey={hinban + ":" + ('shape/' + k)} targetOwner={sh} />)} />
+      <FLbl><BiText value="形状確認ポイント（写真と説明）" /></FLbl>
+      <div className="shape-point-editor">
+        <RepList items={shapePointItems(sh)} onChange={(points) => sub('shape', {
+          points, pointPhotosPaired: true, img: '', img2: '', img3: ''
+        })} addLabel="写真と説明を追加" blank={{img:'',text:'',text_id:''}} render={(it, set, i) => <div className="shape-point-edit-row">
+          <ImgSlot label="写真" url={it.img} busy={busy === 'shape/point' + i} h={180}
+            onPick={(f) => upImg('shape/point' + i, f, (img) => set({...it, img}))}
+            onClear={() => set({...it, img:''})} onApply={(img) => set({...it, img})}
+            onPasteUpload={(f, applyPastedPhoto) => upImg('shape/point' + i, f, applyPastedPhoto)}
+            imageKey={hinban + ':shape/point' + i} targetOwner={it} />
+          <div><FLbl><BiText value="説明" /></FLbl><Row>
+            <LocalizedArea value={it.text || ''} onChange={(e) => set({...it,text:e.target.value})} placeholder="例: 丸穴あり（穴径：φ10±0.1）" source="ja" counterpart={it.text_id || ''} paired />
+            <LocalizedArea value={it.text_id || ''} onChange={(e) => set({...it,text_id:e.target.value})} placeholder="Indonesian（任意）" source="id" counterpart={it.text || ''} paired />
+          </Row></div>
+        </div>} />
       </div>
-      <FLbl><BiText value={"\u672C\u54C1\u306E\u7279\u5FB4\uFF08\u756A\u53F7\u9806\uFF09"} /></FLbl>
-      <RepList items={sh.points} onChange={(v) => sub('shape', {
-        points: v
-      })} addLabel="特徴を追加" blank={{
-        text: '',
-        text_id: ''
-      }} render={(it, set) => <Row>
-          <div><LocalizedArea value={it.text || ''} onChange={(e) => set({
-            ...it,
-            text: e.target.value
-          })} placeholder="例: 丸穴あり（穴径：φ10±0.1）" source="ja" counterpart={it.text_id || ""} paired /></div>
-          <div><LocalizedArea value={it.text_id || ''} onChange={(e) => set({
-            ...it,
-            text_id: e.target.value
-          })} placeholder="Indonesian（任意）" source="id" counterpart={it.text || ""} paired /></div>
-        </Row>} />
       <FLbl><BiText value={"\u985E\u4F3C\u54C1\u3068\u306E\u9055\u3044\uFF08\u6700\u59273\u4EF6\uFF09"} /></FLbl>
       <RepList items={sh.similars} onChange={(v) => sub('shape', {
         similars: v
@@ -6497,12 +6432,12 @@ function SheetSteps({
     color: '#9AA3AF',
     fontSize: 14
   }}><BiText value={t('要領書が未登録です')} /></div>;
-  return <div style={{
+  return <div className="sheet-readable-steps" style={{
     display: 'flex',
     flexDirection: 'column',
     gap: compact ? 10 : 14
   }}>
-      <BiText value={steps.map((s, i) => <div key={i} style={{
+      <BiText value={steps.map((s, i) => <div className="sheet-readable-row" key={i} style={{
       display: 'flex',
       gap: 12,
       padding: compact ? '10px 12px' : '14px 16px',
@@ -8427,6 +8362,7 @@ function App() {
     </LangCtx.Provider>;
 }
 
+Object.assign(DICT, {"形状確認ポイント（写真と説明）": "Poin Pengecekan Bentuk (Foto dan Penjelasan)", "写真と説明を追加": "Tambah foto dan penjelasan", "写真": "Foto", "説明": "Penjelasan"});
 Object.assign(DICT, { "長押しで写真の削除確認": "Tekan lama untuk konfirmasi hapus foto" });
 Object.assign(DICT, { "戻る": "Kembali", "ホーム": "Beranda", "クリア": "Hapus", "更新": "Perbarui", "ログアウト": "Keluar", "QR照合": "Pengecekan QR", "作業指示": "Instruksi Pekerjaan", "マスター管理": "Manajemen Master", "言語": "Bahasa", "スタート画面": "Layar Mulai", "工程を選択してください": "Silakan pilih proses", "キーワード": "Kata kunci", "絞り込み": "Filter", "検索結果": "Hasil pencarian", "件": "item", "品番": "Nomor Produk", "品名": "Nama Produk", "更新日": "Tanggal Update", "選択": "Pilih", "呼称": "Sebutan", "工程名": "Nama Proses", "予定時間": "Waktu rencana", "予定": "Rencana", "実績": "Aktual", "差": "Selisih", "1箱": "per kotak", "開始予定": "Rencana mulai", "終了予定": "Perkiraan selesai", "始業・休憩設定": "Pengaturan Jam Kerja", "始業時刻": "Jam mulai", "休憩": "Istirahat", "昼休憩": "Istirahat siang", "作業を追加": "Tambah pekerjaan", "製品の行": "Baris produk", "作業の行": "Baris pekerjaan", "作業名": "Nama pekerjaan", "所要時間": "Durasi", "終業見込み": "Perkiraan selesai kerja", "設定": "Pengaturan", "追加する": "Tambah", "評価": "Evaluasi", "日": "Harian", "月": "Bulanan", "年": "Tahunan", "推移": "Grafik", "達成率": "Tingkat capaian", "担当者別": "Per petugas", "製品別": "Per produk", "調整": "Penyesuaian", "評価を調整": "Sesuaikan evaluasi", "調整時間": "Waktu penyesuaian", "理由": "Alasan", "調整後": "Setelah penyesuaian", "調整前": "Sebelum penyesuaian", "データがありません": "Tidak ada data", "読込中...": "Memuat...", "全工程": "Semua proses", "作業完了": "Pekerjaan Selesai", "予定より": "Dibanding rencana", "早く終わりました": "lebih cepat", "かかりました": "lebih lambat", "予定どおりです": "Tepat sesuai rencana", "次の作業へ": "Ke pekerjaan berikutnya", "中断": "Jeda", "今日の累計": "Total hari ini", "呼称を変更": "Ubah Sebutan", "新しい呼称": "Sebutan baru", "変更する": "Ubah", "変更中...": "Mengubah...", "この呼称はすでに使われています": "Sebutan ini sudah dipakai", "製品検索": "Pencarian Produk", "製品を選ぶ": "Pilih Produk", "製品情報を見る": "Lihat info produk", "呼称・品番で検索": "Cari dengan sebutan / nomor produk", "この工程の製品がありません": "Tidak ada produk untuk proses ini", "工程名が未登録です": "Nama proses belum terdaftar", "工程名未登録": "Proses belum terdaftar", "この製品が通る工程": "Proses yang dilalui produk ini", "前へ": "Sebelumnya", "次へ": "Selanjutnya", "前の項目へ": "Item Sebelumnya", "次の項目へ": "Item Selanjutnya", "一覧に戻る": "Kembali ke Daftar", "作業動画を再生": "Putar Video Kerja", "PDFで表示": "Tampilkan PDF", "印刷する": "Cetak", "注意事項": "Perhatian", "未登録": "Belum terdaftar", "工程一覧": "Daftar Proses", "情報項目": "Item Informasi", "全体写真": "Foto Keseluruhan", "拡大写真": "Foto Perbesaran", "主な特徴": "Ciri Utama", "仕様": "Spesifikasi", "使用時の注意": "Perhatian Penggunaan", "類似品との違い": "Perbedaan dengan Produk Serupa", "本品の特徴": "Ciri Produk Ini", "収容数": "Jumlah Isi", "1箱あたりの収容数": "Jumlah per kotak", "製品イメージ": "Gambar Produk", "梱包荷姿": "Bentuk Kemasan", "仕切り": "Sekat", "向き": "Arah", "荷姿により異なります": "Berbeda menurut kemasan", "代表の収容数": "Jumlah isi standar", "工程により異なります": "Berbeda menurut proses", "この工程の収容数": "Jumlah isi proses ini", "工程別の収容数": "Jumlah isi per proses", "使用中": "Digunakan", "未使用": "Tidak digunakan", "外寸": "Ukuran Luar", "仕切数": "Jumlah Sekat", "材質": "Material", "用途": "Kegunaan", "使用工程": "Proses", "発行先": "Penerbit", "色": "Warna", "サイズ": "Ukuran", "備考": "Catatan", "種類": "Jenis", "保存する": "Simpan", "保存中...": "Menyimpan...", "保存しました": "Tersimpan", "削除": "Hapus", "追加": "Tambah", "照合成功": "Cocok", "不一致": "Tidak cocok", "スキャン待機中...": "Menunggu pemindaian...", "ハンディスキャナーでスキャンしてください": "Silakan pindai dengan scanner", "該当する製品が見つかりません": "Produk tidak ditemukan", "製品が未登録です": "Produk belum terdaftar", "接続に失敗しました": "Koneksi gagal", "再試行": "Coba lagi", "閉じる": "Tutup", "動画が未登録です": "Video belum terdaftar", "担当者": "Petugas", "担当者を選択": "Pilih petugas", "担当者QR": "QR Petugas", "要領書": "Lembar Kerja", "要領書を呼び出す": "Buka lembar kerja", "目標箱数": "Target kotak", "1箱工数": "Waktu standar per kotak", "分": "menit", "作業開始": "Mulai", "完了箱数": "Kotak selesai", "1箱完了": "1 Kotak Selesai", "1つ戻す": "Batal 1", "ライン応援": "Bantu Lini", "再開": "Lanjutkan", "異常": "Kelainan", "作業終了": "Selesai Kerja", "先行": "Lebih cepat", "遅れ": "Terlambat", "経過": "Berlalu", "実働": "Kerja aktif", "一時停止中": "Dijeda", "進行中の作業": "Pekerjaan berjalan", "作業に戻る": "Kembali ke pekerjaan", "履歴": "Riwayat", "要領書が未登録です": "Lembar kerja belum terdaftar", "端数（個）": "Sisa (pcs)", "現在時刻": "Waktu sekarang", "コメント": "Komentar", "記録する": "Catat", "完了": "Selesai", "標準": "Standar", "進捗": "Progres", "箱": "kotak", "作業指示ホーム": "Beranda Instruksi", "スキップ": "Lewati", "担当者なし": "Tanpa petugas", "任意": "opsional", "計画表": "Jadwal Kerja", "本日の計画": "Jadwal hari ini", "順番": "No", "数量": "Jumlah", "状態": "Status", "未着手": "Belum mulai", "作業中": "Berjalan", "次の作業": "Pekerjaan berikutnya", "計画がありません": "Belum ada jadwal", "スケジュール編集": "Edit Jadwal", "行を追加": "Tambah baris", "上へ": "Naik", "下へ": "Turun", "合計": "Total", "確認しました": "Sudah dilakukan pengecekan", "作業手順を確認してください": "Silakan periksa prosedur kerja", "日付": "Tanggal", "割当": "Ditugaskan", "未割当": "Belum ditugaskan", "今の担当者": "Petugas saat ini", "達成": "Tercapai", "残り": "Sisa", "工程一覧へ": "Daftar Proses", "マスター": "Master", "変更": "Ubah", "選択してください": "Silakan pilih", "該当なし": "Tidak ada", "QRスキャナー導入後に利用できます": "Tersedia setelah scanner QR dipasang", "製品揃え": "Penyiapan Produk", "小物掛け": "Penggantungan Part Kecil", "小物検査": "Inspeksi Part Kecil", "手吹き": "Semprot Manual", "ハガシ": "Pengelupasan", "Vミゾ修正": "Perbaikan Alur V", "JTEKT・MAZDA・GCT 検査": "Inspeksi JTEKT/MAZDA/GCT", "日野・三菱ふそう・デンソー・三菱・川重・日立 検査": "Inspeksi Hino/Fuso/Denso dll", "津田・刈谷紙器・村谷・製品箱詰め": "Pengepakan Produk", "その他付帯作業": "Pekerjaan Pendukung", "製品写真": "Foto produk", "形状確認ポイント": "Poin Pengecekan Bentuk", "テーキン": "Teekin", "ハンガー写真": "Foto penggantung", "作業の流れ": "Alur pekerjaan", "注意ポイント": "Poin perhatian", "必要道具類": "Peralatan yang diperlukan", "収容数・梱包荷姿": "Jumlah Isi dan Bentuk Kemasan", "納入箱": "Kotak pengiriman", "識別マーク": "Tanda identifikasi", "かんばん情報": "Informasi kanban", "端数品置き場所": "Tempat penyimpanan produk sisa", "接続中...": "Sedang terhubung...", "写真なし": "Tidak ada foto", "ユーザー": "Pengguna", "メールアドレスが登録されていません": "Alamat email belum terdaftar", "パスワードが間違っています": "Kata sandi salah", "メールアドレスの形式が正しくありません": "Format alamat email tidak benar", "メールアドレスまたはパスワードが間違っています": "Alamat email atau kata sandi salah", "試行回数が多すぎます。しばらく待ってから再試行してください": "Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi", "ログインに失敗しました": "Gagal masuk", "長坂コーティング": "Nagasaka Coating", "アウトライン工程システム": "Sistem Proses Outline", "メールアドレス": "Alamat Email", "パスワード": "Kata Sandi", "パスワードを入力": "Masukkan Kata Sandi", "ログイン中...": "Sedang masuk...", "ログイン": "Masuk", "アウトライン工程 / Proses Outline": "Proses Outline / Proses Outline", "マスター管理 →「工程名」でこの工程を登録してください。": "Manajemen Master → Daftarkan proses ini dengan \"Nama Proses\".", "この品番を、類似品と見分けるための形状の特徴です。作業前に必ず確認してください。": "Ini adalah karakteristik bentuk untuk membedakan nomor produk ini dari produk serupa. Pastikan untuk mempengecekan sebelum memulai pekerjaan.", "類似品": "Produk Serupa", "上記のポイントを確認し、類似品と間違えないようにしてください。": "Pengecekan poin di atas dan pastikan untuk tidak keliru dengan produk serupa.", "不明な場合は、必ず管理者に確認してください。": "Jika tidak jelas, selalu tanyakan kepada pengelola.", "この品番で使用するハンガーの写真と仕様です。": "Ini adalah foto dan spesifikasi gantungan yang digunakan untuk nomor produk ini.", "この品番の作業で使用する道具・備品です。作業前に準備してください。": "Ini adalah alat dan perlengkapan yang digunakan untuk pekerjaan nomor produk ini. Siapkan sebelum memulai pekerjaan.", "この品番の収容数と梱包荷姿は以下の通りです。作業時に確認してください。": "Kapasitas dan bentuk kemasan untuk nomor produk ini adalah sebagai berikut. Pengecekan saat bekerja.", "個": "Satuan", "上記以外の工程（": "Proses selain yang disebutkan di atas (", "（最大4種類）": "（Maksimal 4 jenis）", "納入箱の確認を行います。製品の入った箱を確認し、指定の場所に納めてください。": "Lakukan pengecekan kotak pengiriman. Periksa kotak yang berisi produk dan tempatkan di lokasi yang ditentukan.", "この品番の識別マークは以下の通りです。製品の識別・工程管理に使用します。": "Tanda identifikasi untuk nomor produk ini adalah sebagai berikut. Digunakan untuk identifikasi produk dan manajemen proses.", "製品に付いている識別マークの位置（全体）": "Posisi tanda identifikasi yang terpasang pada produk (keseluruhan)", "識別マークの拡大写真": "Foto pembesaran tanda identifikasi", "緑": "Hijau", "黄": "Kuning", "青": "Biru", "ピンク": "Merah muda", "赤": "Merah", "白": "Putih", "この品番で使用するかんばんの種類と内容です。": "Jenis dan isi kanban yang digunakan untuk nomor produk ini.", "：かんばんQR照合": ": Pengecekan QR Kanban", "▦ かんばんQR照合": "▦ Pengecekan QR Kanban", "ロケ番号 / Nomor Lokasi": "Nomor Lokasi / Nomor Lokasi", "製品QR / QR Produk": "QR Produk / QR Produk", "：製品QR照合": ": Pengecekan QR Produk", "かんばんQR / QR Kanban": "QR Kanban / QR Kanban", "▦ かんばん照合": "▦ Pengecekan Kanban", "すでに登録されています": "Sudah terdaftar", "追加に失敗:": "Gagal menambahkan:", "新しい呼称を追加...": "Tambahkan nama baru...", "呼称・品番で絞り込み...": "Filter berdasarkan nama dan nomor produk...", "👤 担当者管理": "👤 Manajemen petugas", "呼称が登録されていません。": "Nama panggilan belum terdaftar.", "品番:": "Nomor produk:", "品番未設定": "Nomor produk belum diatur", "（品名未設定）": "(Nama produk belum diatur)", "削除に失敗:": "Gagal menghapus:", "担当者管理": "Manajemen petugas", "氏名 例: 山田 太郎": "Nama Lengkap Contoh: Yamada Taro", "担当者QR文字列（任意）": "String QR Penanggung Jawab (Opsional)", "担当者が未登録です。": "Penanggung jawab belum terdaftar.", "現在の呼称：": "Nama panggilan saat ini:", "登録済みのスケジュール・実績の呼称も自動で付け替わります。": "Nama panggilan pada jadwal dan hasil kerja yang sudah terdaftar juga akan berubah secara otomatis.", "保存に失敗:": "Gagal menyimpan:", "① マスターを複製中...": "① Sedang menduplikasi master...", "② スケジュール・実績を更新中...": "② Sedang memperbarui jadwal dan hasil aktual...", "スケジュールの更新に失敗したため中止しました:": "Dibatalkan karena gagal memperbarui jadwal:", "③ 旧データを削除中...": "③ Sedang menghapus data lama...", "呼称の変更に失敗:": "Gagal mengubah nama:", "4MB以下の画像を選択してください": "Pilih gambar berukuran 4MB atau kurang", "アップロード失敗:": "Gagal mengunggah:", "基本情報": "Informasi dasar", "形状確認": "Pengecekan Bentuk", "ハンガー": "Penggantung", "必要道具": "Peralatan yang diperlukan", "収容数・荷姿": "Jumlah Isi dan Kemasan", "かんばん": "Kanban", "要領書・工数": "Lembar Kerja dan Waktu Standar", "マスター編集": "Pengeditan Master", "保存する（未翻訳分を自動でID翻訳）": "Simpan (terjemahkan teks yang belum tersedia ke bahasa Indonesia)", "登録内容の全ての日本語を翻訳し直します。手入力した翻訳も上書きされます。よろしいですか？": "Menerjemahkan ulang semua bahasa Jepang dalam konten pendaftaran. Terjemahan yang diinput manual juga akan ditimpa. Apakah Anda setuju?", "🌐 全て再翻訳": "🌐 Terjemahkan Ulang Semua", "✓ 保存しました": "✓ Tersimpan", "アップ中…": "Sedang Mengunggah…", "＋ 画像": "＋ Gambar", "1行に1項目": "1 Item per Baris", "が「呼称」です（上の「✎ 呼称を変更」で変更できます）。実際の品番は下の欄に登録してください。": "adalah \"Istilah Pemanggilan\"（dapat diubah dengan \"✎ Ubah Istilah Pemanggilan\" di atas）. Silakan daftarkan nomor item sebenarnya di bidang bawah.", "例: 1234-56789": "Contoh: 1234-56789", "品名（日本語）": "Nama Produk (Bahasa Jepang)", "例: ブラケット ASSY": "Contoh: Braket ASSY", "品名（インドネシア語）": "Nama Produk (Bahasa Indonesia)", "工程名（この製品が通る工程・複数選択可）": "Nama Proses (proses yang dilalui produk ini・pilihan ganda)", "⚠ 工程を1つ以上選択しないと、各工程の作業画面にこの製品が表示されません。": "⚠ Jika tidak memilih setidaknya satu proses, produk ini tidak akan ditampilkan di layar kerja setiap proses.", "QR照合文字列（製品）": "Teks Pengecekan QR (produk)", "未設定なら品番で照合": "Jika belum diatur, lakukan pengecekan dengan nomor produk", "かんばんQR照合文字列": "Teks Pengecekan QR Kanban", "端数品置き場所（ロケ番号）": "Lokasi Penyimpanan Sisa Produk (Nomor Lokasi)", "例: A-12": "Contoh: A-12", "作業動画URL": "URL Video Kerja", "製品写真ページの注意事項（1行1項目）": "Catatan halaman foto produk (1 item per baris)", "本品の写真（最大3枚）": "Foto produk ini (maksimal 3 lembar)", "本品の特徴（番号順）": "Fitur produk ini (sesuai urutan nomor)", "特徴を追加": "Tambah fitur", "例: 丸穴あり（穴径：φ10±0.1）": "Contoh: Berlubang bulat (diameter lubang: φ10±0.1)", "Indonesian（任意）": "Indonesian (opsional)", "類似品との違い（最大3件）": "Perbedaan dengan produk serupa (maksimal 3 item)", "類似品を追加": "Tambah produk serupa", "類似品の品番 例: B-123": "Nomor seri produk serupa Contoh: B-123", "違い（1行1項目）": "Perbedaan (1 item per baris)", "注意事項（1行1項目）": "Catatan peringatan (1 item per baris)", "テーキン写真": "Foto Teekin", "説明・注意事項（日本語）": "Penjelasan dan perhatian (bahasa Jepang)", "説明・注意事項（インドネシア語）": "Penjelasan dan perhatian (bahasa Indonesia)", "ハンガー全体写真": "Foto lengkap gantungan", "主な特徴（確認ポイント・最大4件）": "Ciri utama (poin pengecekan, maksimal 4)", "例: フック形状（上部）": "Contoh: Bentuk kait (bagian atas)", "補足": "Catatan tambahan", "ハンガー仕様（「項目：値」を1行ずつ）": "Spesifikasi gantungan (「Item：Nilai」satu baris per item)", "ハンガー名：標準ハンガーA\nサイズ：W500 × H800 mm\n材質：SS400": "Nama gantungan：Gantungan standar A\nUkuran：W500 × H800 mm\nMaterial：SS400", "使用時の注意（1行1項目）": "Perhatian saat penggunaan (1 item per baris)", "作業の流れ（手順ごとにカード）": "Alur kerja (Kartu per langkah)", "手順を追加": "Tambah langkah", "手順の内容（日本語）": "Isi langkah (Bahasa Jepang)", "注意ポイント（1行1項目）": "Poin Perhatian (1 item per baris)", "例: 製品同士がぶつからないように置いてください": "Contoh: Letakkan produk sehingga tidak saling bertabrakan", "道具を追加": "Tambah alat", "道具名 例: 軍手": "Nama alat Contoh: Sarung tangan kerja", "用途 例: 製品の取扱い時に使用します。": "Kegunaan Contoh: Digunakan saat penanganan produk.", "代表の収容数（1箱あたり）": "Jumlah isi standar (per kotak)", "例: 42": "Contoh: 42", "荷姿ごとに収容数を入れなかった場合は、この値が使われます。": "Jika jumlah penerimaan tidak dimasukkan untuk setiap bentuk kemasan, nilai ini akan digunakan.", "作業指示の端数計算にもこの値を使います。": "Nilai ini juga digunakan dalam perhitungan sisa instruksi kerja.", "製品イメージ（未設定なら製品写真を使用）": "Gambar produk (menggunakan foto produk jika tidak diatur)", "梱包荷姿（最大4種類）― 荷姿ごとに収容数を設定できます": "Bentuk kemasan (maksimal 4 jenis) ― Jumlah penerimaan dapat diatur untuk setiap bentuk kemasan", "荷姿を追加": "Tambah bentuk kemasan", "例: 縦 × 横": "Contoh: Panjang × Lebar", "例: 縦向き": "Contoh: Orientasi vertikal", "収容数（この荷姿のとき）": "Jumlah isi untuk kemasan ini", "納入箱（最大4種類）": "Kotak pengiriman (maksimal 4 jenis)", "納入箱を追加": "Tambah kotak pengiriman", "箱の外観を確認": "Periksa penampilan kotak", "納入箱の品番、ラベルを確認します。": "Periksa nomor produk dan label kotak pengiriman.", "箱を開ける": "Buka kotak", "箱のフタを開け、製品の入れ方を確認します。": "Buka tutup kotak dan periksa cara penyusunan produk.", "製品を確認": "Periksa produk", "製品の識別マークを確認します。": "Periksa tanda identifikasi produk.", "所定の場所に納める": "Simpan di tempat yang ditentukan", "確認後、指定の場所に納めます。": "Setelah pengecekan, simpan di tempat yang ditentukan.", "箱名 例: 納入箱 A（標準箱）": "Nama kotak Contoh: Kotak pengiriman A (kotak standar)", "この品番で使用中": "Sedang digunakan dengan nomor item ini", "確認手順（「見出し：説明」を1行ずつ）": "Langkah pengecekan (\"Judul: Penjelasan\", satu langkah per baris)", "全体写真の説明": "Penjelasan foto keseluruhan", "拡大写真の説明": "Penjelasan foto yang diperbesar", "マークの種類（赤字で表示）": "Jenis tanda (ditampilkan dalam warna merah)", "例: 丸マーク（●）": "Contoh: Tanda bulat (●)", "かんばん情報（最大4種類）": "Informasi kanban (maksimal 4 jenis)", "かんばんを追加": "Tambahkan kanban", "種類 例: 生産かんばん": "Jenis Contoh: Kanban produksi", "色を選択": "Pilih warna", "コード 例: KBN0001": "Kode Contoh: KBN0001", "サイズ 例: W100 × H70 mm": "Ukuran, contoh: W100 × H70 mm", "用途 例: 生産指示用": "Kegunaan Contoh: Untuk instruksi produksi", "使用工程 例: 掛け工程": "Proses yang digunakan Contoh: Proses penangguhan", "発行先 例: Aライン": "Tujuan penerbitan Contoh: Lini A", "備考 例: 製造数の管理に使用": "Catatan Contoh: Digunakan untuk manajemen jumlah produksi", "工程を選択（工程ごとに要領書・1箱工数・収容数を登録します）": "Pilih proses (daftarkan prosedur kerja, jam kerja per kotak, dan kapasitas untuk setiap proses)", "1箱あたり工数（分）": "Waktu standar per kotak (menit)", "例: 12.5": "Contoh: 12.5", "この工程の収容数（1箱あたり）": "Kapasitas proses ini (per kotak)", "例: 70": "Contoh: 70", "工程によって収容数が変わる場合に入力します（例：材料70個入り／出荷96個入り）。": "Masukkan jika kapasitas berubah tergantung proses (Contoh: bahan 70 unit per kotak / pengiriman 96 unit per kotak).", "未入力なら「収容数・荷姿」タブの代表の収容数": "Jika tidak diisi, jumlah kapasitas perwakilan dari tab \"Jumlah Kapasitas・Bentuk Kemasan\"", "を使います。": "akan digunakan.", "要領書：手順（写真＋コメント）": "Manual operasional: Prosedur (foto + komentar)", "作業内容・コメント（日本語）": "Isi pekerjaan dan komentar (bahasa Jepang)", "休憩1": "Istirahat 1", "休憩2": "Istirahat 2", "↑ 先行（": "↑ Lebih cepat (", "） ↓ 遅れ（": ") ↓ Terlambat (", "要領書・工数 未登録": "Lembar kerja dan waktu standar belum terdaftar", "この工程（": "Untuk proses ini (", "）の全ての日に適用されます。": "), berlaku untuk semua hari.", "開始予定・終了予定の時刻はここを基準に自動計算されます。": "Waktu mulai yang direncanakan dan waktu selesai yang direncanakan akan dihitung secara otomatis berdasarkan standar ini.", "名称": "Nama", "＋ 休憩を追加": "＋ Tambah Istirahat", "火": "Selasa", "水": "Rabu", "木": "Kamis", "金": "Jumat", "土": "Sabtu", "担当者が見つかりません:": "Penanggung jawab tidak ditemukan:", "作業": "Pekerjaan", "（製品なし）": "(Tanpa produk)", "→ 作業中": "→ Sedang dikerjakan", "更新に失敗:": "Pembaruan gagal:", "品番と数量を入力してください": "Masukkan nomor produk dan kuantitas", "作業名と所要時間を入力してください": "Masukkan nama pekerjaan dan waktu yang diperlukan", "開始済みの行です。削除すると実績も消えます。よろしいですか？": "Ini adalah baris yang sudah dimulai. Jika dihapus, data hasil kerja juga akan hilang. Apakah Anda yakin?", "コピー元の日付（YYYY-MM-DD）": "Tanggal sumber duplikasi (YYYY-MM-DD)", "の計画がありません": "Tidak ada rencana untuk", "例: ハンガーマン / 清掃": "Contoh: Penggantung / Pembersihan", "例: 30": "Contoh: 30", "例: 20": "Contoh: 20", "⧉ 前日から複製": "⧉ Duplikasi dari hari sebelumnya", "行 /": "Baris /", "なし": "Tidak ada", "操作": "Operasi", "上の欄から行を追加してください。": "Tambahkan baris dari kolom di atas.", "開始に失敗:": "Gagal memulai:", "⚠ 1箱工数が未登録のため先行・遅れは表示されません（マスター管理 → 要領書・工数）": "⚠ Waktu standar per kotak belum diatur. Selisih waktu tidak ditampilkan (Master → Lembar Kerja dan Waktu Standar).", "製品を伴わない作業です。完了したら「作業終了」を押してください。": "Ini adalah pekerjaan tanpa produk. Tekan \"Selesai Kerja\" setelah selesai.", "設備の異常": "Abnormalitas peralatan", "素材の異常": "Abnormalitas bahan baku", "塗装の異常": "Abnormalitas pengecatan", "かんばんの異常": "Abnormalitas kanban", "部品不足": "Kekurangan suku cadang", "その他": "Lainnya", "満数でない最後の箱の個数（任意）": "Jumlah produk dalam kotak terakhir yang tidak penuh (opsional)", "・遅れを取り消すなら＋）": "・Jika membatalkan keterlambatan, gunakan +)", "例: 15": "Contoh: 15", "例: 設備故障で15分停止したため": "Peralatan mengalami gangguan sehingga berhenti selama 15 menit", "開始": "Mulai", "終了": "Selesai", "（直近7日）": "（7 hari terakhir）", "工程": "Proses", "開始 → 終了": "Mulai → Selesai", "停止": "Berhenti", "（調整": "（Penyesuaian", "履歴がありません": "Tidak ada riwayat", "該当する品番が見つかりません:": "Nomor produk yang sesuai tidak ditemukan:", "ガイドQRを読み取ってください": "Silakan pindai QR panduan", "検索結果：{0}件 / Hasil pencarian: {1} item": "Hasil pencarian: {0} item", "工程 {0}件": "{0} proses", "{0}/13 項目": "{0}/13 item", "担当者「{0}」を削除しますか？": "Hapus penanggung jawab \"{0}\"?", "{0}件の翻訳に失敗しました（該当箇所は日本語のまま表示されます）": "Gagal menerjemahkan {0} item (bagian yang sesuai akan ditampilkan dalam bahasa Jepang)", "呼称「{0}」を削除しますか？": "Hapus sebutan \"{0}\"?", "呼称を「{0}」→「{1}」に変更しました。\nスケジュール・実績 {2} 件も更新しました。": "Sebutan diubah dari \"{0}\" menjadi \"{1}\".\n{2} item jadwal dan hasil juga diperbarui.", "🌐 翻訳中 {0}/{1}": "🌐 Menerjemahkan {0}/{1}", "写真{0}": "Foto {0}", "未入力なら代表の {0} 個": "Jika kosong, gunakan isi standar {0} buah", "{0}.{1} {2}個": "{0}.{1} {2} item", "（{0}個）": "({0} item)", "{0} の行を削除しますか？": "Hapus baris {0}?", "{0} の {1} 行を {2} に複製しますか？": "Duplikat {1} baris {0} ke {2}?", "　※{0} {1}個で箱換算": "※Konversi kotak dengan {0} {1} buah", "（+{0}個）": "（+{0} buah）", "キャンセル": "Batal", "確認": "Pengecekan" });
 const BI_RULES = [{ "re": "^検索結果：([\\s\\S]*?)件 / Hasil pencarian: ([\\s\\S]*?) item$", "id": "Hasil pencarian: {0} item" }, { "re": "^工程 ([\\s\\S]*?)件$", "id": "{0} proses" }, { "re": "^([\\s\\S]*?)/13 項目$", "id": "{0}/13 item" }, { "re": "^担当者「([\\s\\S]*?)」を削除しますか？$", "id": "Hapus penanggung jawab \"{0}\"?" }, { "re": "^([\\s\\S]*?)件の翻訳に失敗しました（該当箇所は日本語のまま表示されます）$", "id": "Gagal menerjemahkan {0} item (bagian yang sesuai akan ditampilkan dalam bahasa Jepang)" }, { "re": "^呼称「([\\s\\S]*?)」を削除しますか？$", "id": "Hapus sebutan \"{0}\"?" }, { "re": "^呼称を「([\\s\\S]*?)」→「([\\s\\S]*?)」に変更しました。\nスケジュール・実績 ([\\s\\S]*?) 件も更新しました。$", "id": "Sebutan diubah dari \"{0}\" menjadi \"{1}\".\n{2} item jadwal dan hasil juga diperbarui." }, { "re": "^🌐 翻訳中 ([\\s\\S]*?)/([\\s\\S]*?)$", "id": "🌐 Menerjemahkan {0}/{1}" }, { "re": "^写真([\\s\\S]*?)$", "id": "Foto {0}" }, { "re": "^未入力なら代表の ([\\s\\S]*?) 個$", "id": "Jika kosong, gunakan isi standar {0} buah" }, { "re": "^([\\s\\S]*?)\\.([\\s\\S]*?) ([\\s\\S]*?)個$", "id": "{0}.{1} {2} item" }, { "re": "^（([\\s\\S]*?)個）$", "id": "({0} item)" }, { "re": "^([\\s\\S]*?) の行を削除しますか？$", "id": "Hapus baris {0}?" }, { "re": "^([\\s\\S]*?) の ([\\s\\S]*?) 行を ([\\s\\S]*?) に複製しますか？$", "id": "Duplikat {1} baris {0} ke {2}?" }, { "re": "^　※([\\s\\S]*?) ([\\s\\S]*?)個で箱換算$", "id": "※Konversi kotak dengan {0} {1} buah" }, { "re": "^（\\+([\\s\\S]*?)個）$", "id": "（+{0} buah）" }].map((r) => ({ ...r, re: new RegExp(r.re) }));
