@@ -182,6 +182,24 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .qr-comparison{margin:12px 0;padding:12px;border:2px solid #9f2020;border-radius:9px;background:#fff;color:#17253b;overflow-wrap:anywhere}.qr-comparison>strong{font-size:18px}.qr-comparison dl{margin:8px 0}.qr-comparison dl>div{padding:8px 0;border-bottom:1px solid #d5dce5}.qr-comparison dt{font-size:12px;color:#4b5869}.qr-comparison dd{margin:3px 0 0;font-size:18px;font-weight:700}.qr-comparison dd code{display:block;white-space:pre-wrap;overflow-wrap:anywhere;font-size:20px}.qr-comparison dd>span,.qr-comparison p{font-size:11px;font-weight:400}.qr-comparison p{line-height:1.5}
 .kanban-info-list{display:grid;gap:14px}.kanban-info-photo{padding:12px}.kanban-info-detail{padding:10px}.kanban-info-detail>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid #e3e7ed;font-size:13px}.kanban-info-detail code{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:600px){.qr-config-row{grid-template-columns:minmax(0,1fr)}.kanban-qr-body{padding:10px}.kanban-info-detail>div{grid-template-columns:minmax(0,1fr)}.qr-selected strong{font-size:18px}}
+
+.workrun-screen{height:100dvh!important;min-height:0!important;overflow:hidden}.workrun-screen .workrun-layout{flex:1 1 0!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(360px,1.15fr);gap:0;overflow:hidden;min-height:0}
+.workrun-screen .workrun-layout>.workrun-observe{min-width:0;min-height:0;overflow:auto!important;padding:12px;background:#f5f6f8;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
+.workrun-screen .workrun-layout>.workrun-controls{min-width:0;min-height:0;overflow:auto!important;flex:auto!important;padding:12px!important;gap:8px!important}
+.workrun-steps-toggle{width:100%;min-height:44px;flex-shrink:0;background:white;color:#12306b;border:1px solid #b9c7dd;border-radius:8px;font-size:14px;font-weight:700;padding:6px 12px;text-align:center}
+.workrun-camera-card{background:white;border:1px solid #b9c7dd;border-radius:10px;padding:10px;min-width:0;line-height:1.4}
+.workrun-camera-card>header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px;margin-bottom:8px;color:#12306b;font-size:13px}.workrun-camera-card>header code{font-size:13px;overflow-wrap:anywhere}
+.workrun-camera-card .qr-preview-frame{position:relative;background:#101820;border-radius:8px;overflow:hidden}
+.workrun-camera-card .qr-camera-video{display:block;width:100%;height:clamp(190px,36dvh,340px);max-height:none;object-fit:contain;background:#101820}
+.qr-preview-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;background:#101820;font-size:16px;padding:16px;text-align:center;pointer-events:none}
+.workrun-camera-card .qr-camera-tools{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.workrun-camera-card .qr-camera-tools button,.workrun-camera-card select{min-height:40px;margin:0;padding:6px 8px;font-size:11px;max-width:100%;background:#eef4fc;color:#12306b;border:1px solid #b9c7dd;border-radius:7px}
+.workrun-camera-card .qr-help{margin:7px 0;font-size:11px}.workrun-camera-card .qr-cooldown{padding:8px;margin:8px 0}.workrun-camera-card .qr-cooldown>strong{font-size:28px}.workrun-camera-card .qr-cooldown>.bi-text:last-child{font-size:10px}.workrun-camera-card .qr-manual-options{font-size:11px;margin:8px 0}.qr-manual-options summary{cursor:pointer;min-height:32px;line-height:1.5;padding:6px 0}.qr-manual-options input,.qr-manual-options textarea{max-width:100%}
+.workrun-qr-state{border:1px solid #b9c7dd;border-radius:8px;padding:8px 12px;background:#eaf2ff;color:#12306b;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px}.workrun-qr-state.is-blocked{background:#fce8e7;color:#9f2020;border-color:#e1aaa6}.workrun-qr-state>strong{font-size:25px;font-variant-numeric:tabular-nums}
+.workrun-screen .workrun-layout[data-has-qr=false]{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+.workrun-screen>.app-footer{flex-direction:row!important;flex-wrap:nowrap;gap:8px;padding:6px 12px;min-height:54px}.workrun-screen>.app-footer>.footer-context{flex:1 1 auto!important;overflow:visible!important}.workrun-screen>.app-footer>.footer-actions{flex:0 1 auto!important;overflow:visible!important;margin-left:auto}.workrun-screen .app-footer .footer-button{padding:5px 12px!important;font-size:13px;min-height:40px}
+@media(min-width:761px) and (max-height:700px){.workrun-screen>.app-topbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto;gap:10px;min-height:64px;padding:6px 12px}.workrun-screen .topbar-context{grid-column:1;grid-row:1}.workrun-screen .topbar-title{grid-column:2;grid-row:1;text-align:center;font-size:18px}.workrun-screen .app-topbar>.lang-user{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px;max-width:none}}
+@media(max-width:760px){.workrun-screen .workrun-layout{display:flex!important;flex-direction:column!important;overflow:auto!important}.workrun-screen .workrun-layout>.workrun-observe,.workrun-screen .workrun-layout>.workrun-controls{flex:none!important;overflow:visible!important}.workrun-camera-card .qr-camera-video{height:clamp(180px,28dvh,280px)}}
+
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -199,6 +217,7 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 <div id="root"></div>
 
 <script type="text/babel">
+
 function qrStamp(value){return value&&typeof value.toMillis==='function'?value.toMillis():value&&typeof value.seconds==='number'?value.seconds*1000:typeof value==='number'?value:0;}
 function qrCooldownEnd(order){return qrStamp(order&&order.qrLastCountAt)+(Number(order&&order.qrCooldownMs)||0);}
 function qrInterval(order,m){const minutes=Number(order.kosu)||Number(m.sheets&&m.sheets[order.procId]&&m.sheets[order.procId].kosu)||0;return minutes>0?Math.ceil(minutes*60000*.3):0;}
@@ -362,7 +381,7 @@ function decodeQrImage(media){
   const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(media,0,0,canvas.width,canvas.height);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
   const code=window.jsQR(pixels.data,canvas.width,canvas.height,{inversionAttempts:'attemptBoth'});return code&&code.data||'';
 }
-function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActive=false}){
+function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActive=false,compact=false}){
   const video=useRef(null),stream=useRef(null),timer=useRef(null),generation=useRef(0),active=useRef(true),callback=useRef(onRead),input=useRef(null),options=useRef({}),startRef=useRef(null),clearRequired=useRef(continuous),blankFrames=useRef(0),wedge=useRef({text:'',at:0});
   const cameraWanted=useRef((()=>{try{return !continuous||localStorage.getItem('outline-continuous-camera')!=='off';}catch(e){return true;}})());
   callback.current=onRead;options.current={disabled,continuous,autoStart,keepActive};
@@ -418,17 +437,24 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(continuous&&!want);if(continuous)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
   function useExternal(){cameraWanted.current=false;setExternalOnly(true);try{localStorage.setItem('outline-continuous-camera','off');}catch(e){}stop();setError('');}
   async function readFile(e){const file=e.target.files&&e.target.files[0];e.target.value='';if(!file||disabled)return;if(!continuous)stop();setError('');let decoded;try{decoded=await decodePhoto(file);const raw=decodeQrImage(decoded.image);if(!raw)throw new Error('QRが見つかりません。明るさ・距離を変えてください。');if(active.current)read(raw);}catch(err){if(active.current)setError(err.message);}finally{if(decoded)decoded.release();}}
-  return <div className="qr-input-panel" data-continuous={continuous}>
-    <div className="qr-camera-tools"><button type="button" onClick={toggleCamera} disabled={starting||(!(running)&&disabled)}><BiText value={starting?'カメラ起動中…':running?'カメラを止める':'カメラでQRを読む'}/></button>
-      <select aria-label="カメラ / Kamera" value={camera} disabled={running||starting||disabled} onChange={e=>setCamera(e.target.value)}><option value="environment">背面カメラ / Kamera belakang</option><option value="user">前面カメラ / Kamera depan</option></select>
-      {continuous&&<button type="button" className="qr-external-mode" onClick={useExternal}><BiText value={externalOnly?'外付けスキャナー受付中':'外付けスキャナーを使う'}/></button>}
-      <button type="button" onClick={()=>input.current&&input.current.focus()} disabled={disabled}><BiText value="ハンディ・手入力"/></button></div>
-    <video ref={video} className="qr-camera-video" autoPlay playsInline muted style={{display:running||starting?'block':'none'}}/>
-    {continuous&&running&&<p className="qr-help qr-live-hint" role="status"><BiText value={awaitingClear?'QRをいったん画面から外してください。次の箱を待機します。':'1箱完了時にQRをかざしてください。自動で照合・登録します。'}/></p>}
-    {continuous&&<p className="qr-help"><BiText value="外付けスキャナーも自動受付します。読取データの末尾はEnterに設定してください。"/></p>}
+  const cameraView=<div className={compact?'qr-preview-frame':undefined}>
+    <video ref={video} className="qr-camera-video" autoPlay playsInline muted aria-label="Camera live preview" style={{display:compact||running||starting?'block':'none'}}/>
+    {compact&&!running&&<div className="qr-preview-placeholder"><BiText value={externalOnly?'外付けスキャナー受付中':starting?'カメラ起動中…':'カメラ停止中'}/></div>}
+  </div>;
+  const manual=<>
     <label className="qr-file-button"><BiText value="撮影したQR画像から読む"/><input type="file" accept="image/*" capture="environment" onChange={readFile} disabled={disabled}/></label>
     <label><span><BiText value="QRの読取内容"/></span><textarea ref={input} rows={2} value={text} onChange={e=>setText(e.target.value)} disabled={disabled} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();read(text);}}}/></label>
     <button type="button" className="qr-manual-check" onClick={()=>read(text)} disabled={disabled||!text}><BiText value="この内容で照合"/></button>
+  </>;
+  return <div className="qr-input-panel" data-continuous={continuous} data-compact={compact}>
+    {compact&&cameraView}
+    <div className="qr-camera-tools"><button type="button" onClick={toggleCamera} disabled={starting||(!(running)&&disabled)}><BiText value={starting?'カメラ起動中…':running?'カメラを止める':'カメラでQRを読む'}/></button>
+      <select aria-label="カメラ / Kamera" value={camera} disabled={starting||(!compact&&running)||(disabled&&!keepActive)} onChange={e=>setCamera(e.target.value)}><option value="environment">背面カメラ / Kamera belakang</option><option value="user">前面カメラ / Kamera depan</option></select>
+      {continuous&&<button type="button" className="qr-external-mode" onClick={useExternal}><BiText value={externalOnly?'外付けスキャナー受付中':'外付けスキャナーを使う'}/></button>}
+      {!compact&&<button type="button" onClick={()=>input.current&&input.current.focus()} disabled={disabled}><BiText value="ハンディ・手入力"/></button>}</div>
+    {!compact&&cameraView}
+    {continuous&&running&&<p className="qr-help qr-live-hint" role="status"><BiText value={awaitingClear?'QRをいったん画面から外してください。次の箱を待機します。':'1箱完了時にQRをかざしてください。自動で照合・登録します。'}/></p>}
+    {compact?<details className="qr-manual-options"><summary><BiText value="画像・手入力で照合"/></summary>{manual}</details>:manual}
     {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
   </div>;
 }
@@ -437,7 +463,7 @@ function KanbanVerdict({ok,kind}){
     <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
   </div>,document.body);
 }
-function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose}){
+function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
@@ -456,7 +482,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     if(order){qrKeepLocal(order.id,lock);setLocal(lock);try{const id=await lockKanbanOrder(order.id,lock.lockId,code);if(alive.current){const saved={...lock,lockId:id};qrKeepLocal(order.id,saved);setLocal(saved);}}catch(e){if(alive.current)setError('ロックの保存を確認できません。通信を確認し、管理者を呼んでください。');}}
   }
   async function read(raw){
-    if(pending.current||flash||guard!==true)return;
+    if(pending.current||flash||guard!==true||suspended)return;
     if(managerMode){
       pending.current=true;setBusy(true);setError('');
       try{
@@ -476,23 +502,27 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
-  const disabled=busy||!!flash||guard!==true||(!managerMode&&(blocked||remaining>0||complete||(mode==='count'&&!running)));
-  return <QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>
-    <div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>
-    {mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
+  const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||remaining>0||complete||(mode==='count'&&!running)));
+  useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
+  const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>;
+  const content=<>
+    {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
+    {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
     {guard!==true&&<div className="qr-error" role="alert"><BiText value={guard===null?'設定を確認中…':'管理者解除の初期設定が必要です。管理者に確認してください。'}/></div>}
     {blocked&&<div className="qr-result qr-ng"><strong><BiText value="管理者解除待ち・作業停止"/></strong><BiText value="作業者は解除できません。管理者を呼んでください。"/>
       {!managerMode&&<button type="button" onClick={()=>{setManagerMode(true);setResult(null);setError('');}} disabled={busy||guard!==true}><BiText value="管理者の解除用QRを読む"/></button>}
     </div>}
     {managerMode&&<p className="qr-help"><BiText value="解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。"/></p>}
+    {inline&&input}
     {!managerMode&&remaining>0&&<div className="qr-cooldown" role="timer"><BiText value="二度読み防止・読取停止中"/><strong>{qrClock(remaining)}</strong><BiText value="1箱工数の30％が経過すると読み取りできます。"/></div>}
-    <QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} continuous={mode==='count'&&!managerMode} autoStart={guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>
+    {!inline&&input}
     {result&&<div className={result.ok?'qr-result qr-ok':'qr-result qr-ng'} role={result.ok?'status':'alert'}><strong><BiText value={result.ok?(mode==='count'?'一致・1箱完了登録済み':'一致：選択中の品番です'):'不一致：作業を止めて確認'}/></strong>{result.error&&<div><BiText value={result.error}/></div>}{result.code&&<code>{result.code}</code>}</div>}
     {!managerMode&&<QrMismatchDetails comparison={result&&result.comparison||local&&local.failure&&local.failure.comparison}/>}
     {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
-    {mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
+    {!inline&&mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
     {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind}/>}
-  </QrDialog>;
+  </>;
+  return inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>;
 }
 function QrPartEditor({value,onChange,prefix}){
   const p={...DEFAULT_QR_PART,...value},set=(k,v)=>onChange({...p,[k]:v});
@@ -6757,12 +6787,12 @@ function WorkRunScreen({
   const [out, setOut] = useState(false);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
-const [qrOpen,setQrOpen]=useState(false);
+const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({blocked:false,busy:false,flash:false});
   const isTask = log.kind === 'task';
   const m = master[log.hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
-const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
-useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,needsQr,log.status]);
+const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)||qrGate.blocked),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
+
   const c = calcLog(log, now);
   const taskPlanMin = Number(log.durMin) || 0;
   const taskDiff = taskPlanMin - c.active / 60000;
@@ -6771,7 +6801,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
   const paused = log.status === 'paused';
   const ref = db.collection('workOrders').doc(log.id);
   async function w(fn) {
-    if (busy) return;if(qrBlocked){setQrOpen(true);return;}
+    if (busy||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
     setBusy(true);
     try {
       await fn();
@@ -6781,7 +6811,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
       setBusy(false);
     }
   }
-  const addBox = () => needsQr ? setQrOpen(true) : w(() => ref.update({
+  const addBox = () => needsQr ? document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'}) : w(() => ref.update({
     doneBoxes: (log.doneBoxes || 0) + 1
   }));
   const undoBox = () => needsQr ? w(()=>undoVerifiedKanban(log.id)) : w(() => ref.update({
@@ -6864,7 +6894,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
   const curType = c.cur ? c.cur.type === 'break' ? t('休憩') : t('ライン応援') : '';
-  const bigBtn = (label, onClick, bg, disabled, h) => <button onClick={onClick} disabled={disabled || busy} style={{
+  const bigBtn = (label, onClick, bg, disabled, h) => <button onClick={onClick} disabled={disabled || busy || qrGate.busy || qrGate.flash} style={{
     minHeight: h || 64,
     borderRadius: 12,
     background: disabled ? '#C7CDD6' : bg,
@@ -6901,7 +6931,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
       fontSize: 17
     }}>
           ⏸ <BiText value={t('一時停止中')} />（<BiText value={curType} />）　<BiText value={c.cur && fmtDur(now - c.cur.from)} />
-          <button onClick={resume} style={{
+          <button onClick={resume} disabled={qrBlocked||busy||qrGate.busy||qrGate.flash} style={{
         marginLeft: 'auto',
         minHeight: 44,
         padding: '0 26px',
@@ -6912,47 +6942,15 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
         fontWeight: 800
       }}>▶ <BiText value={t('再開')} /></button>
         </div>} />
-      <div style={{
+      <div className="workrun-layout" data-has-qr={needsQr} style={{
       flex: 1,
       display: 'flex',
       minHeight: 0
     }}>
         {/* 左：要領書 */}
-        <div style={{
-        flex: '1 1 45%',
-        overflowY: 'auto',
-        padding: '14px 18px',
-        background: '#F5F6F8'
-      }}>
-          <BiText value={isTask ? <div className="panel"><div className="panel-h">🔧 <BiText value={log.taskName || '作業'} /></div>
-              <div style={{
-            padding: 16,
-            fontSize: 15,
-            lineHeight: 1.9,
-            color: '#2A3340'
-          }}>
-                <BiText value={b('所要時間')} />：<b style={{
-              fontSize: 20,
-              color: NAVY
-            }}><BiText value={taskPlanMin} /> <BiText value={t('分')} /></b><br />
-                <span style={{
-              fontSize: 13,
-              color: '#6B7480'
-            }}><BiText value={"\u88FD\u54C1\u3092\u4F34\u308F\u306A\u3044\u4F5C\u696D\u3067\u3059\u3002\u5B8C\u4E86\u3057\u305F\u3089\u300C\u4F5C\u696D\u7D42\u4E86\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></span>
-              </div>
-            </div> : <>
-            <div style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: BLUE,
-            marginBottom: 8
-          }}>📋 <BiText value={b('要領書')} /></div>
-            <SheetSteps sheet={sheet} lang={lang} compact />
-            <WarnBox items={dva(sheet, 'notes', lang)} />
-          </>} />
-        </div>
+        <div className="workrun-observe"><button type="button" className="workrun-steps-toggle" aria-expanded={showSteps} onClick={()=>setShowSteps(true)}><BiText value="手順を見る"/></button>{needsQr&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} inline suspended={showSteps||anom||out||!!result||busy} onStateChange={setQrGate}/>}</div>
         {/* 右：操作パネル */}
-        <div style={{
+        <div className="workrun-controls" style={{
         flex: '0 0 520px',
         borderLeft: '1px solid ' + LINE,
         background: '#fff',
@@ -6962,7 +6960,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
         gap: 10,
         overflowY: 'auto'
       }}>
-          {needsQr&&qrRemaining>0&&<div className="qr-cooldown"><BiText value="二度読み防止・読取停止中"/><strong>{qrClock(qrRemaining)}</strong></div>}<div className="responsive-grid" style={{
+          <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: 8
@@ -7078,7 +7076,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
             }}><BiText value={b('標準')} /> <BiText value={Math.round(isTask ? taskPlanMin : c.stdMin)} /><BiText value={t('分')} /> / <BiText value={b('実働')} /> <BiText value={Math.round(c.actMin)} /><BiText value={t('分')} /></div>
             </div>
           </div>
-          <BiText value={!isTask && bigBtn(<><span style={{
+          {needsQr&&<div className={'workrun-qr-state '+(qrBlocked?'is-blocked':'')} role="status"><BiText value={qrBlocked?'管理者解除待ち・作業停止':paused?'一時停止中':target>0&&done>=target?'予定箱数に達しました。作業終了してください。':qrRemaining>0?'二度読み防止・読取停止中':'QR自動照合中'}/>{qrRemaining>0&&<strong>{qrClock(qrRemaining)}</strong>}</div>}<BiText value={!isTask && !needsQr && bigBtn(<><span style={{
             fontSize: 34
           }}>📦</span><BiText value={qrBlocked?'管理者解除待ち':needsQr?'QR照合して1箱完了':t('1箱完了')} /></>, addBox, qrBlocked?'#b3261e':'#2E7D4F', !qrBlocked&&(paused||(needsQr&&qrRemaining>0)), 112)} />
           <div className="responsive-grid" style={{
@@ -7086,7 +7084,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
           gap: 8
         }}>
-            <BiText value={!isTask && <button onClick={undoBox} disabled={busy || paused || done <= 0} style={{
+            <BiText value={!isTask && <button onClick={undoBox} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused || done <= 0} style={{
             minHeight: 46,
             borderRadius: 10,
             border: '1px solid ' + LINE,
@@ -7095,7 +7093,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
             fontSize: 14,
             fontWeight: 700
           }}>↩ <BiText value={t('1つ戻す')} /></button>} />
-            <button onClick={() => pause('break')} disabled={busy || paused} style={{
+            <button onClick={() => pause('break')} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
             minHeight: 46,
             borderRadius: 10,
             background: paused ? '#E8EAEE' : '#FEF3C7',
@@ -7103,7 +7101,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
             fontSize: 14,
             fontWeight: 800
           }}>☕ <BiText value={t('休憩')} /></button>
-            <button onClick={() => pause('support')} disabled={busy || paused} style={{
+            <button onClick={() => pause('support')} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
             minHeight: 46,
             borderRadius: 10,
             background: paused ? '#E8EAEE' : '#DBEAFE',
@@ -7117,7 +7115,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
           gridTemplateColumns: '1fr 1fr',
           gap: 8
         }}>
-            <button onClick={() => setAnom(true)} disabled={busy} style={{
+            <button onClick={() => setAnom(true)} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
             minHeight: 52,
             borderRadius: 10,
             background: '#FDECEA',
@@ -7125,7 +7123,7 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
             fontSize: 15,
             fontWeight: 800
           }}>⚠ <BiText value={t('異常')} /><BiText value={(log.anomalies || []).length ? ` (${log.anomalies.length})` : ''} /></button>
-            <button onClick={() => isTask ? finish(0) : setOut(true)} disabled={busy} style={{
+            <button onClick={() => isTask ? finish(0) : setOut(true)} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
             minHeight: 52,
             borderRadius: 10,
             background: NAVY,
@@ -7147,7 +7145,34 @@ useEffect(()=>{if(needsQr&&log.status==='running')setQrOpen(true);},[log.id,need
             </div>} />
         </div>
       </div>
-      {qrOpen&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} onClose={()=>setQrOpen(false)}/>}
+      {showSteps&&<QrDialog title="作業手順" onClose={()=>setShowSteps(false)}>
+          <BiText value={isTask ? <div className="panel"><div className="panel-h">🔧 <BiText value={log.taskName || '作業'} /></div>
+              <div style={{
+            padding: 16,
+            fontSize: 15,
+            lineHeight: 1.9,
+            color: '#2A3340'
+          }}>
+                <BiText value={b('所要時間')} />：<b style={{
+              fontSize: 20,
+              color: NAVY
+            }}><BiText value={taskPlanMin} /> <BiText value={t('分')} /></b><br />
+                <span style={{
+              fontSize: 13,
+              color: '#6B7480'
+            }}><BiText value={"\u88FD\u54C1\u3092\u4F34\u308F\u306A\u3044\u4F5C\u696D\u3067\u3059\u3002\u5B8C\u4E86\u3057\u305F\u3089\u300C\u4F5C\u696D\u7D42\u4E86\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002"} /></span>
+              </div>
+            </div> : <>
+            <div style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: BLUE,
+            marginBottom: 8
+          }}>📋 <BiText value={b('要領書')} /></div>
+            <SheetSteps sheet={sheet} lang={lang} compact />
+            <WarnBox items={dva(sheet, 'notes', lang)} />
+          </>} />
+        </QrDialog>}
 <FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
       <BiText value={anom && <AnomalyModal onClose={() => setAnom(false)} onSave={async (c) => {
       await addAnom(c);
@@ -8416,6 +8441,7 @@ const HAS_JAPANESE = /[\u3041-\u3096\u30a1-\u30fa\u3400-\u9fff]/;
 Object.assign(DICT, { "画像を拡大表示": "Perbesar gambar", "写真を削除": "Hapus foto", "この写真を削除しますか？": "Hapus foto ini?", "削除する": "Hapus", "この項目と写真を削除しますか？": "Hapus item ini beserta fotonya?", "QRコード": "Kode QR" });
 Object.assign(DICT,{"画像をコピー":"Salin gambar","画像を保存":"Simpan gambar","コピー中…":"Sedang menyalin…","画像を準備中…":"Menyiapkan gambar…","画像をコピーしました。貼り付け先で貼り付けてください。":"Gambar telah disalin. Tempel di tempat tujuan.","アプリ内にコピーしました。外部へは画像を保存して貼り付けてください。":"Gambar disalin di aplikasi ini. Untuk aplikasi lain, simpan gambar lalu sisipkan di sana.","保存した画像は他のアプリで選んで挿入できます。":"Pilih gambar yang disimpan untuk disisipkan ke aplikasi lain.","画像を開いて保存してください。":"Buka gambar lalu simpan.","画像を開いて保存":"Buka dan simpan gambar","アプリでコピーした画像を貼り付け":"Tempel gambar yang disalin di aplikasi ini","他のアプリから貼り付け":"Tempel dari aplikasi lain","この欄を選んでCtrl＋Vでも貼り付けできます。":"Pilih area ini lalu tekan Ctrl+V untuk menempel.","画像が見つかりません。写真をコピーしてから貼り付けてください。":"Tidak ada gambar. Salin foto terlebih dahulu lalu tempel.","この写真を貼り付けた画像に置き換えますか？":"Ganti foto ini dengan gambar yang ditempel?","置き換える":"Ganti","貼り付けをキャンセルしました。":"Penempelan dibatalkan.","画像を貼り付けました。保存ボタンで確定してください。":"Gambar ditempel. Tekan Simpan untuk menyimpan perubahan.","画像を貼り付けられませんでした。この欄を選んで貼り付けるか、画像ファイルを選んでください。":"Gagal menempel gambar. Pilih area ini untuk menempel, atau pilih berkas gambar.","画像を貼り付けられませんでした。もう一度お試しください。":"Gagal menempel gambar. Silakan coba lagi.","入力内容が変わりました。貼り付け先を確認してもう一度お試しください。":"Isian telah berubah. Periksa tujuan penempelan lalu coba lagi.","端末の貼り付けメニュー、またはCtrl＋Vを使ってください。画像ファイルの選択もできます。":"Gunakan menu Tempel di perangkat atau Ctrl+V. Anda juga dapat memilih berkas gambar."});
 Object.assign(DICT,{"QRの内容を読み取れませんでした。":"Isi QR tidak dapat dibaca.","開始位置・文字数がQRの範囲外です。":"Posisi awal atau panjang melebihi isi QR.","区切り文字・項目番号を設定してください。":"Atur pemisah dan nomor kolom.","指定した項目がQRにありません。":"Kolom yang ditentukan tidak ada dalam QR.","QRの抽出方法を確認してください。":"Periksa cara mengambil bagian QR.","抽出したコードが空です。":"Kode yang diambil kosong.","かんばんQR":"QR Kanban","マスターに照合コードを設定してください。":"Atur kode pengecekan di Master.","品番が一致しません。作業を止めて確認してください。":"Nomor produk tidak cocok. Hentikan pekerjaan dan lakukan pengecekan.","箱ごとの番号を抽出できません。":"Nomor unik kotak tidak dapat diambil.","この品番のQR照合は未設定です。":"Pengecekan QR untuk produk ini belum diatur.","同じQRが複数の品番に一致します。マスターを確認してください。":"QR yang sama cocok dengan beberapa produk. Periksa Master.","作業またはマスターが見つかりません。":"Pekerjaan atau data Master tidak ditemukan.","作業状態が変わりました。計画表を確認してください。":"Status pekerjaan berubah. Periksa jadwal kerja.","目標箱数に達しています。計画表を確認してください。":"Target jumlah kotak tercapai. Periksa jadwal kerja.","この箱のQRはすでに完了登録されています。":"QR kotak ini sudah dicatat selesai.","QR完了履歴と箱数が異なります。管理者に確認してください。":"Riwayat QR dan jumlah kotak berbeda. Hubungi pengelola.","閉じる":"Tutup","QR読取機能を読み込めません。通信を確認してください。":"Fitur pembaca QR gagal dimuat. Periksa koneksi.","公開アプリをHTTPSで開き、カメラを許可してください。":"Buka aplikasi terbit melalui HTTPS dan izinkan kamera.","カメラを使用できません。カメラの許可・接続を確認してください。":"Kamera tidak dapat digunakan. Periksa izin dan sambungan kamera.","QRが見つかりません。明るさ・距離を変えてください。":"QR tidak ditemukan. Sesuaikan cahaya dan jarak.","カメラ起動中…":"Memulai kamera…","カメラを止める":"Hentikan kamera","カメラでQRを読む":"Pindai QR dengan kamera","ハンディ・手入力":"Pemindai genggam / input manual","撮影したQR画像から読む":"Baca QR dari foto","QRの読取内容":"Isi QR yang dibaca","この内容で照合":"Lakukan pengecekan isi ini","一致":"Cocok","不一致":"Tidak cocok","選択中の品番と一致しました。":"Cocok dengan produk yang dipilih.","品番が違います。作業を止めて確認してください。":"Nomor produk berbeda. Hentikan pekerjaan dan lakukan pengecekan.","マスターが変更されました。もう一度QRを読んでください。":"Master telah berubah. Pindai QR sekali lagi.","かんばんQR照合":"Pengecekan QR Kanban","選択中の品番":"Produk yang dipilih","一致：選択中の品番です":"Cocok: produk yang dipilih","不一致：作業を止めて確認":"Tidak cocok: hentikan pekerjaan dan periksa","箱ごとの番号":"Nomor unik kotak","再読み取り":"Pindai lagi","登録中…":"Sedang mencatat…","一致したこの1箱を完了登録":"Catat satu kotak yang cocok ini sebagai selesai","一致を確認して戻る":"Konfirmasi kecocokan dan kembali","カメラを向けただけでは箱数は増えません。一致後に1箱ずつ完了登録してください。":"Mengarahkan kamera saja tidak menambah jumlah kotak. Setelah cocok, catat setiap kotak sebagai selesai.","QRのどの部分を拾うか":"Bagian QR yang diambil","抽出方法":"Cara mengambil bagian","開始位置（1文字目から）":"Posisi awal, dihitung dari karakter pertama","開始位置":"Posisi awal","文字数":"Jumlah karakter","区切り文字":"Pemisah","項目番号（1番目から）":"Nomor kolom, dimulai dari 1","項目番号":"Nomor kolom","抽出した前後の空白を除く":"Hapus spasi di awal dan akhir hasil","このかんばんをQR照合に使う":"Gunakan Kanban ini untuk pengecekan QR","QR照合コード（完全一致）":"Kode pengecekan QR, harus sama persis","品番":"Nomor produk","箱ごとの重複登録を防ぐ設定":"Pengaturan pencegahan pencatatan kotak ganda","箱ごとに異なる番号を照合する":"Periksa nomor yang berbeda untuk setiap kotak","箱番号":"Nomor kotak","箱ごとに異なる番号がQRにある場合だけ設定します。同じQRが全箱共通の場合、箱の重複は判定できません。":"Atur hanya jika QR memiliki nomor unik untuk setiap kotak. Jika semua kotak memakai QR yang sama, kotak ganda tidak dapat dikenali.","設定テスト用のQR内容":"Isi QR untuk menguji pengaturan","実物のQRを読んで設定を確認":"Pindai QR asli untuk memeriksa pengaturan","抽出した照合コード":"Kode pengecekan yang diambil","この抽出結果を照合コードに設定":"Gunakan hasil ini sebagai kode pengecekan","先頭の0・ハイフンも区別して完全一致で照合します。設定後は保存してください。":"Pengecekan harus sama persis, termasuk nol di awal dan tanda hubung. Simpan setelah mengatur.","設定テスト用のQR読取":"Pembacaan QR untuk uji pengaturan","かんばん情報（最大4種類）":"Informasi Kanban, maksimal 4 jenis","かんばんを追加":"Tambah Kanban","かんばんの写真":"Foto Kanban","種類":"Jenis","色":"Warna","緑":"Hijau","黄":"Kuning","青":"Biru","ピンク":"Merah muda","赤":"Merah","白":"Putih","サイズ":"Ukuran","用途":"Kegunaan","使用工程":"Proses penggunaan","発行先":"Penerbit","備考":"Catatan","かんばん":"Kanban","注意事項（1行1項目）":"Catatan perhatian, satu hal per baris","かんばんQR照合済み":"QR Kanban sudah cocok","開始前にかんばんQRを照合してください。":"Lakukan pengecekan QR Kanban sebelum mulai.","QR照合して1箱完了":"Periksa QR lalu selesaikan satu kotak","管理者の解除が必要です。":"Pembukaan kunci oleh pengelola diperlukan.","管理者解除の初期設定が必要です。管理者に確認してください。":"Pengaturan awal pembukaan kunci diperlukan. Hubungi pengelola.","管理者の解除用QRを読んでください。":"Pindai QR pembuka kunci milik pengelola.","解除対象のロックを確認できません。":"Kunci yang akan dibuka tidak dapat dikonfirmasi.","1箱工数を設定してからQRを読み取ってください。":"Atur waktu standar per kotak sebelum memindai QR.","ロックの保存を確認できません。通信を確認し、管理者を呼んでください。":"Penyimpanan kunci belum dapat dikonfirmasi. Periksa koneksi dan panggil pengelola.","解除しました。かんばんQRをもう一度照合してください。":"Kunci dibuka. Lakukan pengecekan QR Kanban sekali lagi.","解除できません。管理者の解除用QRを確認してください。":"Kunci tidak dapat dibuka. Periksa QR pembuka kunci pengelola.","管理者解除QRの読取":"Pindai QR pembuka kunci pengelola","設定を確認中…":"Memeriksa pengaturan…","管理者解除待ち・作業停止":"Pekerjaan dihentikan, menunggu pengelola","作業者は解除できません。管理者を呼んでください。":"Operator tidak dapat membuka kunci. Panggil pengelola.","管理者の解除用QRを読む":"Pindai QR pembuka kunci pengelola","解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。":"QR pembuka kunci tidak menambah jumlah kotak. Setelah dibuka, periksa ulang QR Kanban.","二度読み防止・読取停止中":"Pencegahan pemindaian ganda: pembacaan dijeda","1箱工数の30％が経過すると読み取りできます。":"Pemindaian tersedia setelah 30% waktu standar per kotak berlalu.","一致・1箱完了登録済み":"Cocok: satu kotak telah dicatat selesai","一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。":"Jika cocok, satu kotak otomatis dicatat selesai. Jika tidak cocok, jumlah kotak tidak bertambah dan pengelola harus membuka kunci.","解除完了":"Kunci dibuka","解除不可":"Tidak dapat dibuka","かんばんQRをもう一度照合してください。":"Lakukan pengecekan QR Kanban sekali lagi.","管理者の解除用QRを確認してください。":"Periksa QR pembuka kunci pengelola.","作業を止めて管理者を呼んでください。":"Hentikan pekerjaan dan panggil pengelola.","管理者解除待ち":"Menunggu pembukaan kunci pengelola","✓ 照合コードに設定済み":"✓ Kode pengecekan sudah diatur","照合コード欄に設定済み":"Sudah diatur pada kolom kode pengecekan","変更を保存するには、下の「保存する」を押してください。":"Untuk menyimpan perubahan, tekan tombol Simpan di bawah.","不一致時の記録":"Catatan saat tidak cocok","登録した照合コード":"Kode pengecekan yang terdaftar","実際に抽出したコード":"Kode yang benar-benar diambil","文字":"karakter","最初に異なる位置（1文字目から）":"Posisi perbedaan pertama (mulai dari karakter pertama)","異なる文字の識別番号（登録／抽出）":"Kode karakter yang berbeda (terdaftar / diambil)","␠は空白です。この記録は照合コードを変更しません。":"␠ berarti spasi. Catatan ini tidak mengubah kode pengecekan.","指定した照合コードがQRに含まれていません。":"Kode pengecekan yang ditentukan tidak terdapat dalam QR.","読み取ったQRの内容":"Isi QR yang dibaca","QR照合コード（含まれていれば一致）":"Kode pengecekan QR (cocok jika terdapat dalam QR)","登録コードがQR全体のどこかに含まれていれば一致します。開始位置・文字数の設定は不要です。":"Cocok jika kode yang terdaftar terdapat di bagian mana pun dalam seluruh QR. Posisi awal dan jumlah karakter tidak perlu diatur.","先頭の0・ハイフンを含め、登録コードがそのまま含まれるか照合します。設定後は保存してください。":"Pengecekan memastikan kode terdaftar terdapat persis, termasuk nol di depan dan tanda hubung. Simpan setelah mengatur.","管理者の解除用QRは、品番照合には使えません。":"QR pembuka kunci pengelola tidak dapat digunakan untuk pengecekan nomor produk.","指定番号がQRのどこかに含まれていれば一致します。例：000270":"Cocok jika nomor yang ditentukan terdapat di bagian mana pun dalam QR. Contoh: 000270","一致：指定番号がQRに含まれています。":"Cocok: nomor yang ditentukan terdapat dalam QR.","完了箱数":"Jumlah kotak selesai","予定箱数に達しました。作業終了してください。":"Jumlah kotak yang direncanakan telah tercapai. Selesaikan pekerjaan.","連続QR照合：箱ごとのボタン操作は不要です。":"Pengecekan QR berkelanjutan: tidak perlu menekan tombol untuk setiap kotak.","QRをいったん画面から外してください。次の箱を待機します。":"Jauhkan QR dari tampilan sekali. Menunggu kotak berikutnya.","1箱完了時にQRをかざしてください。自動で照合・登録します。":"Saat satu kotak selesai, tunjukkan QR. Pengecekan dan pencatatan dilakukan otomatis.","外付けスキャナーも自動受付します。読取データの末尾はEnterに設定してください。":"Pemindai eksternal juga diterima otomatis. Atur Enter di akhir data pemindaian.","外付けスキャナー受付中":"Menunggu pemindai eksternal","外付けスキャナーを使う":"Gunakan pemindai eksternal"});
+Object.assign(DICT,{"カメラ映像・QR自動照合":"Tampilan kamera dan pengecekan QR otomatis","カメラ停止中":"Kamera dihentikan","画像・手入力で照合":"Pengecekan dari foto atau input manual","作業手順":"Langkah kerja","手順を見る":"Lihat langkah kerja","QR自動照合中":"Pengecekan QR otomatis aktif"});
 const biPairs = new Map(),biReverse = new Map(),biPending = new Map(),biFailed = new Set();
 const biListeners = new Set(),biQueue = [];
 let biVersion = 0,biActive = 0;
@@ -8598,6 +8624,7 @@ function BilingualDialog() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
 
 
 </script>
