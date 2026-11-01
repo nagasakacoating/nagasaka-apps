@@ -326,6 +326,12 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .master-search-confirm{min-width:76px;min-height:46px;padding:8px 12px;border-radius:8px;background:#12306B;color:white;font-size:16px;font-weight:700}
 @media(min-width:901px){.master-admin-toolbar{grid-template-columns:minmax(180px,1fr) auto minmax(280px,360px) auto!important;max-width:none!important}}
 @media(max-width:900px){.master-search-form{grid-column:1/-1}}
+
+.sheet-process-question{padding:18px;border:1px solid #C3D6F0;border-radius:12px;background:#F2F6FD}
+.sheet-process-question h3{font-size:21px;color:#12306B;margin:0 0 12px}
+.sheet-process-question p{font-size:17px;line-height:1.6;margin:0 0 16px;color:#3A4552}
+.sheet-process-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+.sheet-process-choices button{display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 16px;border:1px solid #C3D6F0;border-radius:10px;background:white;color:#12306B;text-align:left;font-size:19px;font-weight:700}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -4227,6 +4233,16 @@ function BoxStepsArea({
     resize: 'vertical'
   }} />;
 }
+function masterSheetHasData(sheet) {
+  return !!(sheet && ((sheet.steps || []).length || sheet.kosu || sheet.capacity ||
+    (sheet.notes || []).some((note) => String(note || '').trim()) ||
+    (sheet.notes_id || []).some((note) => String(note || '').trim())));
+}
+function registeredSheetProcesses(data) {
+  const registered = PROCESSES.filter((process) => (data.procIds || []).includes(process.id));
+  return registered.length ? registered : PROCESSES.filter((process) => masterSheetHasData(data.sheets?.[process.id]));
+}
+
 function EditorBody({
   tab,
   d,
@@ -4235,7 +4251,16 @@ function EditorBody({
   busy,
   hinban
 }) {
-  const [sheetProc, setSheetProc] = useState(PROCESSES[0].id);
+  const [sheetProc, setSheetProc] = useState(() => {
+    const choices = registeredSheetProcesses(d);
+    return choices.length === 1 ? choices[0].id : null;
+  });
+  // Resolve on opening this tab, not after each keystroke in its form.
+  useEffect(() => {
+    if (tab !== 'sheet') return;
+    const choices = registeredSheetProcesses(d);
+    setSheetProc(choices.length === 1 ? choices[0].id : null);
+  }, [tab, hinban]);
   const S = (k, v) => upd({
     [k]: v
   });
@@ -4707,6 +4732,18 @@ function EditorBody({
   if(tab==='kanban')return <><KanbanEditor items={d.kanbans} onChange={v=>S('kanbans',v)} upImg={upImg} busy={busy} hinban={hinban}/><FLbl><BiText value="注意事項（1行1項目）"/></FLbl><LinesArea value={d.kanbanNotes} onChange={v=>S('kanbanNotes',v)}/></>;
   if (tab === 'sheet') {
     const sheets = d.sheets || {};
+    if (!sheetProc) {
+      const registered = registeredSheetProcesses(d);
+      const choices = registered.length ? registered : PROCESSES;
+      return <section className="sheet-process-question" role="group" aria-label="要領書・工数の工程選択">
+        <h3><BiText value="どの工程の要領書・工数を編集しますか？" other="Proses mana yang ingin Anda edit lembar kerja dan waktu standarnya?" source="ja" /></h3>
+        <p><BiText value={registered.length ? '登録済みの工程が複数あります。編集する工程を選択してください。' : '登録済みの工程がありません。登録する工程を選択してください。'}
+          other={registered.length ? 'Ada beberapa proses terdaftar. Pilih proses yang ingin diedit.' : 'Belum ada proses terdaftar. Pilih proses yang ingin didaftarkan.'} source="ja" /></p>
+        <div className="sheet-process-choices">{choices.map((process) => <button type="button" key={process.id} data-process-id={process.id} onClick={() => setSheetProc(process.id)}>
+          <NumBadge n={process.no} size={28} /><BiText value={process.ja} other={process.id_ || ''} source="ja" />
+        </button>)}</div>
+      </section>;
+    }
     const sh = sheets[sheetProc] || {};
     const setSh = (patch) => upd({
       sheets: {
@@ -4728,7 +4765,7 @@ function EditorBody({
       }}>
         <BiText value={PROCESSES.map((p) => {
           const on = p.id === sheetProc;
-          const has = !!(sheets[p.id] && ((sheets[p.id].steps || []).length || sheets[p.id].kosu || sheets[p.id].capacity));
+          const has = masterSheetHasData(sheets[p.id]);
           return <button key={p.id} onClick={() => setSheetProc(p.id)} style={{
             padding: '7px 12px',
             borderRadius: 16,
