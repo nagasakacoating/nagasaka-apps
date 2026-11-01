@@ -320,6 +320,12 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 @container(max-width:700px){.product-info .shape-point-card,.product-info .shape-point-list.is-single .shape-point-card,.product-info .info-overview-grid,.product-info .hanger-overview-grid,.product-info .info-box-row{grid-template-columns:minmax(0,1fr)!important}.product-info img[role="button"]{height:clamp(300px,52dvh,650px)!important}.product-info .info-step-row{grid-template-columns:30px minmax(0,1fr)!important}.product-info .info-step-row img,.product-info .info-step-row>div:last-child{grid-column:2}}
 @container(max-width:600px){.sheet-readable-row{grid-template-columns:30px minmax(0,1fr)!important}.sheet-readable-row img{height:clamp(300px,52dvh,650px)!important;grid-column:2}.sheet-readable-row>div:last-child{grid-column:2}}
 @container(max-width:700px){.product-info[data-info-page="hanger"] .hanger-overview-grid>div:last-child{grid-column:1;grid-row:auto}.product-info[data-info-page="tools"] .info-card-grid>.panel,.product-info[data-info-page="packing"] .info-card-grid>div,.product-info[data-info-page="hanger"] .info-card-grid>div{grid-template-columns:minmax(0,1fr)}.product-info[data-info-page="tools"] .info-card-grid>.panel>img,.product-info[data-info-page="packing"] .info-card-grid>div>img,.product-info[data-info-page="hanger"] .info-card-grid>div>img{grid-column:1;grid-row:auto}.product-info[data-info-page="tools"] .info-card-grid>.panel>div,.product-info[data-info-page="packing"] .info-card-grid>div>div,.product-info[data-info-page="hanger"] .info-card-grid>div>div{grid-column:1}}
+
+/* Confirm master search without clearing the query or leaving the keyboard open. */
+.master-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;min-width:0}
+.master-search-confirm{min-width:76px;min-height:46px;padding:8px 12px;border-radius:8px;background:#12306B;color:white;font-size:16px;font-weight:700}
+@media(min-width:901px){.master-admin-toolbar{grid-template-columns:minmax(180px,1fr) auto minmax(280px,360px) auto!important;max-width:none!important}}
+@media(max-width:900px){.master-search-form{grid-column:1/-1}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -3267,6 +3273,13 @@ function MasterAdmin({
   const [showWorkers, setShowWorkers] = useState(false);
   const [newH, setNewH] = useState('');
   const [q, setQ] = useState('');
+  const searchInput = useRef(null), searchComposing = useRef(false);
+  function confirmMasterSearch(e) {
+    e.preventDefault();
+    if (searchComposing.current) return;
+    searchInput.current?.blur();
+  }
+
   const modalOpen = !!sel || showWorkers;
   // 編集中はページ全体も固定する。一覧内の位置は overflow の切替で保持する。
   useEffect(() => {
@@ -3343,9 +3356,16 @@ function MasterAdmin({
             fontWeight: 700,
             whiteSpace: 'normal'
           }}><BiText value={t('追加')} /></button>
-          <LocalizedInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="呼称・品番で絞り込み..." style={{
-            maxWidth: 260
-          }} />
+          <form className="master-search-form" role="search" onSubmit={confirmMasterSearch}>
+            <LocalizedInput ref={searchInput} value={q} onChange={(e) => setQ(e.target.value)}
+              enterKeyHint="done" aria-label="呼称・品番で検索" placeholder="呼称・品番で絞り込み..."
+              onCompositionStart={() => {searchComposing.current = true;}}
+              onCompositionEnd={() => {searchComposing.current = false;}}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) confirmMasterSearch(e);
+              }} style={{width:'100%',minWidth:0}} />
+            <button type="submit" className="master-search-confirm"><BiText value="確定" other="Selesai" source="ja" /></button>
+          </form>
           <button onClick={() => setShowWorkers(true)} style={{
             minHeight: 46,
             padding: '0 18px',
