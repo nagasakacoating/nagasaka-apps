@@ -332,6 +332,13 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .sheet-process-question p{font-size:17px;line-height:1.6;margin:0 0 16px;color:#3A4552}
 .sheet-process-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
 .sheet-process-choices button{display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 16px;border:1px solid #C3D6F0;border-radius:10px;background:white;color:#12306B;text-align:left;font-size:19px;font-weight:700}
+
+.rep-list-insertable>[data-rep-row]{scroll-margin-top:12px}
+.rep-list-insertable>[data-rep-row]>div:first-child{flex-wrap:wrap}
+.rep-insert-controls{display:flex;flex-wrap:wrap;gap:6px}
+.rep-insert-controls button{min-height:44px;padding:7px 12px;background:#E8F0FB;border:1px solid #C3D6F0;border-radius:8px;color:#12306B;font-size:15px;font-weight:700}
+.rep-list-insertable>[data-rep-row]>div:first-child>button{min-height:44px}
+.rep-list-insertable button:disabled{opacity:.5;cursor:default}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -4073,9 +4080,24 @@ function RepList({
   render,
   addLabel,
   blank,
-  max
+  max,
+  insertable = false,
+  disabled = false
 }) {
   const arr = items || [];
+  const listElement = useRef(null), insertedAt = useRef(null);
+  React.useLayoutEffect(() => {
+    if (insertedAt.current == null) return;
+    const row = listElement.current?.querySelector('[data-rep-row="' + insertedAt.current + '"]');
+    insertedAt.current = null;
+    row?.scrollIntoView({block:'start',behavior:'auto'});
+  }, [items]);
+  function insert(index) {
+    if (disabled || (max && arr.length >= max)) return;
+    const item = blank ? JSON.parse(JSON.stringify(blank)) : {};
+    insertedAt.current = insertable ? index : null;
+    onChange([...arr.slice(0,index), item, ...arr.slice(index)]);
+  }
   const set = (i, v) => {
     const n = [...arr];
     n[i] = v;
@@ -4083,14 +4105,14 @@ function RepList({
   };
   const removing = useRef(false),latestRows = useRef({ items: arr, onChange });latestRows.current = { items: arr, onChange };
   const rm = async (i) => {
-    if (removing.current) return;const original = arr[i];removing.current = true;
+    if (disabled || removing.current) return;const original = arr[i];removing.current = true;
     try {
       if (rowHasPhoto(original) && !(await showBiDialog('confirm', 'この項目と写真を削除しますか？', '', { confirmLabel: '削除する', destructive: true }))) return;
       if (latestRows.current.items[i] === original) latestRows.current.onChange(latestRows.current.items.filter((_, j) => j !== i));
     } finally {removing.current = false;}
   };
-  return <div>
-      <BiText value={arr.map((it, i) => <div key={i} style={{
+  return <div ref={listElement} className={insertable ? "rep-list-insertable" : undefined}>
+      <BiText value={arr.map((it, i) => <div key={i} data-rep-row={i} style={{
       border: '1px solid ' + LINE,
       borderRadius: 10,
       padding: 12,
@@ -4107,7 +4129,11 @@ function RepList({
             <div style={{
           flex: 1
         }} />
-            <button onClick={() => rm(i)} style={{
+            {insertable && <div className="rep-insert-controls">
+              <button type="button" className="rep-insert-before" disabled={disabled || !!(max && arr.length >= max)} onClick={() => insert(i)}><BiText value="この前に追加" other="Tambah sebelum ini" source="ja" /></button>
+              <button type="button" className="rep-insert-after" disabled={disabled || !!(max && arr.length >= max)} onClick={() => insert(i + 1)}><BiText value="この後に追加" other="Tambah setelah ini" source="ja" /></button>
+            </div>}
+            <button type="button" disabled={disabled} onClick={() => rm(i)} style={{
           padding: '4px 12px',
           borderRadius: 6,
           background: '#FDECEA',
@@ -4118,7 +4144,7 @@ function RepList({
           </div>
           <BiText value={render(it, (v) => set(i, v), i)} />
         </div>)} />
-      <BiText value={(!max || arr.length < max) && <button onClick={() => onChange([...arr, blank ? JSON.parse(JSON.stringify(blank)) : {}])} style={{
+      <BiText value={(!max || arr.length < max) && <button type="button" disabled={disabled} onClick={() => insert(arr.length)} style={{
       width: '100%',
       minHeight: 44,
       borderRadius: 8,
@@ -4811,7 +4837,7 @@ function EditorBody({
         </div>
       </Row>
       <FLbl><BiText value={"\u8981\u9818\u66F8\uFF1A\u624B\u9806\uFF08\u5199\u771F\uFF0B\u30B3\u30E1\u30F3\u30C8\uFF09"} /></FLbl>
-      <RepList items={sh.steps} onChange={(v) => setSh({
+      <RepList key={hinban + ":sheet:" + sheetProc} items={sh.steps} insertable disabled={!!busy} onChange={(v) => setSh({
         steps: v
       })} addLabel="手順を追加" blank={{
         img: '',
