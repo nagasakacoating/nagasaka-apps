@@ -4486,7 +4486,7 @@ function EditorBody({
   }
   if (tab === 'steps') return <>
     <FLbl><BiText value={"\u4F5C\u696D\u306E\u6D41\u308C\uFF08\u624B\u9806\u3054\u3068\u306B\u30AB\u30FC\u30C9\uFF09"} /></FLbl>
-    <RepList items={d.steps} onChange={(v) => S('steps', v)} addLabel="手順を追加" blank={{
+    <RepList key={hinban + ':steps'} items={d.steps} insertable disabled={!!busy} onChange={(v) => S('steps', v)} addLabel="手順を追加" blank={{
       text: '',
       text_id: '',
       img: ''
