@@ -564,6 +564,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
     // The original Enter path remains as a fallback. Do not shorten the 1-second character gap.
     let finishTimer=null;
     const finish=(reason)=>{
+      if(window.__qrDiagMark)window.__qrDiagMark('入力終了直前（'+wedge.current.text.length+'文字）');
       if(finishTimer!==null){clearTimeout(finishTimer);finishTimer=null;}
       const raw=wedge.current.text;
       wedge.current={text:'',at:0};
@@ -576,6 +577,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
       if(e.isComposing||e.ctrlKey||e.altKey||e.metaKey||e.repeat)return;
       const target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'))return;
       if(e.key==='Enter'){
+        if(window.__qrDiagMark)window.__qrDiagMark('Enter受信（'+wedge.current.text.length+'文字）');
         const raw=wedge.current.text;
         if(raw.length>=4){e.preventDefault();e.stopPropagation();}
         finish('入力確定（Enter）');return;
@@ -588,6 +590,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
       if(!wedge.current.text&&!e.key.trim())return;
       if(!wedge.current.text&&window.__qrDiagMark)window.__qrDiagMark('文字受信開始');
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
+      if(window.__qrDiagKey)window.__qrDiagKey(wedge.current.text.length);
       if(finishTimer!==null)clearTimeout(finishTimer);
       finishTimer=setTimeout(()=>finish('入力確定（2.5秒待機）'),2500);
     };
@@ -626,14 +629,15 @@ function KanbanVerdict({ok,kind}){
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
-  const [diag,setDiag]=useState([]);const diagStart=useRef(null);const diagLatest=useRef(0);
+  const [diag,setDiag]=useState([]);const diagStart=useRef(null);const diagLatest=useRef(0);const lastKeyMark=useRef(0);
   function markDiag(label){
     const t=performance.now();
     if(label==='文字受信開始'||diagStart.current===null){diagStart.current=t;diagLatest.current=t;setDiag([{label,elapsed:0,delta:0}]);return;}
-    const entry={label,elapsed:Math.round(t-diagStart.current),delta:Math.round(t-diagLatest.current)};
+    const sinceLastKey=lastKeyMark.current?Math.round(t-lastKeyMark.current):null;
+    const entry={label,elapsed:Math.round(t-diagStart.current),delta:Math.round(t-diagLatest.current),sinceLastKey};
     diagLatest.current=t;setDiag(prev=>[...prev.slice(-9),entry]);
   }
-  useEffect(()=>{window.__qrDiagMark=markDiag;return()=>{delete window.__qrDiagMark;};});
+  useEffect(()=>{window.__qrDiagMark=markDiag;window.__qrDiagKey=(n)=>{lastKeyMark.current=performance.now();};return()=>{delete window.__qrDiagMark;delete window.__qrDiagKey;};});
 
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
   useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
@@ -676,8 +680,8 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
   useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
   const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>;
   const diagPanel=<div style={{position:'fixed',right:8,bottom:8,zIndex:2147483647,background:'#fff',color:'#111',border:'3px solid #f59e0b',borderRadius:8,padding:'8px 10px',width:'min(350px,94vw)',maxHeight:'42vh',overflowY:'auto',fontSize:13,boxShadow:'0 3px 16px #0006',pointerEvents:'none'}}>
-    <strong>QR速度診断（テスト専用）</strong><div style={{fontSize:11}}>数字は文字受信開始からの経過ミリ秒／直前との差</div>
-    {diag.length?diag.map((d,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,borderBottom:'1px solid #ddd'}}><span>{d.label}</span><b>{(d.elapsed/1000).toFixed(2)}秒 <small>(+{(d.delta/1000).toFixed(2)})</small></b></div>):<div>QRを1回読み取ってください</div>}
+    <strong>QR入力タイミング診断（テスト専用）</strong><div style={{fontSize:11}}>数字は文字受信開始からの経過ミリ秒／直前との差</div>
+    {diag.length?diag.map((d,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,borderBottom:'1px solid #ddd'}}><span>{d.label}</span><b>{(d.elapsed/1000).toFixed(2)}秒 <small>(+{(d.delta/1000).toFixed(2)})</small>{d.label.startsWith('入力終了直前')&&d.sinceLastKey!==null?<small> 最終文字から{(d.sinceLastKey/1000).toFixed(2)}秒</small>:null}</b></div>):<div>QRを1回読み取ってください</div>}
   </div>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
