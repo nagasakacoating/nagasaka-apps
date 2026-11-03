@@ -560,20 +560,39 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   useEffect(()=>{try{localStorage.setItem('outline-qr-camera',camera);}catch(e){}},[camera]);
   useEffect(()=>{
     if(!continuous)return;
+    // Test only: finish after 2.5 seconds without further characters, even if Enter is delayed.
+    // The original Enter path remains as a fallback. Do not shorten the 1-second character gap.
+    let finishTimer=null;
+    const finish=(reason)=>{
+      if(finishTimer!==null){clearTimeout(finishTimer);finishTimer=null;}
+      const raw=wedge.current.text;
+      wedge.current={text:'',at:0};
+      if(raw.length>=4){
+        if(window.__qrDiagMark)window.__qrDiagMark(reason);
+        read(raw);
+      }
+    };
     const onKey=e=>{
       if(e.isComposing||e.ctrlKey||e.altKey||e.metaKey||e.repeat)return;
       const target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'))return;
       if(e.key==='Enter'){
-        if(window.__qrDiagMark)window.__qrDiagMark('入力確定（Enter）');
-        const raw=wedge.current.text;wedge.current={text:'',at:0};if(raw.length>=4){e.preventDefault();e.stopPropagation();read(raw);}return;
+        const raw=wedge.current.text;
+        if(raw.length>=4){e.preventDefault();e.stopPropagation();}
+        finish('入力確定（Enter）');return;
       }
       if(e.key.length!==1)return;
-      const now=Date.now();if(now-wedge.current.at>1000)wedge.current.text='';
+      const now=Date.now();if(now-wedge.current.at>1000){
+        wedge.current.text='';
+        if(finishTimer!==null){clearTimeout(finishTimer);finishTimer=null;}
+      }
       if(!wedge.current.text&&!e.key.trim())return;
       if(!wedge.current.text&&window.__qrDiagMark)window.__qrDiagMark('文字受信開始');
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
+      if(finishTimer!==null)clearTimeout(finishTimer);
+      finishTimer=setTimeout(()=>finish('入力確定（2.5秒待機）'),2500);
     };
-    document.addEventListener('keydown',onKey,true);return()=>document.removeEventListener('keydown',onKey,true);
+    document.addEventListener('keydown',onKey,true);
+    return()=>{document.removeEventListener('keydown',onKey,true);if(finishTimer!==null)clearTimeout(finishTimer);};
   },[continuous]);
   function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(continuous&&!want);if(continuous)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
   function useExternal(){cameraWanted.current=false;setExternalOnly(true);try{localStorage.setItem('outline-continuous-camera','off');}catch(e){}stop();setError('');}
