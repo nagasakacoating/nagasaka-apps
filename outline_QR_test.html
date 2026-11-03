@@ -564,11 +564,13 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
       if(e.isComposing||e.ctrlKey||e.altKey||e.metaKey||e.repeat)return;
       const target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'))return;
       if(e.key==='Enter'){
+        if(window.__qrDiagMark)window.__qrDiagMark('入力確定（Enter）');
         const raw=wedge.current.text;wedge.current={text:'',at:0};if(raw.length>=4){e.preventDefault();e.stopPropagation();read(raw);}return;
       }
       if(e.key.length!==1)return;
       const now=Date.now();if(now-wedge.current.at>1000)wedge.current.text='';
       if(!wedge.current.text&&!e.key.trim())return;
+      if(!wedge.current.text&&window.__qrDiagMark)window.__qrDiagMark('文字受信開始');
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
     };
     document.addEventListener('keydown',onKey,true);return()=>document.removeEventListener('keydown',onKey,true);
@@ -605,6 +607,15 @@ function KanbanVerdict({ok,kind}){
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
+  const [diag,setDiag]=useState([]);const diagStart=useRef(null);const diagLatest=useRef(0);
+  function markDiag(label){
+    const t=performance.now();
+    if(label==='文字受信開始'||diagStart.current===null){diagStart.current=t;diagLatest.current=t;setDiag([{label,elapsed:0,delta:0}]);return;}
+    const entry={label,elapsed:Math.round(t-diagStart.current),delta:Math.round(t-diagLatest.current)};
+    diagLatest.current=t;setDiag(prev=>[...prev.slice(-9),entry]);
+  }
+  useEffect(()=>{window.__qrDiagMark=markDiag;return()=>{delete window.__qrDiagMark;};});
+
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
   useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
   useEffect(()=>{if(order&&local&&order.qrUnlockOf===local.lockId&&!order.qrBlocked){qrKeepLocal(order.id,null);setLocal(null);}},[order&&order.qrUnlockOf,order&&order.qrBlocked]);
@@ -621,7 +632,8 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     if(order){qrKeepLocal(order.id,lock);setLocal(lock);try{const id=await lockKanbanOrder(order.id,lock.lockId,code);if(alive.current){const saved={...lock,lockId:id};qrKeepLocal(order.id,saved);setLocal(saved);}}catch(e){if(alive.current)setError('ロックの保存を確認できません。通信を確認し、管理者を呼んでください。');}}
   }
   async function read(raw){
-    if(pending.current||flash||guard!==true||suspended)return;
+    markDiag('アプリ照合開始');
+    if(pending.current||flash||guard!==true||suspended){markDiag('受付不可（処理中など）');return;}
     if(managerMode){
       pending.current=true;setBusy(true);setError('');
       try{
@@ -631,19 +643,23 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
       finally{pending.current=false;if(alive.current)setBusy(false);}return;
     }
     if(blocked||remaining||complete||(mode==='count'&&!running))return;
-    const checked=verifyKanban(raw,hinban,m,master);setError('');
+    const checked=verifyKanban(raw,hinban,m,master);markDiag('品番照合完了');setError('');
     if(!checked.ok){pending.current=true;setBusy(true);try{await persistBlock(checked.error,checked.code||'',checked);}finally{pending.current=false;if(alive.current)setBusy(false);}return;}
     if(mode!=='count'){setResult(checked);setFlash({ok:true,kind:'verify',checked});return;}
-    pending.current=true;setBusy(true);setResult(checked);setFlash({ok:true,kind:'pending'});
+    pending.current=true;setBusy(true);setResult(checked);setFlash({ok:true,kind:'pending'});markDiag('登録中表示を指示');
     try{
-      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
+      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});markDiag('箱数登録応答');
       if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}else{setFlash(null);setResult(null);setError('重複または読取間隔の制限により、箱数は追加されませんでした。');}}
-    }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
+    }catch(e){markDiag('登録エラー');if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
   const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||remaining>0||complete||(mode==='count'&&!running)));
   useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
   const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>;
+  const diagPanel=<div style={{position:'fixed',right:8,bottom:8,zIndex:2147483647,background:'#fff',color:'#111',border:'3px solid #f59e0b',borderRadius:8,padding:'8px 10px',width:'min(350px,94vw)',maxHeight:'42vh',overflowY:'auto',fontSize:13,boxShadow:'0 3px 16px #0006',pointerEvents:'none'}}>
+    <strong>QR速度診断（テスト専用）</strong><div style={{fontSize:11}}>数字は文字受信開始からの経過ミリ秒／直前との差</div>
+    {diag.length?diag.map((d,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,borderBottom:'1px solid #ddd'}}><span>{d.label}</span><b>{(d.elapsed/1000).toFixed(2)}秒 <small>(+{(d.delta/1000).toFixed(2)})</small></b></div>):<div>QRを1回読み取ってください</div>}
+  </div>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
     {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
@@ -661,7 +677,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     {!inline&&mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
     {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind}/>}
   </>;
-  return inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>;
+  return <>{diagPanel}{inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>}</>;
 }
 function QrPartEditor({value,onChange,prefix}){
   const p={...DEFAULT_QR_PART,...value},set=(k,v)=>onChange({...p,[k]:v});
