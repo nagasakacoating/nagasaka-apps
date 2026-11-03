@@ -566,8 +566,8 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
       if(e.key==='Enter'){
         const raw=wedge.current.text;wedge.current={text:'',at:0};if(raw.length>=4){e.preventDefault();e.stopPropagation();read(raw);}return;
       }
-      if(e.key.length!==1){wedge.current={text:'',at:0};return;}
-      const now=Date.now();if(now-wedge.current.at>200)wedge.current.text='';
+      if(e.key.length!==1)return;
+      const now=Date.now();if(now-wedge.current.at>1000)wedge.current.text='';
       if(!wedge.current.text&&!e.key.trim())return;
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
     };
