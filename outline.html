@@ -635,9 +635,11 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     if(!checked.ok){pending.current=true;setBusy(true);try{await persistBlock(checked.error,checked.code||'',checked);}finally{pending.current=false;if(alive.current)setBusy(false);}return;}
     if(mode!=='count'){setResult(checked);setFlash({ok:true,kind:'verify',checked});return;}
     pending.current=true;setBusy(true);
+    // 品番照合が一致した時点で青○を表示する（箱数登録の通信完了を待たない）。
+    setResult(checked);setFlash({ok:true,kind:'count'});
     try{
       const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
-      if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}}
+      if(alive.current){setLocalUntil(counted.until);}
     }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
