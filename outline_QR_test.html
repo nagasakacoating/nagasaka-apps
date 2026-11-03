@@ -599,7 +599,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
 }
 function KanbanVerdict({ok,kind}){
   return ReactDOM.createPortal(<div className={'kanban-verdict '+(ok?'kanban-verdict-ok':'kanban-verdict-ng')} role="alert" aria-live="assertive" onClick={e=>{e.preventDefault();e.stopPropagation();}}>
-    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
+    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':kind==='pending'?'品番一致・登録中':ok?'一致・登録完了':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':kind==='pending'?'品番は一致しています。箱数の登録完了を確認しています。':ok?'箱数の登録が完了しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
   </div>,document.body);
 }
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
@@ -609,7 +609,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
   useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
   useEffect(()=>{if(order&&local&&order.qrUnlockOf===local.lockId&&!order.qrBlocked){qrKeepLocal(order.id,null);setLocal(null);}},[order&&order.qrUnlockOf,order&&order.qrBlocked]);
   useEffect(()=>{if(initial.current!==signature){setResult(null);setFlash(null);setError('マスターが変更されました。もう一度QRを読んでください。');initial.current=signature;}},[signature]);
-  useEffect(()=>{if(!flash)return;const timer=setTimeout(()=>{
+  useEffect(()=>{if(!flash||flash.kind==='pending')return;const timer=setTimeout(()=>{
     setFlash(null);
     if(flash.kind==='verify'){onAccepted&&onAccepted({...flash.checked,signature});onClose();}
   },2000);return()=>clearTimeout(timer);},[flash]);
@@ -634,10 +634,10 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     const checked=verifyKanban(raw,hinban,m,master);setError('');
     if(!checked.ok){pending.current=true;setBusy(true);try{await persistBlock(checked.error,checked.code||'',checked);}finally{pending.current=false;if(alive.current)setBusy(false);}return;}
     if(mode!=='count'){setResult(checked);setFlash({ok:true,kind:'verify',checked});return;}
-    pending.current=true;setBusy(true);
+    pending.current=true;setBusy(true);setResult(checked);setFlash({ok:true,kind:'pending'});
     try{
       const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
-      if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}}
+      if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}else{setFlash(null);setResult(null);setError('重複または読取間隔の制限により、箱数は追加されませんでした。');}}
     }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
