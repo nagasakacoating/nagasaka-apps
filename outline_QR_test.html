@@ -464,7 +464,7 @@ function verifyKanban(raw,hinban,m,allMaster={}){
 async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master}){
   const orderRef=db.collection('workOrders').doc(orderId),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
   return db.runTransaction(async tx=>{
-    const orderSnap=await tx.get(orderRef),masterSnap=await tx.get(masterRef),guard=await tx.get(guardRef);
+    const [orderSnap,masterSnap,guard]=await Promise.all([tx.get(orderRef),tx.get(masterRef),tx.get(guardRef)]);
     if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
     if(order.hinban!==hinban||order.procId!==procId||order.kind==='task'||order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
