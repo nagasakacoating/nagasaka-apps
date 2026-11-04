@@ -5192,12 +5192,12 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
   return <div style={{width:'100%',maxWidth:510,minWidth:0,position:'relative'}}>
     <div style={{display:'flex',gap:5,alignItems:'center'}}>
       <button type="button" onClick={() => {setOpened(v=>!v);setMode('英数');setShift(false);}}
-        style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:16,fontWeight:700,color:'#1a2e4d',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:18,fontWeight:700,color:'#1a2e4d',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         {query || (value ? value+'（変更）' : '呼称・品番を入力')}　⌕
       </button>
       <button type="button" onClick={finishInput} style={{flexShrink:0,padding:'11px 12px',fontSize:15,fontWeight:700,border:'1px solid #b8c5d7',borderRadius:8,background:'#eaf2ff',color:'#173a72'}}>入力完了</button>
     </div>
-    {value && <div style={{fontSize:12,color:'#173a72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
+    {value && <div style={{fontSize:17,fontWeight:700,color:'#173a72',marginTop:4,overflowWrap:'anywhere'}}>✓ {[value, master[value]?.partNo, master[value]?.name || master[value]?.name_id].filter(Boolean).join('　')}</div>}
     {opened && <div className="inline-hinban-keyboard" style={{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:8000,boxSizing:'border-box',width:'min(980px,calc(100vw - 20px))',maxHeight:'calc(100dvh - 20px)',overflowY:'auto',padding:12,border:'2px solid #b8cbe4',borderRadius:14,background:'#edf3fc',boxShadow:'0 14px 60px rgba(0,0,0,.35)'}}>
       <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:8}}>
         <strong style={{fontSize:16,color:'#15345b',whiteSpace:'nowrap'}}>呼称・品番</strong>
@@ -5229,7 +5229,7 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
       </div>}
       <div style={{fontSize:13,fontWeight:700,color:'#345078',marginTop:9,marginBottom:4}}>検索候補（{candidates.length}件{candidates.length===15?'以上':''}）</div>
       <div style={{maxHeight:140,overflowY:'auto',background:'#fff',borderRadius:7}}>
-        {candidates.map(h => <button key={h} type="button" onClick={() => choose(h)} style={{display:'block',width:'100%',textAlign:'left',padding:'9px 11px',borderBottom:'1px solid #e5eaf2',background:'#fff',color:'#1a2e4d',fontSize:16}}><strong>{h}</strong>　{(master[h]||{}).partNo||''}<span style={{marginLeft:10,fontSize:13,color:'#64748b'}}>{dv(master[h]||{},'name',lang)||''}</span></button>)}
+        {candidates.map(h => <button key={h} type="button" onClick={() => choose(h)} style={{display:'block',width:'100%',textAlign:'left',padding:'9px 11px',borderBottom:'1px solid #e5eaf2',background:'#fff',color:'#1a2e4d',fontSize:18}}><strong>{h}</strong>　{(master[h]||{}).partNo||''}<span style={{marginLeft:10,fontSize:17,color:'#334155'}}>{dv(master[h]||{},'name',lang)||''}</span></button>)}
         {!kw && <div style={{padding:9,fontSize:12,color:'#64748b'}}>数字・英字・かなで検索できます</div>}
         {kw && !candidates.length && <div style={{padding:9,fontSize:12,color:'#b45309'}}>該当する製品がありません。文字を修正してください。</div>}
         {kw && candidates.length > 1 && <div style={{padding:8,fontSize:12,color:'#345078'}}>候補が複数あります。該当する製品を押してください。</div>}
@@ -6348,13 +6348,16 @@ function SchedulePlanner({
             }}><BiText value={b('呼称')} /></div>
             <InlineHinbanSearch master={master} procId={proc.id} value={addH} onPick={setAddH} /></div>
           <div><div style={{
-              fontSize: 12,
+              fontSize: 16,
               fontWeight: 700,
-              color: '#4A5460',
+              color: NAVY,
               marginBottom: 5
             }}><BiText value={b('数量')} />（<BiText value={t('箱')} />）</div>
             <LocalizedInput type="number" min="1" value={addQty} onChange={(e) => setAddQty(e.target.value)} enterKeyHint="done" placeholder="例: 20" style={{
-              width: 120
+              width: 140,
+              minHeight: 48,
+              fontSize: 20,
+              fontWeight: 700
             }} /></div>
           </>} />
           <div><div style={{
