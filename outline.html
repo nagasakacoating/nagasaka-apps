@@ -5179,19 +5179,26 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
     return [h,m.name,m.partNo].some(v => kanaSearchText(v).includes(kw));
   }).slice(0, 15) : [];
   const choose = h => { onPick(h); setQuery(''); setOpened(false); };
+  const finishInput = () => {
+    if (kw && candidates.length === 1) { choose(candidates[0]); return; }
+    if (!kw && value) { setOpened(false); return; }
+    if (kw && candidates.length > 1) { setOpened(true); return; }
+    if (!kw) { setOpened(false); return; }
+    setOpened(true);
+  };
   const kanaRows = ['あいうえお','かきくけこ','さしすせそ','たちつてと','なにぬねの','はひふへほ','まみむめも','や ゆ よ','らりるれろ','わをんー'];
   const romajiRows = ['1234567890','qwertyuiop','asdfghjkl','zxcvbnm-'];
-  const keyStyle = {minWidth:0,minHeight:32,padding:'3px 0',borderRadius:6,border:'1px solid #c4d2e7',background:'#fff',color:'#15345b',fontSize:17,fontWeight:650,touchAction:'manipulation'};
-  return <div style={{width:'100%',maxWidth:340,minWidth:0,position:'relative'}}>
+  const keyStyle = {minWidth:0,minHeight:46,padding:'5px 0',borderRadius:8,border:'1px solid #c4d2e7',background:'#fff',color:'#15345b',fontSize:21,fontWeight:650,touchAction:'manipulation'};
+  return <div style={{width:'100%',maxWidth:510,minWidth:0,position:'relative'}}>
     <div style={{display:'flex',gap:5,alignItems:'center'}}>
       <button type="button" onClick={() => setOpened(v => !v)}
         style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:15,color:query?'#1a2e4d':'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         {query || (value ? value+'（変更）' : '呼称・品番を入力')}　⌕
       </button>
-      <button type="button" onClick={() => setOpened(false)} style={{flexShrink:0,padding:'9px 8px',fontSize:12,fontWeight:700,border:'1px solid #b8c5d7',borderRadius:8,background:'#eaf2ff',color:'#173a72'}}>入力完了</button>
+      <button type="button" onClick={finishInput} style={{flexShrink:0,padding:'11px 12px',fontSize:15,fontWeight:700,border:'1px solid #b8c5d7',borderRadius:8,background:'#eaf2ff',color:'#173a72'}}>入力完了</button>
     </div>
     {value && <div style={{fontSize:12,color:'#173a72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
-    {opened && <div style={{marginTop:5,padding:8,border:'1px solid #b8c5d7',borderRadius:9,background:'#edf3fc',boxShadow:'0 5px 14px rgba(0,0,0,.13)',position:'relative',zIndex:20}}>
+    {opened && <div style={{marginTop:5,padding:11,border:'1px solid #b8c5d7',borderRadius:9,background:'#edf3fc',boxShadow:'0 5px 14px rgba(0,0,0,.13)',position:'relative',zIndex:20}}>
       <div style={{display:'flex',gap:5,alignItems:'center',marginBottom:6}}>
         <div style={{flex:1,minWidth:0,padding:'6px 8px',background:'#fff',border:'1px solid #c4d2e7',borderRadius:6,fontSize:15,minHeight:34,overflowWrap:'anywhere'}}>{query || '文字を選んでください'}</div>
         <button type="button" onClick={() => setQuery(v => v.slice(0,-1))} style={{...keyStyle,minWidth:42}}>⌫</button>
@@ -5201,22 +5208,23 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
         {['かな','英数'].map(m => <button key={m} type="button" onClick={() => setMode(m)} style={{...keyStyle,flex:1,minHeight:31,fontSize:13,background:mode===m?'#1c4d94':'#fff',color:mode===m?'#fff':'#15345b'}}>{m}</button>)}
         {mode==='英数' && <button type="button" onClick={() => setShift(v=>!v)} style={{...keyStyle,flex:1,minHeight:31,fontSize:13}}>{shift?'大文字':'小文字'}</button>}
       </div>
-      {mode==='かな' ? <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:3}}>
+      {mode==='かな' ? <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:6}}>
         {kanaRows.map((r,i) => <React.Fragment key={i}>{Array.from({length:5},(_,j)=>{
           const c = r[j] || '';
           return <button key={j} type="button" disabled={!c || c===' '} onClick={() => setQuery(v=>v+c)} style={{...keyStyle,opacity:c&&c!==' '?1:.15}}>{c}</button>;
         })}</React.Fragment>)}
-      </div> : <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:3}}>
+      </div> : <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:5}}>
         {romajiRows.join('').split('').map((c,i) => <button key={i} type="button" onClick={() => setQuery(v=>v+(shift?c.toUpperCase():c))} style={{...keyStyle,fontSize:14}}>{shift?c.toUpperCase():c}</button>)}
       </div>}
       {mode==='かな' && <div style={{display:'flex',gap:4,marginTop:5}}>
-        {['が','ぎ','ぐ','げ','ご','ぱ','ぴ','ぷ','ぺ','ぽ','っ','ゃ','ゅ','ょ'].map(c => <button key={c} type="button" onClick={() => setQuery(v=>v+c)} style={{...keyStyle,flex:1,minHeight:30,fontSize:13}}>{c}</button>)}
+        {['が','ぎ','ぐ','げ','ご','ぱ','ぴ','ぷ','ぺ','ぽ','っ','ゃ','ゅ','ょ'].map(c => <button key={c} type="button" onClick={() => setQuery(v=>v+c)} style={{...keyStyle,flex:1,minHeight:42,fontSize:16}}>{c}</button>)}
       </div>}
       <div style={{fontSize:12,fontWeight:700,color:'#345078',marginTop:8,marginBottom:4}}>検索候補（{candidates.length}件{candidates.length===15?'以上':''}）</div>
-      <div style={{maxHeight:165,overflowY:'auto',background:'#fff',borderRadius:6}}>
-        {candidates.map(h => <button key={h} type="button" onClick={() => choose(h)} style={{display:'block',width:'100%',textAlign:'left',padding:'7px 9px',borderBottom:'1px solid #e5eaf2',background:'#fff',color:'#1a2e4d',fontSize:13}}><strong>{h}</strong>　{(master[h]||{}).partNo||''}<div style={{fontSize:11,color:'#64748b'}}>{dv(master[h]||{},'name',lang)||''}</div></button>)}
+      <div style={{maxHeight:210,overflowY:'auto',background:'#fff',borderRadius:6}}>
+        {candidates.map(h => <button key={h} type="button" onClick={() => choose(h)} style={{display:'block',width:'100%',textAlign:'left',padding:'12px 11px',borderBottom:'1px solid #e5eaf2',background:'#fff',color:'#1a2e4d',fontSize:16}}><strong>{h}</strong>　{(master[h]||{}).partNo||''}<div style={{fontSize:11,color:'#64748b'}}>{dv(master[h]||{},'name',lang)||''}</div></button>)}
         {!kw && <div style={{padding:9,fontSize:12,color:'#64748b'}}>ひらがな・英数字で検索できます</div>}
-        {kw && !candidates.length && <div style={{padding:9,fontSize:12,color:'#64748b'}}>該当する製品がありません</div>}
+        {kw && !candidates.length && <div style={{padding:9,fontSize:12,color:'#b45309'}}>該当する製品がありません。文字を修正してください。</div>}
+        {kw && candidates.length > 1 && <div style={{padding:8,fontSize:12,color:'#345078'}}>候補が複数あります。該当する製品を押してください。</div>}
       </div>
     </div>}
   </div>;
