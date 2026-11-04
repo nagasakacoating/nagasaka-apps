@@ -6149,7 +6149,16 @@ function SchedulePlanner({
     borderBottom: '1px solid ' + LINE,
     whiteSpace: 'normal'
   };
-  return <div className="app-screen planner-screen" style={{
+  // Androidのソフトキーボードの確定(→/Enter)は入力終了のみとし、行追加は専用ボタンで行う。
+  function finishPlannerInput(e) {
+    if (e.key !== 'Enter' || e.nativeEvent?.isComposing || e.isComposing) return;
+    const el = e.target;
+    if (!el || el.tagName !== 'INPUT' || ['date','time','datetime-local','checkbox','radio','file'].includes(el.type)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    el.blur();
+  }
+  return <div className="app-screen planner-screen" onKeyDownCapture={finishPlannerInput} style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -6212,14 +6221,14 @@ function SchedulePlanner({
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('作業名')} /></div>
-              <LocalizedInput value={addTask} onChange={(e) => setAddTask(e.target.value)} placeholder="例: ハンガーマン / 清掃" translateValue={true} /></div>
+              <LocalizedInput value={addTask} onChange={(e) => setAddTask(e.target.value)} enterKeyHint="done" placeholder="例: ハンガーマン / 清掃" translateValue={true} /></div>
             <div><div style={{
               fontSize: 12,
               fontWeight: 700,
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('所要時間')} />（<BiText value={t('分')} />）</div>
-              <LocalizedInput type="number" min="1" value={addDur} onChange={(e) => setAddDur(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTaskRow()} placeholder="例: 30" style={{
+              <LocalizedInput type="number" min="1" value={addDur} onChange={(e) => setAddDur(e.target.value)} enterKeyHint="done" placeholder="例: 30" style={{
               width: 120
             }} /></div>
           </> : <>
@@ -6282,7 +6291,7 @@ function SchedulePlanner({
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('数量')} />（<BiText value={t('箱')} />）</div>
-            <LocalizedInput type="number" min="1" value={addQty} onChange={(e) => setAddQty(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例: 20" style={{
+            <LocalizedInput type="number" min="1" value={addQty} onChange={(e) => setAddQty(e.target.value)} enterKeyHint="done" placeholder="例: 20" style={{
               width: 120
             }} /></div>
           </>} />
