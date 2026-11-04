@@ -339,6 +339,13 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .rep-insert-controls button{min-height:44px;padding:7px 12px;background:#E8F0FB;border:1px solid #C3D6F0;border-radius:8px;color:#12306B;font-size:15px;font-weight:700}
 .rep-list-insertable>[data-rep-row]>div:first-child>button{min-height:44px}
 .rep-list-insertable button:disabled{opacity:.5;cursor:default}
+
+.admin-pin-backdrop{position:fixed;inset:0;background:#0009;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+.admin-pin-dialog{width:min(420px,100%);background:#fff;border-radius:16px;padding:24px;box-shadow:0 20px 60px #0005;color:#17253b}
+.admin-pin-dialog h2{font-size:22px;margin-bottom:12px}.admin-pin-dialog p{font-size:15px;line-height:1.5;margin-bottom:12px}
+.admin-pin-dialog input{display:block;width:100%;margin:12px 0;font-size:23px;letter-spacing:8px;text-align:center;min-height:54px}
+.admin-pin-actions{display:flex;gap:10px;margin:18px 0 12px}.admin-pin-actions button{flex:1;min-height:50px;border-radius:9px;background:#eef1f5;color:#12306b;font-weight:700}
+.admin-pin-actions .admin-pin-primary{background:#12306b;color:white}.admin-pin-actions button:disabled{opacity:.5}.admin-pin-dialog small{font-size:12px;color:#59697e}.admin-pin-error{color:#b3261e!important}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -464,7 +471,7 @@ function verifyKanban(raw,hinban,m,allMaster={}){
 async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master}){
   const orderRef=db.collection('workOrders').doc(orderId),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
   return db.runTransaction(async tx=>{
-    const [orderSnap,masterSnap,guard]=await Promise.all([tx.get(orderRef),tx.get(masterRef),tx.get(guardRef)]);
+    const orderSnap=await tx.get(orderRef),masterSnap=await tx.get(masterRef),guard=await tx.get(guardRef);
     if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
     if(order.hinban!==hinban||order.procId!==procId||order.kind==='task'||order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
@@ -560,42 +567,18 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   useEffect(()=>{try{localStorage.setItem('outline-qr-camera',camera);}catch(e){}},[camera]);
   useEffect(()=>{
     if(!continuous)return;
-    // Test only: finish after 2.5 seconds without further characters, even if Enter is delayed.
-    // The original Enter path remains as a fallback. Do not shorten the 1-second character gap.
-    let finishTimer=null;
-    const finish=(reason)=>{
-      if(window.__qrDiagMark)window.__qrDiagMark('入力終了直前（'+wedge.current.text.length+'文字）');
-      if(finishTimer!==null){clearTimeout(finishTimer);finishTimer=null;}
-      const raw=wedge.current.text;
-      wedge.current={text:'',at:0};
-      if(raw.length>=4){
-        if(window.__qrDiagMark)window.__qrDiagMark(reason);
-        read(raw);
-      }
-    };
     const onKey=e=>{
       if(e.isComposing||e.ctrlKey||e.altKey||e.metaKey||e.repeat)return;
       const target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'))return;
       if(e.key==='Enter'){
-        if(window.__qrDiagMark)window.__qrDiagMark('Enter受信（'+wedge.current.text.length+'文字）');
-        const raw=wedge.current.text;
-        if(raw.length>=4){e.preventDefault();e.stopPropagation();}
-        finish('入力確定（Enter）');return;
+        const raw=wedge.current.text;wedge.current={text:'',at:0};if(raw.length>=4){e.preventDefault();e.stopPropagation();read(raw);}return;
       }
       if(e.key.length!==1)return;
-      const now=Date.now();if(now-wedge.current.at>1000){
-        wedge.current.text='';
-        if(finishTimer!==null){clearTimeout(finishTimer);finishTimer=null;}
-      }
+      const now=Date.now();if(now-wedge.current.at>1000)wedge.current.text='';
       if(!wedge.current.text&&!e.key.trim())return;
-      if(!wedge.current.text&&window.__qrDiagMark)window.__qrDiagMark('文字受信開始');
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
-      if(window.__qrDiagKey)window.__qrDiagKey(wedge.current.text.length);
-      if(finishTimer!==null)clearTimeout(finishTimer);
-      finishTimer=setTimeout(()=>finish('入力確定（2.5秒待機）'),2500);
     };
-    document.addEventListener('keydown',onKey,true);
-    return()=>{document.removeEventListener('keydown',onKey,true);if(finishTimer!==null)clearTimeout(finishTimer);};
+    document.addEventListener('keydown',onKey,true);return()=>document.removeEventListener('keydown',onKey,true);
   },[continuous]);
   function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(continuous&&!want);if(continuous)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
   function useExternal(){cameraWanted.current=false;setExternalOnly(true);try{localStorage.setItem('outline-continuous-camera','off');}catch(e){}stop();setError('');}
@@ -623,27 +606,17 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
 }
 function KanbanVerdict({ok,kind}){
   return ReactDOM.createPortal(<div className={'kanban-verdict '+(ok?'kanban-verdict-ok':'kanban-verdict-ng')} role="alert" aria-live="assertive" onClick={e=>{e.preventDefault();e.stopPropagation();}}>
-    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':kind==='pending'?'品番一致・登録中':ok?'一致・登録完了':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':kind==='pending'?'品番は一致しています。箱数の登録完了を確認しています。':ok?'箱数の登録が完了しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
+    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
   </div>,document.body);
 }
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
-  const [diag,setDiag]=useState([]);const diagStart=useRef(null);const diagLatest=useRef(0);const lastKeyMark=useRef(0);
-  function markDiag(label){
-    const t=performance.now();
-    if(label==='文字受信開始'||diagStart.current===null){diagStart.current=t;diagLatest.current=t;setDiag([{label,elapsed:0,delta:0}]);return;}
-    const sinceLastKey=lastKeyMark.current?Math.round(t-lastKeyMark.current):null;
-    const entry={label,elapsed:Math.round(t-diagStart.current),delta:Math.round(t-diagLatest.current),sinceLastKey};
-    diagLatest.current=t;setDiag(prev=>[...prev.slice(-9),entry]);
-  }
-  useEffect(()=>{window.__qrDiagMark=markDiag;window.__qrDiagKey=(n)=>{lastKeyMark.current=performance.now();};return()=>{delete window.__qrDiagMark;delete window.__qrDiagKey;};});
-
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
   useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
   useEffect(()=>{if(order&&local&&order.qrUnlockOf===local.lockId&&!order.qrBlocked){qrKeepLocal(order.id,null);setLocal(null);}},[order&&order.qrUnlockOf,order&&order.qrBlocked]);
   useEffect(()=>{if(initial.current!==signature){setResult(null);setFlash(null);setError('マスターが変更されました。もう一度QRを読んでください。');initial.current=signature;}},[signature]);
-  useEffect(()=>{if(!flash||flash.kind==='pending')return;const timer=setTimeout(()=>{
+  useEffect(()=>{if(!flash)return;const timer=setTimeout(()=>{
     setFlash(null);
     if(flash.kind==='verify'){onAccepted&&onAccepted({...flash.checked,signature});onClose();}
   },2000);return()=>clearTimeout(timer);},[flash]);
@@ -655,8 +628,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     if(order){qrKeepLocal(order.id,lock);setLocal(lock);try{const id=await lockKanbanOrder(order.id,lock.lockId,code);if(alive.current){const saved={...lock,lockId:id};qrKeepLocal(order.id,saved);setLocal(saved);}}catch(e){if(alive.current)setError('ロックの保存を確認できません。通信を確認し、管理者を呼んでください。');}}
   }
   async function read(raw){
-    markDiag('アプリ照合開始');
-    if(pending.current||flash||guard!==true||suspended){markDiag('受付不可（処理中など）');return;}
+    if(pending.current||flash||guard!==true||suspended)return;
     if(managerMode){
       pending.current=true;setBusy(true);setError('');
       try{
@@ -665,24 +637,25 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
       }catch(e){if(alive.current){setError('解除できません。管理者の解除用QRを確認してください。');setFlash({ok:false,kind:'manager'});}}
       finally{pending.current=false;if(alive.current)setBusy(false);}return;
     }
-    if(blocked||remaining||complete||(mode==='count'&&!running))return;
-    const checked=verifyKanban(raw,hinban,m,master);markDiag('品番照合完了');setError('');
+    if(blocked||complete||(mode==='count'&&!running))return;
+    // 待ち時間中も照合だけは実行する。品違いは即座に不一致・ロック、
+    // 正しいQRは二度読み取り防止のため箱数登録しない。
+    const checked=verifyKanban(raw,hinban,m,master);setError('');
     if(!checked.ok){pending.current=true;setBusy(true);try{await persistBlock(checked.error,checked.code||'',checked);}finally{pending.current=false;if(alive.current)setBusy(false);}return;}
+    if(remaining>0)return;
     if(mode!=='count'){setResult(checked);setFlash({ok:true,kind:'verify',checked});return;}
-    pending.current=true;setBusy(true);setResult(checked);setFlash({ok:true,kind:'pending'});markDiag('登録中表示を指示');
+    pending.current=true;setBusy(true);
+    // 品番照合が一致した時点で青○を表示する（箱数登録の通信完了を待たない）。
+    setResult(checked);setFlash({ok:true,kind:'count'});
     try{
-      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});markDiag('箱数登録応答');
-      if(alive.current){setLocalUntil(counted.until);if(!counted.ignored){setResult(checked);setFlash({ok:true,kind:'count'});}else{setFlash(null);setResult(null);setError('重複または読取間隔の制限により、箱数は追加されませんでした。');}}
-    }catch(e){markDiag('登録エラー');if(alive.current)await persistBlock(e.message,checked.code);}
+      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
+      if(alive.current){setLocalUntil(counted.until);}
+    }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
-  const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||remaining>0||complete||(mode==='count'&&!running)));
+  const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||complete||(mode==='count'&&!running)));
   useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
   const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>;
-  const diagPanel=<div style={{position:'fixed',right:8,bottom:8,zIndex:2147483647,background:'#fff',color:'#111',border:'3px solid #f59e0b',borderRadius:8,padding:'8px 10px',width:'min(350px,94vw)',maxHeight:'42vh',overflowY:'auto',fontSize:13,boxShadow:'0 3px 16px #0006',pointerEvents:'none'}}>
-    <strong>QR入力タイミング診断（テスト専用）</strong><div style={{fontSize:11}}>数字は文字受信開始からの経過ミリ秒／直前との差</div>
-    {diag.length?diag.map((d,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,borderBottom:'1px solid #ddd'}}><span>{d.label}</span><b>{(d.elapsed/1000).toFixed(2)}秒 <small>(+{(d.delta/1000).toFixed(2)})</small>{d.label.startsWith('入力終了直前')&&d.sinceLastKey!==null?<small> 最終文字から{(d.sinceLastKey/1000).toFixed(2)}秒</small>:null}</b></div>):<div>QRを1回読み取ってください</div>}
-  </div>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
     {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
@@ -692,7 +665,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     </div>}
     {managerMode&&<p className="qr-help"><BiText value="解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。"/></p>}
     {inline&&input}
-    {!managerMode&&remaining>0&&<div className="qr-cooldown" role="timer"><BiText value="二度読み防止・読取停止中"/><strong>{qrClock(remaining)}</strong><BiText value="1箱工数の30％が経過すると読み取りできます。"/></div>}
+    {!managerMode&&remaining>0&&<div className="qr-cooldown" role="timer"><BiText value="二度読み防止・照合は継続中"/><strong>{qrClock(remaining)}</strong><BiText value="待ち時間中も品違いは不一致になります。正しいQRの箱数登録は待ち時間終了後です。"/></div>}
     {!inline&&input}
     {result&&<div className={result.ok?'qr-result qr-ok':'qr-result qr-ng'} role={result.ok?'status':'alert'}><strong><BiText value={result.ok?(mode==='count'?'一致・1箱完了登録済み':'一致：選択中の品番です'):'不一致：作業を止めて確認'}/></strong>{result.error&&<div><BiText value={result.error}/></div>}{result.code&&<code>{result.code}</code>}</div>}
     {!managerMode&&<QrMismatchDetails comparison={result&&result.comparison||local&&local.failure&&local.failure.comparison}/>}
@@ -700,7 +673,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
     {!inline&&mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
     {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind}/>}
   </>;
-  return <>{diagPanel}{inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>}</>;
+  return inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>;
 }
 function QrPartEditor({value,onChange,prefix}){
   const p={...DEFAULT_QR_PART,...value},set=(k,v)=>onChange({...p,[k]:v});
@@ -6183,7 +6156,16 @@ function SchedulePlanner({
     borderBottom: '1px solid ' + LINE,
     whiteSpace: 'normal'
   };
-  return <div className="app-screen planner-screen" style={{
+  // Androidのソフトキーボードの確定(→/Enter)は入力終了のみとし、行追加は専用ボタンで行う。
+  function finishPlannerInput(e) {
+    if (e.key !== 'Enter' || e.nativeEvent?.isComposing || e.isComposing) return;
+    const el = e.target;
+    if (!el || el.tagName !== 'INPUT' || ['date','time','datetime-local','checkbox','radio','file'].includes(el.type)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    el.blur();
+  }
+  return <div className="app-screen planner-screen" onKeyDownCapture={finishPlannerInput} style={{
     height: '100vh',
     display: 'flex',
     flexDirection: 'column'
@@ -6246,14 +6228,14 @@ function SchedulePlanner({
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('作業名')} /></div>
-              <LocalizedInput value={addTask} onChange={(e) => setAddTask(e.target.value)} placeholder="例: ハンガーマン / 清掃" translateValue={true} /></div>
+              <LocalizedInput value={addTask} onChange={(e) => setAddTask(e.target.value)} enterKeyHint="done" placeholder="例: ハンガーマン / 清掃" translateValue={true} /></div>
             <div><div style={{
               fontSize: 12,
               fontWeight: 700,
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('所要時間')} />（<BiText value={t('分')} />）</div>
-              <LocalizedInput type="number" min="1" value={addDur} onChange={(e) => setAddDur(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTaskRow()} placeholder="例: 30" style={{
+              <LocalizedInput type="number" min="1" value={addDur} onChange={(e) => setAddDur(e.target.value)} enterKeyHint="done" placeholder="例: 30" style={{
               width: 120
             }} /></div>
           </> : <>
@@ -6316,7 +6298,7 @@ function SchedulePlanner({
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('数量')} />（<BiText value={t('箱')} />）</div>
-            <LocalizedInput type="number" min="1" value={addQty} onChange={(e) => setAddQty(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例: 20" style={{
+            <LocalizedInput type="number" min="1" value={addQty} onChange={(e) => setAddQty(e.target.value)} enterKeyHint="done" placeholder="例: 20" style={{
               width: 120
             }} /></div>
           </>} />
@@ -7173,7 +7155,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             }}><BiText value={b('標準')} /> <BiText value={Math.round(isTask ? taskPlanMin : c.stdMin)} /><BiText value={t('分')} /> / <BiText value={b('実働')} /> <BiText value={Math.round(c.actMin)} /><BiText value={t('分')} /></div>
             </div>
           </div>
-          {needsQr&&<div className={'workrun-qr-state '+(qrBlocked?'is-blocked':'')} role="status"><BiText value={qrBlocked?'管理者解除待ち・作業停止':paused?'一時停止中':target>0&&done>=target?'予定箱数に達しました。作業終了してください。':qrRemaining>0?'二度読み防止・読取停止中':'QR自動照合中'}/>{qrRemaining>0&&<strong>{qrClock(qrRemaining)}</strong>}</div>}<BiText value={!isTask && !needsQr && bigBtn(<><span style={{
+          {needsQr&&<div className={'workrun-qr-state '+(qrBlocked?'is-blocked':'')} role="status"><BiText value={qrBlocked?'管理者解除待ち・作業停止':paused?'一時停止中':target>0&&done>=target?'予定箱数に達しました。作業終了してください。':qrRemaining>0?'二度読み防止・照合は継続中':'QR自動照合中'}/>{qrRemaining>0&&<strong>{qrClock(qrRemaining)}</strong>}</div>}<BiText value={!isTask && !needsQr && bigBtn(<><span style={{
             fontSize: 34
           }}>📦</span><BiText value={qrBlocked?'管理者解除待ち':needsQr?'QR照合して1箱完了':t('1箱完了')} /></>, addBox, qrBlocked?'#b3261e':'#2E7D4F', !qrBlocked&&(paused||(needsQr&&qrRemaining>0)), 112)} />
           <div className="responsive-grid" style={{
@@ -8305,6 +8287,31 @@ function WorkHistory({
 }
 
 /* ══════════ アプリ本体 ══════════ */
+
+/* 管理者編集ロック（画面上の操作制限。Firebase権限強化は別工程）。 */
+const ADMIN_IDLE_MS=10*60*1000;
+async function adminPinDigest(pin,salt){
+  const data=new TextEncoder().encode('outline-admin-pin-v1:'+salt+':'+pin);
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+}
+function AdminPinDialog({mode,onConfirm,onCancel,busy,error}){
+  const [pin,setPin]=React.useState('');
+  const [again,setAgain]=React.useState('');
+  const setup=mode==='setup';
+  const valid=pin.length===4&&(!setup||pin===again);
+  return <div className="admin-pin-backdrop" role="presentation"><div className="admin-pin-dialog" role="dialog" aria-modal="true" aria-label="管理者コード">
+    <h2>🔒 管理者{setup?'コード初期登録':'ロック解除'}</h2>
+    <p>{setup?'全タブレット共通の数字4桁を登録します。':'管理者コード（数字4桁）を入力してください。'}</p>
+    <input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]*" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="4桁" aria-label="管理者コード" autoFocus />
+    {setup&&<input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]*" maxLength={4} value={again} onChange={e=>setAgain(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="確認用にもう一度4桁" aria-label="確認用コード" />}
+    {setup&&again.length===4&&pin!==again&&<p className="admin-pin-error">確認用コードが一致しません。</p>}
+    {error&&<p className="admin-pin-error">{error}</p>}
+    <div className="admin-pin-actions"><button type="button" onClick={onCancel} disabled={busy}>キャンセル</button><button type="button" className="admin-pin-primary" disabled={!valid||busy} onClick={()=>onConfirm(pin)}>{busy?'確認中…':setup?'登録する':'解除する'}</button></div>
+    <small>解除後は、最後の操作から10分間無操作の場合に自動ロックします。</small>
+  </div></div>;
+}
+
 function App() {
   const [lang, setLang] = useState(() => {
     try {
@@ -8330,6 +8337,48 @@ function App() {
     name: 'proc'
   });
   const [scanHome, setScanHome] = useState(false);
+  const [adminOpen,setAdminOpen]=useState(false);
+  const [adminRequest,setAdminRequest]=useState(null);
+  const [adminMode,setAdminMode]=useState('unlock');
+  const [adminError,setAdminError]=useState('');
+  const [adminBusy,setAdminBusy]=useState(false);
+  const adminOpenRef=useRef(false);
+  const adminLastRef=useRef(0);
+  const adminNextRef=useRef(null);
+  const adminDoc=db.collection('outlineAdminSettings').doc('sharedPin');
+  function closeAdmin(){adminOpenRef.current=false;setAdminOpen(false);adminLastRef.current=0;}
+  function adminGuard(action){
+    if(adminOpenRef.current&&Date.now()-adminLastRef.current<ADMIN_IDLE_MS){adminLastRef.current=Date.now();action();return;}
+    closeAdmin();adminNextRef.current=action;setAdminError('');setAdminMode('unlock');setAdminRequest('loading');
+    adminDoc.get({source:'server'}).then(snap=>{setAdminMode(snap.exists?'unlock':'setup');setAdminRequest('ready');}).catch(e=>{setAdminError('管理者コードの確認に接続できません: '+e.message);setAdminRequest('error');});
+  }
+  async function confirmAdmin(pin){
+    setAdminBusy(true);setAdminError('');
+    try{
+      if(adminMode==='setup'){
+        const salt=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+        const digest=await adminPinDigest(pin,salt);
+        await db.runTransaction(async tx=>{const snap=await tx.get(adminDoc);if(snap.exists)throw new Error('既にコードが登録されています。画面を閉じて再度お試しください。');tx.set(adminDoc,{salt,digest,version:1,createdAt:firebase.firestore.FieldValue.serverTimestamp()});});
+      }else{
+        const snap=await adminDoc.get({source:'server'});
+        if(!snap.exists)throw new Error('コードが未登録です。もう一度開いてください。');
+        const data=snap.data();if(await adminPinDigest(pin,data.salt)!==data.digest)throw new Error('管理者コードが違います。');
+      }
+      adminOpenRef.current=true;adminLastRef.current=Date.now();setAdminOpen(true);setAdminRequest(null);
+      const next=adminNextRef.current;adminNextRef.current=null;if(next)next();
+    }catch(e){setAdminError(e.message||String(e));}finally{setAdminBusy(false);}
+  }
+  useEffect(()=>{
+    const activity=()=>{if(adminOpenRef.current)adminLastRef.current=Date.now();};
+    const check=()=>{if(adminOpenRef.current&&Date.now()-adminLastRef.current>=ADMIN_IDLE_MS)closeAdmin();};
+    document.addEventListener('pointerdown',activity,true);document.addEventListener('keydown',activity,true);
+    document.addEventListener('input',activity,true);document.addEventListener('wheel',activity,true);
+    const timer=setInterval(check,15000);
+    const hide=()=>{if(document.hidden)closeAdmin();};
+    document.addEventListener('visibilitychange',hide);
+    return ()=>{document.removeEventListener('pointerdown',activity,true);document.removeEventListener('keydown',activity,true);document.removeEventListener('input',activity,true);document.removeEventListener('wheel',activity,true);document.removeEventListener('visibilitychange',hide);clearInterval(timer);};
+  },[]);
+
   useEffect(() => auth.onAuthStateChanged((u) => {
     setUser(u);
     setReady(true);
@@ -8440,10 +8489,7 @@ function App() {
   })} onQR={() => setScanHome(true)} onSearch={() => setView({
     name: 'search',
     proc: view.proc
-  })} onMaster={() => setView({
-    name: 'master',
-    proc: view.proc
-  })} onLogout={() => auth.signOut()} onOpenSheet={async (o, w) => {
+  })} onMaster={() => adminGuard(() => setView({name:'master',proc:view.proc}))} onLogout={() => auth.signOut()} onOpenSheet={async (o, w) => {
     if (o.kind === 'task') {
       try {
         await db.collection('workOrders').doc(o.id).update({
@@ -8473,13 +8519,7 @@ function App() {
   })} onHistory={() => setView({
     name: 'workhist',
     proc: view.proc
-  })} onPlanner={() => setView({
-    name: 'planner',
-    proc: view.proc
-  })} onAnalytics={() => setView({
-    name: 'analytics',
-    proc: view.proc
-  })} />;else if (view.name === 'planner') screen = <SchedulePlanner proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
+  })} onPlanner={() => adminGuard(() => setView({name:'planner',proc:view.proc}))} onAnalytics={() => adminGuard(() => setView({name:'analytics',proc:view.proc}))} />;else if (view.name === 'planner') screen = <SchedulePlanner proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;else if (view.name === 'worksheet') {
@@ -8518,9 +8558,17 @@ function App() {
     name: 'work',
     proc: view.proc
   })} />;
+  // 管理画面を開いたまま無操作になっても、編集操作を再開させない。
+  if(['master','planner','analytics'].includes(view.name)&&!adminOpen){
+    screen=<div className="admin-pin-backdrop" style={{position:'relative',minHeight:'100dvh',background:'#f5f6f8'}}><div className="admin-pin-dialog"><h2>🔒 管理者ロック中</h2><p>管理者コードを入力すると編集を再開できます。</p><div className="admin-pin-actions"><button onClick={()=>setView({name:'work',proc:view.proc})}>作業画面へ戻る</button><button className="admin-pin-primary" onClick={()=>adminGuard(()=>{})}>4桁コードで解除</button></div></div></div>;
+  }
   return <LangCtx.Provider value={ctx}>
       <BiText value={screen} /><BilingualDialog />
       <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
+      {adminRequest==='ready'&&<AdminPinDialog mode={adminMode} onConfirm={confirmAdmin} onCancel={()=>{setAdminRequest(null);adminNextRef.current=null;}} busy={adminBusy} error={adminError}/>}
+      {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
+      {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
+
     </LangCtx.Provider>;
 }
 
@@ -8538,7 +8586,7 @@ function rowHasPhoto(value) {
 const HAS_JAPANESE = /[\u3041-\u3096\u30a1-\u30fa\u3400-\u9fff]/;
 Object.assign(DICT, { "画像を拡大表示": "Perbesar gambar", "写真を削除": "Hapus foto", "この写真を削除しますか？": "Hapus foto ini?", "削除する": "Hapus", "この項目と写真を削除しますか？": "Hapus item ini beserta fotonya?", "QRコード": "Kode QR" });
 Object.assign(DICT,{"画像をコピー":"Salin gambar","画像を保存":"Simpan gambar","コピー中…":"Sedang menyalin…","画像を準備中…":"Menyiapkan gambar…","画像をコピーしました。貼り付け先で貼り付けてください。":"Gambar telah disalin. Tempel di tempat tujuan.","アプリ内にコピーしました。外部へは画像を保存して貼り付けてください。":"Gambar disalin di aplikasi ini. Untuk aplikasi lain, simpan gambar lalu sisipkan di sana.","保存した画像は他のアプリで選んで挿入できます。":"Pilih gambar yang disimpan untuk disisipkan ke aplikasi lain.","画像を開いて保存してください。":"Buka gambar lalu simpan.","画像を開いて保存":"Buka dan simpan gambar","アプリでコピーした画像を貼り付け":"Tempel gambar yang disalin di aplikasi ini","他のアプリから貼り付け":"Tempel dari aplikasi lain","この欄を選んでCtrl＋Vでも貼り付けできます。":"Pilih area ini lalu tekan Ctrl+V untuk menempel.","画像が見つかりません。写真をコピーしてから貼り付けてください。":"Tidak ada gambar. Salin foto terlebih dahulu lalu tempel.","この写真を貼り付けた画像に置き換えますか？":"Ganti foto ini dengan gambar yang ditempel?","置き換える":"Ganti","貼り付けをキャンセルしました。":"Penempelan dibatalkan.","画像を貼り付けました。保存ボタンで確定してください。":"Gambar ditempel. Tekan Simpan untuk menyimpan perubahan.","画像を貼り付けられませんでした。この欄を選んで貼り付けるか、画像ファイルを選んでください。":"Gagal menempel gambar. Pilih area ini untuk menempel, atau pilih berkas gambar.","画像を貼り付けられませんでした。もう一度お試しください。":"Gagal menempel gambar. Silakan coba lagi.","入力内容が変わりました。貼り付け先を確認してもう一度お試しください。":"Isian telah berubah. Periksa tujuan penempelan lalu coba lagi.","端末の貼り付けメニュー、またはCtrl＋Vを使ってください。画像ファイルの選択もできます。":"Gunakan menu Tempel di perangkat atau Ctrl+V. Anda juga dapat memilih berkas gambar."});
-Object.assign(DICT,{"QRの内容を読み取れませんでした。":"Isi QR tidak dapat dibaca.","開始位置・文字数がQRの範囲外です。":"Posisi awal atau panjang melebihi isi QR.","区切り文字・項目番号を設定してください。":"Atur pemisah dan nomor kolom.","指定した項目がQRにありません。":"Kolom yang ditentukan tidak ada dalam QR.","QRの抽出方法を確認してください。":"Periksa cara mengambil bagian QR.","抽出したコードが空です。":"Kode yang diambil kosong.","かんばんQR":"QR Kanban","マスターに照合コードを設定してください。":"Atur kode pengecekan di Master.","品番が一致しません。作業を止めて確認してください。":"Nomor produk tidak cocok. Hentikan pekerjaan dan lakukan pengecekan.","箱ごとの番号を抽出できません。":"Nomor unik kotak tidak dapat diambil.","この品番のQR照合は未設定です。":"Pengecekan QR untuk produk ini belum diatur.","同じQRが複数の品番に一致します。マスターを確認してください。":"QR yang sama cocok dengan beberapa produk. Periksa Master.","作業またはマスターが見つかりません。":"Pekerjaan atau data Master tidak ditemukan.","作業状態が変わりました。計画表を確認してください。":"Status pekerjaan berubah. Periksa jadwal kerja.","目標箱数に達しています。計画表を確認してください。":"Target jumlah kotak tercapai. Periksa jadwal kerja.","この箱のQRはすでに完了登録されています。":"QR kotak ini sudah dicatat selesai.","QR完了履歴と箱数が異なります。管理者に確認してください。":"Riwayat QR dan jumlah kotak berbeda. Hubungi pengelola.","閉じる":"Tutup","QR読取機能を読み込めません。通信を確認してください。":"Fitur pembaca QR gagal dimuat. Periksa koneksi.","公開アプリをHTTPSで開き、カメラを許可してください。":"Buka aplikasi terbit melalui HTTPS dan izinkan kamera.","カメラを使用できません。カメラの許可・接続を確認してください。":"Kamera tidak dapat digunakan. Periksa izin dan sambungan kamera.","QRが見つかりません。明るさ・距離を変えてください。":"QR tidak ditemukan. Sesuaikan cahaya dan jarak.","カメラ起動中…":"Memulai kamera…","カメラを止める":"Hentikan kamera","カメラでQRを読む":"Pindai QR dengan kamera","ハンディ・手入力":"Pemindai genggam / input manual","撮影したQR画像から読む":"Baca QR dari foto","QRの読取内容":"Isi QR yang dibaca","この内容で照合":"Lakukan pengecekan isi ini","一致":"Cocok","不一致":"Tidak cocok","選択中の品番と一致しました。":"Cocok dengan produk yang dipilih.","品番が違います。作業を止めて確認してください。":"Nomor produk berbeda. Hentikan pekerjaan dan lakukan pengecekan.","マスターが変更されました。もう一度QRを読んでください。":"Master telah berubah. Pindai QR sekali lagi.","かんばんQR照合":"Pengecekan QR Kanban","選択中の品番":"Produk yang dipilih","一致：選択中の品番です":"Cocok: produk yang dipilih","不一致：作業を止めて確認":"Tidak cocok: hentikan pekerjaan dan periksa","箱ごとの番号":"Nomor unik kotak","再読み取り":"Pindai lagi","登録中…":"Sedang mencatat…","一致したこの1箱を完了登録":"Catat satu kotak yang cocok ini sebagai selesai","一致を確認して戻る":"Konfirmasi kecocokan dan kembali","カメラを向けただけでは箱数は増えません。一致後に1箱ずつ完了登録してください。":"Mengarahkan kamera saja tidak menambah jumlah kotak. Setelah cocok, catat setiap kotak sebagai selesai.","QRのどの部分を拾うか":"Bagian QR yang diambil","抽出方法":"Cara mengambil bagian","開始位置（1文字目から）":"Posisi awal, dihitung dari karakter pertama","開始位置":"Posisi awal","文字数":"Jumlah karakter","区切り文字":"Pemisah","項目番号（1番目から）":"Nomor kolom, dimulai dari 1","項目番号":"Nomor kolom","抽出した前後の空白を除く":"Hapus spasi di awal dan akhir hasil","このかんばんをQR照合に使う":"Gunakan Kanban ini untuk pengecekan QR","QR照合コード（完全一致）":"Kode pengecekan QR, harus sama persis","品番":"Nomor produk","箱ごとの重複登録を防ぐ設定":"Pengaturan pencegahan pencatatan kotak ganda","箱ごとに異なる番号を照合する":"Periksa nomor yang berbeda untuk setiap kotak","箱番号":"Nomor kotak","箱ごとに異なる番号がQRにある場合だけ設定します。同じQRが全箱共通の場合、箱の重複は判定できません。":"Atur hanya jika QR memiliki nomor unik untuk setiap kotak. Jika semua kotak memakai QR yang sama, kotak ganda tidak dapat dikenali.","設定テスト用のQR内容":"Isi QR untuk menguji pengaturan","実物のQRを読んで設定を確認":"Pindai QR asli untuk memeriksa pengaturan","抽出した照合コード":"Kode pengecekan yang diambil","この抽出結果を照合コードに設定":"Gunakan hasil ini sebagai kode pengecekan","先頭の0・ハイフンも区別して完全一致で照合します。設定後は保存してください。":"Pengecekan harus sama persis, termasuk nol di awal dan tanda hubung. Simpan setelah mengatur.","設定テスト用のQR読取":"Pembacaan QR untuk uji pengaturan","かんばん情報（最大4種類）":"Informasi Kanban, maksimal 4 jenis","かんばんを追加":"Tambah Kanban","かんばんの写真":"Foto Kanban","種類":"Jenis","色":"Warna","緑":"Hijau","黄":"Kuning","青":"Biru","ピンク":"Merah muda","赤":"Merah","白":"Putih","サイズ":"Ukuran","用途":"Kegunaan","使用工程":"Proses penggunaan","発行先":"Penerbit","備考":"Catatan","かんばん":"Kanban","注意事項（1行1項目）":"Catatan perhatian, satu hal per baris","かんばんQR照合済み":"QR Kanban sudah cocok","開始前にかんばんQRを照合してください。":"Lakukan pengecekan QR Kanban sebelum mulai.","QR照合して1箱完了":"Periksa QR lalu selesaikan satu kotak","管理者の解除が必要です。":"Pembukaan kunci oleh pengelola diperlukan.","管理者解除の初期設定が必要です。管理者に確認してください。":"Pengaturan awal pembukaan kunci diperlukan. Hubungi pengelola.","管理者の解除用QRを読んでください。":"Pindai QR pembuka kunci milik pengelola.","解除対象のロックを確認できません。":"Kunci yang akan dibuka tidak dapat dikonfirmasi.","1箱工数を設定してからQRを読み取ってください。":"Atur waktu standar per kotak sebelum memindai QR.","ロックの保存を確認できません。通信を確認し、管理者を呼んでください。":"Penyimpanan kunci belum dapat dikonfirmasi. Periksa koneksi dan panggil pengelola.","解除しました。かんばんQRをもう一度照合してください。":"Kunci dibuka. Lakukan pengecekan QR Kanban sekali lagi.","解除できません。管理者の解除用QRを確認してください。":"Kunci tidak dapat dibuka. Periksa QR pembuka kunci pengelola.","管理者解除QRの読取":"Pindai QR pembuka kunci pengelola","設定を確認中…":"Memeriksa pengaturan…","管理者解除待ち・作業停止":"Pekerjaan dihentikan, menunggu pengelola","作業者は解除できません。管理者を呼んでください。":"Operator tidak dapat membuka kunci. Panggil pengelola.","管理者の解除用QRを読む":"Pindai QR pembuka kunci pengelola","解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。":"QR pembuka kunci tidak menambah jumlah kotak. Setelah dibuka, periksa ulang QR Kanban.","二度読み防止・読取停止中":"Pencegahan pemindaian ganda: pembacaan dijeda","1箱工数の30％が経過すると読み取りできます。":"Pemindaian tersedia setelah 30% waktu standar per kotak berlalu.","一致・1箱完了登録済み":"Cocok: satu kotak telah dicatat selesai","一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。":"Jika cocok, satu kotak otomatis dicatat selesai. Jika tidak cocok, jumlah kotak tidak bertambah dan pengelola harus membuka kunci.","解除完了":"Kunci dibuka","解除不可":"Tidak dapat dibuka","かんばんQRをもう一度照合してください。":"Lakukan pengecekan QR Kanban sekali lagi.","管理者の解除用QRを確認してください。":"Periksa QR pembuka kunci pengelola.","作業を止めて管理者を呼んでください。":"Hentikan pekerjaan dan panggil pengelola.","管理者解除待ち":"Menunggu pembukaan kunci pengelola","✓ 照合コードに設定済み":"✓ Kode pengecekan sudah diatur","照合コード欄に設定済み":"Sudah diatur pada kolom kode pengecekan","変更を保存するには、下の「保存する」を押してください。":"Untuk menyimpan perubahan, tekan tombol Simpan di bawah.","不一致時の記録":"Catatan saat tidak cocok","登録した照合コード":"Kode pengecekan yang terdaftar","実際に抽出したコード":"Kode yang benar-benar diambil","文字":"karakter","最初に異なる位置（1文字目から）":"Posisi perbedaan pertama (mulai dari karakter pertama)","異なる文字の識別番号（登録／抽出）":"Kode karakter yang berbeda (terdaftar / diambil)","␠は空白です。この記録は照合コードを変更しません。":"␠ berarti spasi. Catatan ini tidak mengubah kode pengecekan.","指定した照合コードがQRに含まれていません。":"Kode pengecekan yang ditentukan tidak terdapat dalam QR.","読み取ったQRの内容":"Isi QR yang dibaca","QR照合コード（含まれていれば一致）":"Kode pengecekan QR (cocok jika terdapat dalam QR)","登録コードがQR全体のどこかに含まれていれば一致します。開始位置・文字数の設定は不要です。":"Cocok jika kode yang terdaftar terdapat di bagian mana pun dalam seluruh QR. Posisi awal dan jumlah karakter tidak perlu diatur.","先頭の0・ハイフンを含め、登録コードがそのまま含まれるか照合します。設定後は保存してください。":"Pengecekan memastikan kode terdaftar terdapat persis, termasuk nol di depan dan tanda hubung. Simpan setelah mengatur.","管理者の解除用QRは、品番照合には使えません。":"QR pembuka kunci pengelola tidak dapat digunakan untuk pengecekan nomor produk.","指定番号がQRのどこかに含まれていれば一致します。例：000270":"Cocok jika nomor yang ditentukan terdapat di bagian mana pun dalam QR. Contoh: 000270","一致：指定番号がQRに含まれています。":"Cocok: nomor yang ditentukan terdapat dalam QR.","完了箱数":"Jumlah kotak selesai","予定箱数に達しました。作業終了してください。":"Jumlah kotak yang direncanakan telah tercapai. Selesaikan pekerjaan.","連続QR照合：箱ごとのボタン操作は不要です。":"Pengecekan QR berkelanjutan: tidak perlu menekan tombol untuk setiap kotak.","QRをいったん画面から外してください。次の箱を待機します。":"Jauhkan QR dari tampilan sekali. Menunggu kotak berikutnya.","1箱完了時にQRをかざしてください。自動で照合・登録します。":"Saat satu kotak selesai, tunjukkan QR. Pengecekan dan pencatatan dilakukan otomatis.","外付けスキャナーも自動受付します。読取データの末尾はEnterに設定してください。":"Pemindai eksternal juga diterima otomatis. Atur Enter di akhir data pemindaian.","外付けスキャナー受付中":"Menunggu pemindai eksternal","外付けスキャナーを使う":"Gunakan pemindai eksternal"});
+Object.assign(DICT,{"QRの内容を読み取れませんでした。":"Isi QR tidak dapat dibaca.","開始位置・文字数がQRの範囲外です。":"Posisi awal atau panjang melebihi isi QR.","区切り文字・項目番号を設定してください。":"Atur pemisah dan nomor kolom.","指定した項目がQRにありません。":"Kolom yang ditentukan tidak ada dalam QR.","QRの抽出方法を確認してください。":"Periksa cara mengambil bagian QR.","抽出したコードが空です。":"Kode yang diambil kosong.","かんばんQR":"QR Kanban","マスターに照合コードを設定してください。":"Atur kode pengecekan di Master.","品番が一致しません。作業を止めて確認してください。":"Nomor produk tidak cocok. Hentikan pekerjaan dan lakukan pengecekan.","箱ごとの番号を抽出できません。":"Nomor unik kotak tidak dapat diambil.","この品番のQR照合は未設定です。":"Pengecekan QR untuk produk ini belum diatur.","同じQRが複数の品番に一致します。マスターを確認してください。":"QR yang sama cocok dengan beberapa produk. Periksa Master.","作業またはマスターが見つかりません。":"Pekerjaan atau data Master tidak ditemukan.","作業状態が変わりました。計画表を確認してください。":"Status pekerjaan berubah. Periksa jadwal kerja.","目標箱数に達しています。計画表を確認してください。":"Target jumlah kotak tercapai. Periksa jadwal kerja.","この箱のQRはすでに完了登録されています。":"QR kotak ini sudah dicatat selesai.","QR完了履歴と箱数が異なります。管理者に確認してください。":"Riwayat QR dan jumlah kotak berbeda. Hubungi pengelola.","閉じる":"Tutup","QR読取機能を読み込めません。通信を確認してください。":"Fitur pembaca QR gagal dimuat. Periksa koneksi.","公開アプリをHTTPSで開き、カメラを許可してください。":"Buka aplikasi terbit melalui HTTPS dan izinkan kamera.","カメラを使用できません。カメラの許可・接続を確認してください。":"Kamera tidak dapat digunakan. Periksa izin dan sambungan kamera.","QRが見つかりません。明るさ・距離を変えてください。":"QR tidak ditemukan. Sesuaikan cahaya dan jarak.","カメラ起動中…":"Memulai kamera…","カメラを止める":"Hentikan kamera","カメラでQRを読む":"Pindai QR dengan kamera","ハンディ・手入力":"Pemindai genggam / input manual","撮影したQR画像から読む":"Baca QR dari foto","QRの読取内容":"Isi QR yang dibaca","この内容で照合":"Lakukan pengecekan isi ini","一致":"Cocok","不一致":"Tidak cocok","選択中の品番と一致しました。":"Cocok dengan produk yang dipilih.","品番が違います。作業を止めて確認してください。":"Nomor produk berbeda. Hentikan pekerjaan dan lakukan pengecekan.","マスターが変更されました。もう一度QRを読んでください。":"Master telah berubah. Pindai QR sekali lagi.","かんばんQR照合":"Pengecekan QR Kanban","選択中の品番":"Produk yang dipilih","一致：選択中の品番です":"Cocok: produk yang dipilih","不一致：作業を止めて確認":"Tidak cocok: hentikan pekerjaan dan periksa","箱ごとの番号":"Nomor unik kotak","再読み取り":"Pindai lagi","登録中…":"Sedang mencatat…","一致したこの1箱を完了登録":"Catat satu kotak yang cocok ini sebagai selesai","一致を確認して戻る":"Konfirmasi kecocokan dan kembali","カメラを向けただけでは箱数は増えません。一致後に1箱ずつ完了登録してください。":"Mengarahkan kamera saja tidak menambah jumlah kotak. Setelah cocok, catat setiap kotak sebagai selesai.","QRのどの部分を拾うか":"Bagian QR yang diambil","抽出方法":"Cara mengambil bagian","開始位置（1文字目から）":"Posisi awal, dihitung dari karakter pertama","開始位置":"Posisi awal","文字数":"Jumlah karakter","区切り文字":"Pemisah","項目番号（1番目から）":"Nomor kolom, dimulai dari 1","項目番号":"Nomor kolom","抽出した前後の空白を除く":"Hapus spasi di awal dan akhir hasil","このかんばんをQR照合に使う":"Gunakan Kanban ini untuk pengecekan QR","QR照合コード（完全一致）":"Kode pengecekan QR, harus sama persis","品番":"Nomor produk","箱ごとの重複登録を防ぐ設定":"Pengaturan pencegahan pencatatan kotak ganda","箱ごとに異なる番号を照合する":"Periksa nomor yang berbeda untuk setiap kotak","箱番号":"Nomor kotak","箱ごとに異なる番号がQRにある場合だけ設定します。同じQRが全箱共通の場合、箱の重複は判定できません。":"Atur hanya jika QR memiliki nomor unik untuk setiap kotak. Jika semua kotak memakai QR yang sama, kotak ganda tidak dapat dikenali.","設定テスト用のQR内容":"Isi QR untuk menguji pengaturan","実物のQRを読んで設定を確認":"Pindai QR asli untuk memeriksa pengaturan","抽出した照合コード":"Kode pengecekan yang diambil","この抽出結果を照合コードに設定":"Gunakan hasil ini sebagai kode pengecekan","先頭の0・ハイフンも区別して完全一致で照合します。設定後は保存してください。":"Pengecekan harus sama persis, termasuk nol di awal dan tanda hubung. Simpan setelah mengatur.","設定テスト用のQR読取":"Pembacaan QR untuk uji pengaturan","かんばん情報（最大4種類）":"Informasi Kanban, maksimal 4 jenis","かんばんを追加":"Tambah Kanban","かんばんの写真":"Foto Kanban","種類":"Jenis","色":"Warna","緑":"Hijau","黄":"Kuning","青":"Biru","ピンク":"Merah muda","赤":"Merah","白":"Putih","サイズ":"Ukuran","用途":"Kegunaan","使用工程":"Proses penggunaan","発行先":"Penerbit","備考":"Catatan","かんばん":"Kanban","注意事項（1行1項目）":"Catatan perhatian, satu hal per baris","かんばんQR照合済み":"QR Kanban sudah cocok","開始前にかんばんQRを照合してください。":"Lakukan pengecekan QR Kanban sebelum mulai.","QR照合して1箱完了":"Periksa QR lalu selesaikan satu kotak","管理者の解除が必要です。":"Pembukaan kunci oleh pengelola diperlukan.","管理者解除の初期設定が必要です。管理者に確認してください。":"Pengaturan awal pembukaan kunci diperlukan. Hubungi pengelola.","管理者の解除用QRを読んでください。":"Pindai QR pembuka kunci milik pengelola.","解除対象のロックを確認できません。":"Kunci yang akan dibuka tidak dapat dikonfirmasi.","1箱工数を設定してからQRを読み取ってください。":"Atur waktu standar per kotak sebelum memindai QR.","ロックの保存を確認できません。通信を確認し、管理者を呼んでください。":"Penyimpanan kunci belum dapat dikonfirmasi. Periksa koneksi dan panggil pengelola.","解除しました。かんばんQRをもう一度照合してください。":"Kunci dibuka. Lakukan pengecekan QR Kanban sekali lagi.","解除できません。管理者の解除用QRを確認してください。":"Kunci tidak dapat dibuka. Periksa QR pembuka kunci pengelola.","管理者解除QRの読取":"Pindai QR pembuka kunci pengelola","設定を確認中…":"Memeriksa pengaturan…","管理者解除待ち・作業停止":"Pekerjaan dihentikan, menunggu pengelola","作業者は解除できません。管理者を呼んでください。":"Operator tidak dapat membuka kunci. Panggil pengelola.","管理者の解除用QRを読む":"Pindai QR pembuka kunci pengelola","解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。":"QR pembuka kunci tidak menambah jumlah kotak. Setelah dibuka, periksa ulang QR Kanban.","二度読み防止・照合は継続中":"Pencegahan pemindaian ganda: pembacaan dijeda","待ち時間中も品違いは不一致になります。正しいQRの箱数登録は待ち時間終了後です。":"Pemindaian tersedia setelah 30% waktu standar per kotak berlalu.","一致・1箱完了登録済み":"Cocok: satu kotak telah dicatat selesai","一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。":"Jika cocok, satu kotak otomatis dicatat selesai. Jika tidak cocok, jumlah kotak tidak bertambah dan pengelola harus membuka kunci.","解除完了":"Kunci dibuka","解除不可":"Tidak dapat dibuka","かんばんQRをもう一度照合してください。":"Lakukan pengecekan QR Kanban sekali lagi.","管理者の解除用QRを確認してください。":"Periksa QR pembuka kunci pengelola.","作業を止めて管理者を呼んでください。":"Hentikan pekerjaan dan panggil pengelola.","管理者解除待ち":"Menunggu pembukaan kunci pengelola","✓ 照合コードに設定済み":"✓ Kode pengecekan sudah diatur","照合コード欄に設定済み":"Sudah diatur pada kolom kode pengecekan","変更を保存するには、下の「保存する」を押してください。":"Untuk menyimpan perubahan, tekan tombol Simpan di bawah.","不一致時の記録":"Catatan saat tidak cocok","登録した照合コード":"Kode pengecekan yang terdaftar","実際に抽出したコード":"Kode yang benar-benar diambil","文字":"karakter","最初に異なる位置（1文字目から）":"Posisi perbedaan pertama (mulai dari karakter pertama)","異なる文字の識別番号（登録／抽出）":"Kode karakter yang berbeda (terdaftar / diambil)","␠は空白です。この記録は照合コードを変更しません。":"␠ berarti spasi. Catatan ini tidak mengubah kode pengecekan.","指定した照合コードがQRに含まれていません。":"Kode pengecekan yang ditentukan tidak terdapat dalam QR.","読み取ったQRの内容":"Isi QR yang dibaca","QR照合コード（含まれていれば一致）":"Kode pengecekan QR (cocok jika terdapat dalam QR)","登録コードがQR全体のどこかに含まれていれば一致します。開始位置・文字数の設定は不要です。":"Cocok jika kode yang terdaftar terdapat di bagian mana pun dalam seluruh QR. Posisi awal dan jumlah karakter tidak perlu diatur.","先頭の0・ハイフンを含め、登録コードがそのまま含まれるか照合します。設定後は保存してください。":"Pengecekan memastikan kode terdaftar terdapat persis, termasuk nol di depan dan tanda hubung. Simpan setelah mengatur.","管理者の解除用QRは、品番照合には使えません。":"QR pembuka kunci pengelola tidak dapat digunakan untuk pengecekan nomor produk.","指定番号がQRのどこかに含まれていれば一致します。例：000270":"Cocok jika nomor yang ditentukan terdapat di bagian mana pun dalam QR. Contoh: 000270","一致：指定番号がQRに含まれています。":"Cocok: nomor yang ditentukan terdapat dalam QR.","完了箱数":"Jumlah kotak selesai","予定箱数に達しました。作業終了してください。":"Jumlah kotak yang direncanakan telah tercapai. Selesaikan pekerjaan.","連続QR照合：箱ごとのボタン操作は不要です。":"Pengecekan QR berkelanjutan: tidak perlu menekan tombol untuk setiap kotak.","QRをいったん画面から外してください。次の箱を待機します。":"Jauhkan QR dari tampilan sekali. Menunggu kotak berikutnya.","1箱完了時にQRをかざしてください。自動で照合・登録します。":"Saat satu kotak selesai, tunjukkan QR. Pengecekan dan pencatatan dilakukan otomatis.","外付けスキャナーも自動受付します。読取データの末尾はEnterに設定してください。":"Pemindai eksternal juga diterima otomatis. Atur Enter di akhir data pemindaian.","外付けスキャナー受付中":"Menunggu pemindai eksternal","外付けスキャナーを使う":"Gunakan pemindai eksternal"});
 Object.assign(DICT,{"カメラ映像・QR自動照合":"Tampilan kamera dan pengecekan QR otomatis","カメラ停止中":"Kamera dihentikan","画像・手入力で照合":"Pengecekan dari foto atau input manual","作業手順":"Langkah kerja","手順を見る":"Lihat langkah kerja","QR自動照合中":"Pengecekan QR otomatis aktif"});
 const biPairs = new Map(),biReverse = new Map(),biPending = new Map(),biFailed = new Set();
 const biListeners = new Set(),biQueue = [];
