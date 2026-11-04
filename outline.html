@@ -5163,36 +5163,61 @@ function useNow() {
   return n;
 }
 
-/* ── スケジュール用：呼称・品番の直接検索（モーダルなし） ── */
+/* ── スケジュール用：小型ひらがな入力・候補選択 ── */
+function kanaSearchText(v) {
+  return String(v || '').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 96));
+}
 function InlineHinbanSearch({master, procId, value, onPick}) {
-  const {lang, b} = useLang();
+  const {lang} = useLang();
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState(false);
-  const inputRef = useRef(null);
-  const kw = query.trim().toLowerCase();
-  const candidates = kw ? hinbansOf(master, procId).filter(h => matchHinban(master, h, kw)).slice(0, 12) : [];
-  const choose = (h) => {
-    onPick(h);
-    setQuery('');
-    setExpanded(false);
-    if (inputRef.current) inputRef.current.blur();
-  };
+  const [opened, setOpened] = useState(false);
+  const [mode, setMode] = useState('かな');
+  const [shift, setShift] = useState(false);
+  const kw = kanaSearchText(query.trim());
+  const candidates = kw ? hinbansOf(master, procId).filter(h => {
+    const m = master[h] || {};
+    return [h,m.name,m.partNo].some(v => kanaSearchText(v).includes(kw));
+  }).slice(0, 15) : [];
+  const choose = h => { onPick(h); setQuery(''); setOpened(false); };
+  const kanaRows = ['あいうえお','かきくけこ','さしすせそ','たちつてと','なにぬねの','はひふへほ','まみむめも','や ゆ よ','らりるれろ','わをんー'];
+  const romajiRows = ['1234567890','qwertyuiop','asdfghjkl','zxcvbnm-'];
+  const keyStyle = {minWidth:0,minHeight:32,padding:'3px 0',borderRadius:6,border:'1px solid #c4d2e7',background:'#fff',color:'#15345b',fontSize:17,fontWeight:650,touchAction:'manipulation'};
   return <div style={{width:'100%',maxWidth:340,minWidth:0,position:'relative'}}>
-    <div style={{display:'flex',gap:6,alignItems:'center'}}>
-      <LocalizedInput ref={inputRef} value={query} lang="ja" enterKeyHint="done"
-        autoComplete="off" autoCorrect="off" placeholder={value ? value + '（変更は検索）' : '呼称・品番を入力'}
-        onFocus={() => setExpanded(true)} onChange={e => {setQuery(e.target.value);setExpanded(true);}}
-        onKeyDown={e => {if(e.key === 'Enter' && !e.nativeEvent.isComposing){e.preventDefault();e.currentTarget.blur();}}}
-        style={{width:'100%',minWidth:0,fontSize:15,minHeight:42,border:'1px solid #B8C5D7',borderRadius:8,padding:'8px 10px'}} />
-      <button type="button" onClick={() => {inputRef.current?.blur();}}
-        style={{flexShrink:0,padding:'9px 8px',fontSize:12,fontWeight:700,border:'1px solid #B8C5D7',borderRadius:8,background:'#EAF2FF',color:'#173A72'}}>入力完了</button>
+    <div style={{display:'flex',gap:5,alignItems:'center'}}>
+      <button type="button" onClick={() => setOpened(v => !v)}
+        style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:15,color:query?'#1a2e4d':'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        {query || (value ? value+'（変更）' : '呼称・品番を入力')}　⌕
+      </button>
+      <button type="button" onClick={() => setOpened(false)} style={{flexShrink:0,padding:'9px 8px',fontSize:12,fontWeight:700,border:'1px solid #b8c5d7',borderRadius:8,background:'#eaf2ff',color:'#173a72'}}>入力完了</button>
     </div>
-    {value && <div style={{fontSize:12,color:'#173A72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
-    {expanded && kw && <div style={{marginTop:5,border:'1px solid #C4D2E6',borderRadius:8,background:'#fff',maxHeight:210,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,.12)',position:'relative',zIndex:5}}>
-      {candidates.length ? candidates.map(h => <button key={h} type="button" onClick={() => choose(h)}
-        style={{display:'block',width:'100%',textAlign:'left',padding:'9px 10px',borderBottom:'1px solid #E8EDF4',background:value===h?'#EAF2FF':'#fff',color:'#1A2E4D',fontSize:14}}>
-          <strong>{h}</strong>　{(master[h]||{}).partNo||''}<div style={{fontSize:12,color:'#596777'}}>{dv(master[h]||{},'name',lang)||''}</div>
-        </button>) : <div style={{padding:12,fontSize:13,color:'#677383'}}>該当する製品がありません</div>}
+    {value && <div style={{fontSize:12,color:'#173a72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
+    {opened && <div style={{marginTop:5,padding:8,border:'1px solid #b8c5d7',borderRadius:9,background:'#edf3fc',boxShadow:'0 5px 14px rgba(0,0,0,.13)',position:'relative',zIndex:20}}>
+      <div style={{display:'flex',gap:5,alignItems:'center',marginBottom:6}}>
+        <div style={{flex:1,minWidth:0,padding:'6px 8px',background:'#fff',border:'1px solid #c4d2e7',borderRadius:6,fontSize:15,minHeight:34,overflowWrap:'anywhere'}}>{query || '文字を選んでください'}</div>
+        <button type="button" onClick={() => setQuery(v => v.slice(0,-1))} style={{...keyStyle,minWidth:42}}>⌫</button>
+        <button type="button" onClick={() => setQuery('')} style={{...keyStyle,minWidth:40,fontSize:12}}>消去</button>
+      </div>
+      <div style={{display:'flex',gap:5,marginBottom:6}}>
+        {['かな','英数'].map(m => <button key={m} type="button" onClick={() => setMode(m)} style={{...keyStyle,flex:1,minHeight:31,fontSize:13,background:mode===m?'#1c4d94':'#fff',color:mode===m?'#fff':'#15345b'}}>{m}</button>)}
+        {mode==='英数' && <button type="button" onClick={() => setShift(v=>!v)} style={{...keyStyle,flex:1,minHeight:31,fontSize:13}}>{shift?'大文字':'小文字'}</button>}
+      </div>
+      {mode==='かな' ? <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:3}}>
+        {kanaRows.map((r,i) => <React.Fragment key={i}>{Array.from({length:5},(_,j)=>{
+          const c = r[j] || '';
+          return <button key={j} type="button" disabled={!c || c===' '} onClick={() => setQuery(v=>v+c)} style={{...keyStyle,opacity:c&&c!==' '?1:.15}}>{c}</button>;
+        })}</React.Fragment>)}
+      </div> : <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:3}}>
+        {romajiRows.join('').split('').map((c,i) => <button key={i} type="button" onClick={() => setQuery(v=>v+(shift?c.toUpperCase():c))} style={{...keyStyle,fontSize:14}}>{shift?c.toUpperCase():c}</button>)}
+      </div>}
+      {mode==='かな' && <div style={{display:'flex',gap:4,marginTop:5}}>
+        {['が','ぎ','ぐ','げ','ご','ぱ','ぴ','ぷ','ぺ','ぽ','っ','ゃ','ゅ','ょ'].map(c => <button key={c} type="button" onClick={() => setQuery(v=>v+c)} style={{...keyStyle,flex:1,minHeight:30,fontSize:13}}>{c}</button>)}
+      </div>}
+      <div style={{fontSize:12,fontWeight:700,color:'#345078',marginTop:8,marginBottom:4}}>検索候補（{candidates.length}件{candidates.length===15?'以上':''}）</div>
+      <div style={{maxHeight:165,overflowY:'auto',background:'#fff',borderRadius:6}}>
+        {candidates.map(h => <button key={h} type="button" onClick={() => choose(h)} style={{display:'block',width:'100%',textAlign:'left',padding:'7px 9px',borderBottom:'1px solid #e5eaf2',background:'#fff',color:'#1a2e4d',fontSize:13}}><strong>{h}</strong>　{(master[h]||{}).partNo||''}<div style={{fontSize:11,color:'#64748b'}}>{dv(master[h]||{},'name',lang)||''}</div></button>)}
+        {!kw && <div style={{padding:9,fontSize:12,color:'#64748b'}}>ひらがな・英数字で検索できます</div>}
+        {kw && !candidates.length && <div style={{padding:9,fontSize:12,color:'#64748b'}}>該当する製品がありません</div>}
+      </div>
     </div>}
   </div>;
 }
