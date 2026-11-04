@@ -5163,7 +5163,7 @@ function useNow() {
   return n;
 }
 
-/* ── スケジュール用：小型ひらがな入力・候補選択 ── */
+/* ── スケジュール用：呼称・品番入力・候補選択 ── */
 function kanaSearchText(v) {
   return String(v || '').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 96));
 }
@@ -5191,15 +5191,15 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
   const addKey = c => setQuery(v => v+c);
   return <div style={{width:'100%',maxWidth:510,minWidth:0,position:'relative'}}>
     <div style={{display:'flex',gap:5,alignItems:'center'}}>
-      <button type="button" onClick={() => {setOpened(v=>!v);setMode('英数');}}
-        style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:15,color:query?'#1a2e4d':'#64748b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+      <button type="button" onClick={() => {setOpened(v=>!v);setMode('英数');setShift(false);}}
+        style={{flex:1,minWidth:0,textAlign:'left',padding:'9px 10px',minHeight:42,border:'1px solid #b8c5d7',borderRadius:8,background:'#fff',fontSize:16,fontWeight:700,color:'#1a2e4d',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         {query || (value ? value+'（変更）' : '呼称・品番を入力')}　⌕
       </button>
       <button type="button" onClick={finishInput} style={{flexShrink:0,padding:'11px 12px',fontSize:15,fontWeight:700,border:'1px solid #b8c5d7',borderRadius:8,background:'#eaf2ff',color:'#173a72'}}>入力完了</button>
     </div>
     {value && <div style={{fontSize:12,color:'#173a72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
-    {opened && <div className="inline-hinban-keyboard" style={{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:8000,width:'min(980px,calc(100vw - 28px))',maxHeight:'calc(100dvh - 20px)',overflowY:'auto',padding:12,border:'2px solid #b8cbe4',borderRadius:14,background:'#edf3fc',boxShadow:'0 14px 60px rgba(0,0,0,.35)'}}>
-      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+    {opened && <div className="inline-hinban-keyboard" style={{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:8000,boxSizing:'border-box',width:'min(980px,calc(100vw - 20px))',maxHeight:'calc(100dvh - 20px)',overflowY:'auto',padding:12,border:'2px solid #b8cbe4',borderRadius:14,background:'#edf3fc',boxShadow:'0 14px 60px rgba(0,0,0,.35)'}}>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:8}}>
         <strong style={{fontSize:16,color:'#15345b',whiteSpace:'nowrap'}}>呼称・品番</strong>
         <div style={{flex:1,minWidth:0,padding:'8px 10px',background:'#fff',border:'1px solid #c4d2e7',borderRadius:7,fontSize:20,minHeight:43,overflowWrap:'anywhere'}}>{query || '数字・文字を押してください'}</div>
         <button type="button" onClick={() => setQuery(v => v.slice(0,-1))} style={{...keyStyle,minWidth:55}}>⌫</button>
@@ -5210,7 +5210,7 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
         {['英数','かな'].map(m => <button key={m} type="button" onClick={() => setMode(m)} style={{...keyStyle,flex:1,minHeight:39,fontSize:17,background:mode===m?'#1c4d94':'#fff',color:mode===m?'#fff':'#15345b'}}>{m}</button>)}
         {mode==='英数' && <button type="button" onClick={() => setShift(v=>!v)} style={{...keyStyle,flex:1,minHeight:39,fontSize:16}}>{shift?'大文字':'小文字'}</button>}
       </div>
-      {mode==='英数' ? <div style={{display:'grid',gridTemplateColumns:'minmax(220px,0.85fr) minmax(0,1.8fr)',gap:12,alignItems:'start'}}>
+      {mode==='英数' ? <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,250px),1fr))',gap:12,alignItems:'start'}}>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:6}}>
           {numericRows.join('').split('').map((c,i) => <button key={i} type="button" onClick={()=>addKey(c)} style={{...keyStyle,minHeight:57,fontSize:31,fontWeight:800,background:'#fff'}}>{c}</button>)}
         </div>
@@ -5223,8 +5223,8 @@ function InlineHinbanSearch({master, procId, value, onPick}) {
         {kanaRows.map((row,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:5}}>
           {Array.from({length:10},(_,j)=>{const c=row[j]||'';return <button key={j} type="button" disabled={!c||c===' '} onClick={()=>addKey(c)} style={{...keyStyle,minHeight:48,fontSize:20,opacity:c&&c!==' '?1:.15}}>{c}</button>;})}
         </div>)}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(14,minmax(0,1fr))',gap:4}}>
-          {['が','ぎ','ぐ','げ','ご','ぱ','ぴ','ぷ','ぺ','ぽ','っ','ゃ','ゅ','ょ'].map(c=><button key={c} type="button" onClick={()=>addKey(c)} style={{...keyStyle,minHeight:43,fontSize:18}}>{c}</button>)}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(10,minmax(0,1fr))',gap:4}}>
+          {['が','ぎ','ぐ','げ','ご','ざ','じ','ず','ぜ','ぞ','だ','ぢ','づ','で','ど','ば','び','ぶ','べ','ぼ','ゔ','ぱ','ぴ','ぷ','ぺ','ぽ','ぁ','ぃ','ぅ','ぇ','ぉ','っ','ゃ','ゅ','ょ','ゎ'].map(c=><button key={c} type="button" onClick={()=>addKey(c)} style={{...keyStyle,minHeight:43,fontSize:18}}>{c}</button>)}
         </div>
       </div>}
       <div style={{fontSize:13,fontWeight:700,color:'#345078',marginTop:9,marginBottom:4}}>検索候補（{candidates.length}件{candidates.length===15?'以上':''}）</div>
