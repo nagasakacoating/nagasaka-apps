@@ -339,6 +339,24 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .rep-insert-controls button{min-height:44px;padding:7px 12px;background:#E8F0FB;border:1px solid #C3D6F0;border-radius:8px;color:#12306B;font-size:15px;font-weight:700}
 .rep-list-insertable>[data-rep-row]>div:first-child>button{min-height:44px}
 .rep-list-insertable button:disabled{opacity:.5;cursor:default}
+
+.admin-pin-backdrop{position:fixed;inset:0;background:#0009;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+.admin-pin-dialog{width:min(420px,100%);background:#fff;border-radius:16px;padding:24px;box-shadow:0 20px 60px #0005;color:#17253b}
+.admin-pin-dialog h2{font-size:22px;margin-bottom:12px}.admin-pin-dialog p{font-size:15px;line-height:1.5;margin-bottom:12px}
+.admin-pin-dialog input{display:block;width:100%;margin:12px 0;font-size:23px;letter-spacing:8px;text-align:center;min-height:54px}
+.admin-pin-actions{display:flex;gap:10px;margin:18px 0 12px}.admin-pin-actions button{flex:1;min-height:50px;border-radius:9px;background:#eef1f5;color:#12306b;font-weight:700}
+.admin-pin-actions .admin-pin-primary{background:#12306b;color:white}.admin-pin-actions button:disabled{opacity:.5}.admin-pin-dialog small{font-size:12px;color:#59697e}.admin-pin-error{color:#b3261e!important}
+
+/* Androidのキーボードを開かない、管理者専用の数字パッド */
+.admin-pin-dialog{max-height:calc(100dvh - 24px);overflow-y:auto;padding:18px 22px}
+.admin-pin-dots{display:flex;justify-content:center;gap:16px;margin:14px 0 18px}
+.admin-pin-dots span{width:19px;height:19px;border-radius:50%;border:2px solid #12306b;background:white}
+.admin-pin-dots span.filled{background:#12306b}
+.admin-pin-keypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-width:310px;margin:auto}
+.admin-pin-keypad button{min-height:54px;border-radius:10px;background:#edf2f9;color:#12306b;font-size:25px;font-weight:700;touch-action:manipulation}
+.admin-pin-keypad button:nth-child(10){font-size:15px}
+.admin-pin-keypad button:active{background:#cbdcf3}
+@media(max-height:640px){.admin-pin-keypad button{min-height:43px}.admin-pin-dialog{padding:12px 18px}.admin-pin-dots{margin:8px 0}.admin-pin-dialog h2{margin-bottom:6px}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -6859,6 +6877,18 @@ function WorkRunScreen({
   const [out, setOut] = useState(false);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [defectDraft,setDefectDraft]=useState(String(log.defectCount??0));
+  const [workerCommentDraft,setWorkerCommentDraft]=useState(log.workerComment||'');
+  const [noteBusy,setNoteBusy]=useState(false);
+  const [noteMessage,setNoteMessage]=useState('');
+  useEffect(()=>{setDefectDraft(String(log.defectCount??0));setWorkerCommentDraft(log.workerComment||'');},[log.id]);
+  async function saveWorkNotes(){
+    if(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))){setNoteMessage('不良数は0以上の整数で入力してください。');return false;}
+    setNoteBusy(true);setNoteMessage('');
+    try{await db.collection('workOrders').doc(log.id).update({defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)});setNoteMessage('保存しました');return true;}
+    catch(e){setNoteMessage('保存できません: '+e.message);return false;}
+    finally{setNoteBusy(false);}
+  }
 const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({blocked:false,busy:false,flash:false});
   const isTask = log.kind === 'task';
   const m = master[log.hinban] || {};
@@ -6931,7 +6961,9 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         endAt: end
       }, end);
       const std = isTask ? taskPlanMin : snap.stdMin;
+      if(!isTask&&(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))))throw new Error('不良数は0以上の整数で入力してください。');
       const payload = {
+        ...(!isTask?{defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)}:{}),
         status: 'done',
         endAt: end,
         pauses: ps,
@@ -7182,6 +7214,17 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             fontWeight: 800
           }}>🤝 <BiText value={t('ライン応援')} /></button>
           </div>
+          {!isTask&&<div style={{border:'1px solid #b9c7dd',borderRadius:10,padding:12,background:'#f7faff',display:'grid',gap:8}}>
+            <strong style={{color:NAVY,fontSize:15}}>不良数・作業者コメント（異常報告とは別）</strong>
+            <div style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(0,2fr)',gap:10,alignItems:'start'}}>
+              <label style={{fontSize:13,fontWeight:700}}>不良数（個）<input type="number" inputMode="numeric" min="0" step="1" value={defectDraft} onChange={e=>setDefectDraft(e.target.value)} style={{marginTop:5,fontSize:19}} /></label>
+              <div style={{display:'grid',gap:6,minWidth:0}}>
+                <label style={{fontSize:13,fontWeight:700}}>作業者コメント（任意）<textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder="不良が多かった理由、作業で気づいたことなど" style={{marginTop:5,fontSize:14}} /></label>
+                <button type="button" onClick={e=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();e.currentTarget.blur();}} style={{justifySelf:'end',padding:'10px 20px',background:'#e1edff',color:'#153c80',border:'1px solid #9bb8e8',borderRadius:9,fontSize:15,fontWeight:800,touchAction:'manipulation'}}>✓ 入力完了（キーボードを閉じる）</button>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}>記録を保存</button><span style={{fontSize:12,color:noteMessage.startsWith('保存でき')?'#b3261e':'#216e3c'}}>{noteMessage}</span><small style={{color:'#647084'}}>作業終了時にも一緒に保存されます。</small></div>
+          </div>}
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -7449,6 +7492,42 @@ function OutModal({
     </div>;
 }
 
+/* 記録開始日：テスト記録を削除せず、履歴と評価の表示対象から除外する。 */
+const REPORT_START_DOC=db.collection('outlineReportSettings').doc('shared');
+function useReportStart(){
+  const [start,setStart]=useState('');
+  const [draft,setDraft]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+  useEffect(()=>{
+    let active=true;
+    REPORT_START_DOC.get().then(snap=>{
+      if(!active)return;
+      const value=snap.exists&&/^\d{4}-\d{2}-\d{2}$/.test(snap.data().recordStartDate||'')?snap.data().recordStartDate:'';
+      setStart(value);setDraft(value);
+    }).catch(e=>{if(active)setMessage('記録開始日を取得できません: '+e.message);});
+    return ()=>{active=false;};
+  },[]);
+  async function save(){
+    if(draft&&!/^\d{4}-\d{2}-\d{2}$/.test(draft)){setMessage('正しい日付を入力してください。');return;}
+    setBusy(true);setMessage('');
+    try{
+      await REPORT_START_DOC.set({recordStartDate:draft,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      setStart(draft);setMessage(draft?'記録開始日を保存しました。以前のテスト記録は削除されません。':'開始日の指定を解除しました。');
+    }catch(e){setMessage('保存できませんでした: '+e.message);}
+    finally{setBusy(false);}
+  }
+  return {start,draft,setDraft,busy,message,save};
+}
+function ReportStartEditor({report}){
+  return <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:'10px 12px',marginBottom:12,background:'#fff8e8',border:'1px solid #e9d4a6',borderRadius:9}}>
+    <label style={{fontSize:13,fontWeight:700}}>記録開始日（本運用開始日）<input type="date" value={report.draft} onChange={e=>report.setDraft(e.target.value)} style={{display:'block',width:180,marginTop:4}} /></label>
+    <button type="button" onClick={report.save} disabled={report.busy} style={{minHeight:44,padding:'8px 18px',borderRadius:8,background:'#12306B',color:'white',fontWeight:700}}>{report.busy?'保存中…':'開始日を保存'}</button>
+    <span style={{fontSize:12,color:'#67552c'}}>指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。</span>
+    {report.message&&<div style={{width:'100%',fontSize:12,color:report.message.includes('できません')?'#b3261e':'#216e3c'}}>{report.message}</div>}
+  </div>;
+}
+
 /* ── 評価（日／月／年） ── */
 function AnalyticsScreen({
   proc,
@@ -7462,13 +7541,30 @@ function AnalyticsScreen({
     t,
     b
   } = useLang();
-  const [mode, setMode] = useState('day');
+  const reportStart=useReportStart();
+  const [mode, setMode] = useState('week');
+  const [selectedWorker,setSelectedWorker]=useState('');
   const [allProc, setAllProc] = useState(false);
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState('');
-  const buckets = buildBuckets(mode);
-  const from = buckets[0].key + (mode === 'day' ? '' : mode === 'month' ? '-01' : '-01-01');
-  const to = buckets[buckets.length - 1].key + (mode === 'day' ? '' : mode === 'month' ? '-31' : '-12-31');
+  const today = new Date();
+  const fmtDate = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const fromDate = new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  if(mode==='week')fromDate.setDate(fromDate.getDate()-7);
+  else if(mode==='month')fromDate.setMonth(fromDate.getMonth()-1);
+  else if(mode==='year')fromDate.setFullYear(fromDate.getFullYear()-1);
+  else fromDate.setFullYear(fromDate.getFullYear()-Number(mode));
+  const from = reportStart.start&&reportStart.start>fmtDate(fromDate)?reportStart.start:fmtDate(fromDate),to=fmtDate(today);
+  const spanYears = ['3','5','10'].includes(mode);
+  const bucketMode = spanYears?'year':mode==='year'?'month':'day';
+  const buckets = buildBuckets(bucketMode).filter(bk=>{
+    const k=bucketMode==='year'?bk.key+'-01-01':bucketMode==='month'?bk.key+'-01':bk.key;
+    return k<=to && (bucketMode==='year'?bk.key>=from.slice(0,4):bucketMode==='month'?bk.key>=from.slice(0,7):bk.key>=from);
+  });
+  if(spanYears){buckets.length=0;for(let y=Number(from.slice(0,4));y<=today.getFullYear();y++)buckets.push({key:String(y),label:String(y)});}
+  if(mode==='year'){buckets.length=0;for(let i=12;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const k=fmtDate(d).slice(0,7);buckets.push({key:k,label:k.slice(2)});}}
+  if(mode==='month'){buckets.length=0;for(let i=30;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
+  if(mode==='week'){buckets.length=0;for(let i=7;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
   useEffect(() => {
     let dead = false;
     setRows(null);
@@ -7490,10 +7586,14 @@ function AnalyticsScreen({
       dead = true;
     };
   }, [from, to]);
-  const done = (rows || []).filter((o) => o.status === 'done' && (allProc || o.procId === proc.id));
+  const done = (rows || []).filter((o) => o.status === 'done' && (allProc || o.procId === proc.id) && (!selectedWorker||o.workerName===selectedWorker));
+  const workerNames = [...new Set((rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)).map(o=>o.workerName).filter(Boolean))].sort();
+  const rateOf = arr => {const v=summarize(arr);return v.target?Math.round(v.boxes/v.target*1000)/10:0;};
+  const defectOf = arr => arr.reduce((n,o)=>n+(Number(o.defectCount)||0),0);
+  const trend = buckets.map(bk=>{const arr=done.filter(o=>bucketOf(o,bucketMode)===bk.key);return {...bk,rate:rateOf(arr),defects:defectOf(arr),count:arr.length};});
   const sum = summarize(done);
-  const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, mode) === bk.key)).diff);
-  const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, mode) === bk.key)).boxes);
+  const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).diff);
+  const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).boxes);
   const rate = sum.target ? Math.round(sum.boxes / sum.target * 100) : 0;
   function groupBy(keyFn, labelFn) {
     const m = {};
@@ -7504,9 +7604,17 @@ function AnalyticsScreen({
     return Object.entries(m).map(([k, v]) => ({
       key: k,
       label: labelFn ? labelFn(k, v) : k,
-      ...summarize(v)
+      ...summarize(v),defects:defectOf(v),rate:rateOf(v)
     })).sort((a, b) => b.boxes - a.boxes);
   }
+  // 「全員」表示時は担当者ごとに固有色を割り当て、達成率と不良数を同じ色で比較する。
+  const workerPalette = ['#2563EB','#D97706','#059669','#9333EA','#DC2626','#0891B2','#BE185D','#4F46E5','#65A30D','#B45309','#0F766E','#7C3AED'];
+  const workerCompare = workerNames.map((name,i)=>{
+    const records=(rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)&&o.workerName===name);
+    return {name,color:workerPalette[i%workerPalette.length],rate:rateOf(records),defects:defectOf(records),count:records.length};
+  });
+  const maxWorkerRate=Math.max(100,...workerCompare.map(x=>x.rate));
+  const maxWorkerDefects=Math.max(1,...workerCompare.map(x=>x.defects));
   const byWorker = groupBy((o) => o.workerName || t('担当者なし'));
   const byItem = groupBy((o) => o.kind === 'task' ? '🔧 ' + (o.taskName || '作業') : o.hinban);
   const card = (k, v, col) => <div key={k} style={{
@@ -7569,6 +7677,7 @@ function AnalyticsScreen({
               ...th,
               width: 90
             }}><BiText value={b('箱')} /></th>
+            <th style={th}>達成率</th><th style={th}>不良数</th>
             <th style={{
               ...th,
               width: 100
@@ -7587,6 +7696,7 @@ function AnalyticsScreen({
             }}><BiText value={r.label} /></td>
                 <td style={td}><BiText value={r.n} /></td>
                 <td style={td}><BiText value={r.boxes} /></td>
+                <td style={{...td,fontWeight:800,color:r.rate>=100?'#1B5E20':NAVY}}>{r.rate}%</td><td style={td}>{r.defects}</td>
                 <td style={{
               ...td,
               fontWeight: 800,
@@ -7597,7 +7707,7 @@ function AnalyticsScreen({
               color: r.anom ? '#B71C1C' : '#C7CDD6'
             }}><BiText value={r.anom || '—'} /></td>
               </tr>)} />
-            <BiText value={list.length === 0 && <tr><td colSpan={5} style={{
+            <BiText value={list.length === 0 && <tr><td colSpan={7} style={{
               ...td,
               textAlign: 'center',
               color: '#9AA3AF',
@@ -7625,6 +7735,7 @@ function AnalyticsScreen({
       overflowY: 'auto',
       padding: '16px 24px'
     }}>
+        <ReportStartEditor report={reportStart} />
         <div style={{
         display: 'flex',
         gap: 10,
@@ -7638,7 +7749,7 @@ function AnalyticsScreen({
           overflow: 'hidden',
           border: '1px solid ' + LINE
         }}>
-            <BiText value={[['day', b('日')], ['month', b('月')], ['year', b('年')]].map(([k, lb]) => <button key={k} onClick={() => setMode(k)} style={{
+            <BiText value={[['week','週'], ['month','月'], ['year','年'], ['3','3年'], ['5','5年'], ['10','10年']].map(([k, lb]) => <button key={k} onClick={() => setMode(k)} style={{
             minHeight: 44,
             padding: '0 20px',
             fontSize: 14,
@@ -7661,6 +7772,7 @@ function AnalyticsScreen({
         }}>
             <BiText value={allProc ? '✓ ' : ''} /><BiText value={t('全工程')} />
           </button>
+          <label style={{fontSize:13,fontWeight:700}}>担当者 <select value={selectedWorker} onChange={e=>setSelectedWorker(e.target.value)} style={{minHeight:44,minWidth:150}}><option value="">全員</option>{workerNames.map(w=><option key={w} value={w}>{w}</option>)}</select></label>
           <div style={{
           fontSize: 12.5,
           color: '#6B7480'
@@ -7691,12 +7803,50 @@ function AnalyticsScreen({
             <BiText value={card(b('完了') + ' ' + b('件'), sum.n)} />
             <BiText value={card(b('完了箱数'), sum.boxes + ' / ' + sum.target)} />
             <BiText value={card(b('達成率'), rate + '%', rate >= 100 ? '#1B5E20' : NAVY)} />
+            <BiText value={card('不良数', defectOf(done) + '個', '#B45309')} />
             <BiText value={card(b('標準'), Math.round(sum.std) + t('分'), '#3A4552')} />
             <BiText value={card(b('実働'), Math.round(sum.act) + t('分'), '#3A4552')} />
             <BiText value={card(b('先行') + '/' + b('遅れ'), (sum.diff >= 0 ? '+' : '−') + Math.abs(Math.round(sum.diff)) + t('分'), sum.diff >= 0 ? '#1B5E20' : '#B71C1C')} />
             <BiText value={card(b('異常'), sum.anom, sum.anom ? '#B71C1C' : '#C7CDD6')} />
           </div>
 
+          {!selectedWorker && <div className="panel" style={{marginBottom:16}}>
+            <div className="panel-h">👥 全担当者の比較（担当者ごとに色分け）</div>
+            <div style={{padding:14}}>
+              {workerCompare.length===0 ? <div style={{color:'#64748B'}}>対象期間に担当者の作業記録がありません。</div> : <>
+                <div style={{fontSize:12,color:'#64748B',marginBottom:12}}>同じ担当者は達成率・不良数とも同じ色です。棒の右側に実数値を表示します。</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,330px),1fr))',gap:20}}>
+                  {[{title:'達成率（%）',field:'rate',max:maxWorkerRate,suffix:'%'},{title:'不良数（個）',field:'defects',max:maxWorkerDefects,suffix:'個'}].map(metric=><div key={metric.field}>
+                    <div style={{fontSize:14,fontWeight:800,marginBottom:10,color:NAVY}}>{metric.title}</div>
+                    {workerCompare.map(w=><div key={w.name} style={{display:'grid',gridTemplateColumns:'90px minmax(80px,1fr) 60px',gap:8,alignItems:'center',marginBottom:9,fontSize:12}}>
+                      <div title={w.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:700}}>{w.name}</div>
+                      <div style={{height:20,background:'#EDF1F5',borderRadius:4,overflow:'hidden'}}><div title={w.name+'：'+w[metric.field]+metric.suffix} style={{height:'100%',width:(w[metric.field]/metric.max*100)+'%',background:w.color,borderRadius:4}} /></div>
+                      <div style={{fontWeight:800,textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{w[metric.field]}{metric.suffix}</div>
+                    </div>)}
+                  </div>)}
+                </div>
+                <div style={{fontSize:11,color:'#64748B',marginTop:10}}>※ 記録開始日・期間・工程の絞り込みを反映しています。色は表示中の担当者一覧に基づき割り当てます。</div>
+              </>}
+            </div>
+          </div>}
+          <div className="panel" style={{marginBottom:16}}>
+            <div className="panel-h">📈 達成率・不良数の推移（{selectedWorker||'全員合計'}）</div>
+            <div style={{padding:14,overflowX:'auto'}}>
+              <div style={{display:'flex',gap:8,alignItems:'flex-end',minHeight:205,minWidth:Math.max(360,trend.length*54)}}>
+                {trend.map(v=><div key={v.key} style={{minWidth:45,flex:1,textAlign:'center',fontSize:11}}>
+                  <div style={{color:NAVY,fontWeight:700}}>{v.count?v.rate+'%':'—'}</div>
+                  <div style={{height:110,display:'flex',alignItems:'flex-end',justifyContent:'center',gap:3,borderBottom:'1px solid #CBD5E1'}}>
+                    <div title={'達成率 '+v.rate+'%'} style={{width:16,height:v.count?Math.max(2,Math.min(110,v.rate/120*110)):0,background:'#2563EB',borderRadius:'3px 3px 0 0'}} />
+                    <div title={'不良数 '+v.defects+'個'} style={{width:16,height:v.defects?Math.max(3,Math.min(110,v.defects/Math.max(1,...trend.map(x=>x.defects))*110)):0,background:'#E69B30',borderRadius:'3px 3px 0 0'}} />
+                  </div>
+                  <div style={{color:'#9A5700',fontWeight:700}}>{v.count?v.defects+'個':'—'}</div>
+                  <div style={{color:'#64748B',marginTop:3}}>{v.label}</div>
+                </div>)}
+              </div>
+              <div style={{fontSize:12,color:'#475569',marginTop:10}}>■ 青：達成率（100%基準）　■ 橙：不良数（期間内最大数を基準）　※左右の棒は単位・目盛が異なります。</div>
+              <div style={{fontSize:12,color:'#64748B',marginTop:4}}>達成率＝完了箱数÷予定箱数×100。過去のデータが保存されている期間のみ表示します。</div>
+            </div>
+          </div>
           <div className="panel" style={{
           marginBottom: 16
         }}>
@@ -8098,7 +8248,7 @@ function ResultModal({
     </div>;
 }
 
-/* ── 履歴（直近7日） ── */
+/* ── 履歴（期間検索・過去10年対応） ── */
 function WorkHistory({
   proc,
   logs,
@@ -8110,9 +8260,24 @@ function WorkHistory({
     t,
     b
   } = useLang();
+  const reportStart=useReportStart();
   const [all, setAll] = useState(false);
   const [adj, setAdj] = useState(null);
-  const list = Object.values(logs || {}).filter((l) => l.status === 'done' && (all || l.procId === proc.id)).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
+  const [fromDate,setFromDate]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
+  const [toDate,setToDate]=useState(()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
+  const [query,setQuery]=useState('');
+  const [historyRows,setHistoryRows]=useState(null);
+  const [historyError,setHistoryError]=useState('');
+  const [historyBusy,setHistoryBusy]=useState(false);
+  async function searchHistory(){
+    if(!fromDate||!toDate||fromDate>toDate){setHistoryError('開始日と終了日を確認してください。');return;}
+    if(reportStart.start&&toDate<reportStart.start){setHistoryRows([]);setHistoryError('指定期間は記録開始日より前です。');return;}
+    setHistoryBusy(true);setHistoryError('');
+    try{const snap=await db.collection('workOrders').where('date','>=',reportStart.start&&reportStart.start>fromDate?reportStart.start:fromDate).where('date','<=',toDate).get();setHistoryRows(snap.docs.map(d=>({id:d.id,...d.data()})));}
+    catch(e){setHistoryError('履歴を取得できません: '+e.message);}
+    finally{setHistoryBusy(false);}
+  }
+  const list = (historyRows||Object.values(logs||{})).filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || (String(l.hinban||'')+' '+String(l.workerName||'')).toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -8142,12 +8307,21 @@ function WorkHistory({
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar title={b('履歴') + '（直近7日）'} onBack={onBack} user={user} />
+      <TopBar title={b('履歴') + '（期間検索）'} onBack={onBack} user={user} />
       <div style={{
       flex: 1,
       overflowY: 'auto',
       padding: '18px 26px'
     }}>
+        <ReportStartEditor report={reportStart} />
+        <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:12,marginBottom:12,background:'#eef4fc',borderRadius:10}}>
+          <label style={{fontSize:12}}>開始日<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{display:'block',width:170}} /></label>
+          <label style={{fontSize:12}}>終了日<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{display:'block',width:170}} /></label>
+          <label style={{fontSize:12}}>品番・担当者<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="検索" style={{display:'block',width:200}} /></label>
+          <button onClick={searchHistory} disabled={historyBusy} style={{minHeight:44,padding:'8px 20px',background:NAVY,color:'#fff',borderRadius:8,fontWeight:700}}>{historyBusy?'読込中…':'過去の履歴を検索'}</button>
+          <small style={{color:'#59697e'}}>初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。</small>
+          {historyError&&<div style={{color:'#b3261e',width:'100%'}}>{historyError}</div>}
+        </div>
         <div style={{
         display: 'flex',
         gap: 10,
@@ -8202,7 +8376,7 @@ function WorkHistory({
               background: NAVY
             }}>
               <th style={th}><BiText value={"\u65E5\u4ED8"} /></th><th style={th}><TH k="担当者" /></th><BiText value={all && <th style={th}><BiText value={"\u5DE5\u7A0B"} /></th>} /><th style={th}><TH k="呼称" /></th>
-              <th style={th}><BiText value={"\u958B\u59CB \u2192 \u7D42\u4E86"} /></th><th style={th}><TH k="完了箱数" /></th><th style={th}><TH k="実働" /></th><th style={th}><BiText value={"\u505C\u6B62"} /></th><th style={th}><TH k="先行" k2="遅れ" /></th><th style={th}><TH k="異常" /></th><th style={{
+              <th style={th}><BiText value={"\u958B\u59CB \u2192 \u7D42\u4E86"} /></th><th style={th}><TH k="完了箱数" /></th><th style={th}><TH k="実働" /></th><th style={th}><BiText value={"\u505C\u6B62"} /></th><th style={th}><TH k="先行" k2="遅れ" /></th><th style={th}>不良数</th><th style={th}>作業者コメント</th><th style={th}><TH k="異常" /></th><th style={{
                 ...th,
                 width: 92,
                 textAlign: 'center'
@@ -8240,6 +8414,7 @@ function WorkHistory({
                     color: '#6D3FBF'
                   }}><BiText value={"\uFF08\u8ABF\u6574 "} /><BiText value={hasAdj > 0 ? '+' : ''} /><BiText value={hasAdj} />）</div> : null} />
                     </td>
+                    <td style={td}>{l.defectCount??'—'}</td><td style={{...td,maxWidth:260,whiteSpace:'pre-wrap'}}>{l.workerComment||''}</td>
                     <td style={{
                   ...td,
                   color: '#B71C1C',
@@ -8264,7 +8439,7 @@ function WorkHistory({
                     </td>
                   </tr>;
             })} />
-              <BiText value={list.length === 0 && <tr><td colSpan={all ? 11 : 10} style={{
+              <BiText value={list.length === 0 && <tr><td colSpan={all ? 13 : 12} style={{
                 ...td,
                 textAlign: 'center',
                 color: '#9AA3AF',
@@ -8280,6 +8455,44 @@ function WorkHistory({
 }
 
 /* ══════════ アプリ本体 ══════════ */
+
+/* 管理者編集ロック（画面上の操作制限。Firebase権限強化は別工程）。 */
+const ADMIN_IDLE_MS=10*60*1000;
+async function adminPinDigest(pin,salt){
+  const data=new TextEncoder().encode('outline-admin-pin-v1:'+salt+':'+pin);
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+}
+function AdminPinDialog({mode,onConfirm,onCancel,busy,error}){
+  const [pin,setPin]=React.useState('');
+  const [again,setAgain]=React.useState('');
+  const setup=mode==='setup';
+  const [confirmStep,setConfirmStep]=React.useState(false);
+  const active=setup&&confirmStep?again:pin;
+  const valid=pin.length===4&&(!setup||again.length===4&&pin===again);
+  const addDigit=(digit)=>{
+    if(busy)return;
+    const next=(active+digit).slice(0,4);
+    if(setup&&confirmStep)setAgain(next);else setPin(next);
+  };
+  const erase=()=>{if(busy)return;if(setup&&confirmStep)setAgain(x=>x.slice(0,-1));else setPin(x=>x.slice(0,-1));};
+  const submit=()=>{
+    if(busy)return;
+    if(setup&&!confirmStep){if(pin.length===4)setConfirmStep(true);return;}
+    if(valid)onConfirm(pin);
+  };
+  return <div className="admin-pin-backdrop" role="presentation"><div className="admin-pin-dialog" role="dialog" aria-modal="true" aria-label="管理者コード">
+    <h2>🔒 管理者{setup?'コード初期登録':'ロック解除'}</h2>
+    <p>{setup?(confirmStep?'確認のため、同じ4桁をもう一度入力してください。':'全タブレット共通の数字4桁を登録します。'):'管理者コード（数字4桁）を入力してください。'}</p>
+    <div className="admin-pin-dots" aria-label={`${active.length}桁入力済み`}>{[0,1,2,3].map(i=><span key={i} className={i<active.length?'filled':''}></span>)}</div>
+    <div className="admin-pin-keypad">{['1','2','3','4','5','6','7','8','9','戻る','0','⌫'].map(k=><button key={k} type="button" disabled={busy} onClick={()=>k==='戻る'?(setup&&confirmStep?(setConfirmStep(false),setAgain('')):onCancel()):k==='⌫'?erase():addDigit(k)}>{k}</button>)}</div>
+    {setup&&confirmStep&&again.length===4&&pin!==again&&<p className="admin-pin-error">確認用コードが一致しません。⌫で修正してください。</p>}
+    {error&&<p className="admin-pin-error">{error}</p>}
+    <div className="admin-pin-actions"><button type="button" onClick={onCancel} disabled={busy}>キャンセル</button><button type="button" className="admin-pin-primary" disabled={busy||(setup&&!confirmStep?pin.length!==4:!valid)} onClick={submit}>{busy?'確認中…':setup?(confirmStep?'登録する':'次へ'):'解除する'}</button></div>
+    <small>最後の操作から10分間無操作の場合に自動ロックします。</small>
+  </div></div>;
+}
+
 function App() {
   const [lang, setLang] = useState(() => {
     try {
@@ -8305,6 +8518,48 @@ function App() {
     name: 'proc'
   });
   const [scanHome, setScanHome] = useState(false);
+  const [adminOpen,setAdminOpen]=useState(false);
+  const [adminRequest,setAdminRequest]=useState(null);
+  const [adminMode,setAdminMode]=useState('unlock');
+  const [adminError,setAdminError]=useState('');
+  const [adminBusy,setAdminBusy]=useState(false);
+  const adminOpenRef=useRef(false);
+  const adminLastRef=useRef(0);
+  const adminNextRef=useRef(null);
+  const adminDoc=db.collection('outlineAdminSettings').doc('sharedPin');
+  function closeAdmin(){adminOpenRef.current=false;setAdminOpen(false);adminLastRef.current=0;}
+  function adminGuard(action){
+    if(adminOpenRef.current&&Date.now()-adminLastRef.current<ADMIN_IDLE_MS){adminLastRef.current=Date.now();action();return;}
+    closeAdmin();adminNextRef.current=action;setAdminError('');setAdminMode('unlock');setAdminRequest('loading');
+    adminDoc.get({source:'server'}).then(snap=>{setAdminMode(snap.exists?'unlock':'setup');setAdminRequest('ready');}).catch(e=>{setAdminError('管理者コードの確認に接続できません: '+e.message);setAdminRequest('error');});
+  }
+  async function confirmAdmin(pin){
+    setAdminBusy(true);setAdminError('');
+    try{
+      if(adminMode==='setup'){
+        const salt=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+        const digest=await adminPinDigest(pin,salt);
+        await db.runTransaction(async tx=>{const snap=await tx.get(adminDoc);if(snap.exists)throw new Error('既にコードが登録されています。画面を閉じて再度お試しください。');tx.set(adminDoc,{salt,digest,version:1,createdAt:firebase.firestore.FieldValue.serverTimestamp()});});
+      }else{
+        const snap=await adminDoc.get({source:'server'});
+        if(!snap.exists)throw new Error('コードが未登録です。もう一度開いてください。');
+        const data=snap.data();if(await adminPinDigest(pin,data.salt)!==data.digest)throw new Error('管理者コードが違います。');
+      }
+      adminOpenRef.current=true;adminLastRef.current=Date.now();setAdminOpen(true);setAdminRequest(null);
+      const next=adminNextRef.current;adminNextRef.current=null;if(next)next();
+    }catch(e){setAdminError(e.message||String(e));}finally{setAdminBusy(false);}
+  }
+  useEffect(()=>{
+    const activity=()=>{if(adminOpenRef.current)adminLastRef.current=Date.now();};
+    const check=()=>{if(adminOpenRef.current&&Date.now()-adminLastRef.current>=ADMIN_IDLE_MS)closeAdmin();};
+    document.addEventListener('pointerdown',activity,true);document.addEventListener('keydown',activity,true);
+    document.addEventListener('input',activity,true);document.addEventListener('wheel',activity,true);
+    const timer=setInterval(check,15000);
+    const hide=()=>{if(document.hidden)closeAdmin();};
+    document.addEventListener('visibilitychange',hide);
+    return ()=>{document.removeEventListener('pointerdown',activity,true);document.removeEventListener('keydown',activity,true);document.removeEventListener('input',activity,true);document.removeEventListener('wheel',activity,true);document.removeEventListener('visibilitychange',hide);clearInterval(timer);};
+  },[]);
+
   useEffect(() => auth.onAuthStateChanged((u) => {
     setUser(u);
     setReady(true);
@@ -8415,10 +8670,7 @@ function App() {
   })} onQR={() => setScanHome(true)} onSearch={() => setView({
     name: 'search',
     proc: view.proc
-  })} onMaster={() => setView({
-    name: 'master',
-    proc: view.proc
-  })} onLogout={() => auth.signOut()} onOpenSheet={async (o, w) => {
+  })} onMaster={() => adminGuard(() => setView({name:'master',proc:view.proc}))} onLogout={() => auth.signOut()} onOpenSheet={async (o, w) => {
     if (o.kind === 'task') {
       try {
         await db.collection('workOrders').doc(o.id).update({
@@ -8448,13 +8700,7 @@ function App() {
   })} onHistory={() => setView({
     name: 'workhist',
     proc: view.proc
-  })} onPlanner={() => setView({
-    name: 'planner',
-    proc: view.proc
-  })} onAnalytics={() => setView({
-    name: 'analytics',
-    proc: view.proc
-  })} />;else if (view.name === 'planner') screen = <SchedulePlanner proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
+  })} onPlanner={() => adminGuard(() => setView({name:'planner',proc:view.proc}))} onAnalytics={() => adminGuard(() => setView({name:'analytics',proc:view.proc}))} />;else if (view.name === 'planner') screen = <SchedulePlanner proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;else if (view.name === 'worksheet') {
@@ -8493,9 +8739,17 @@ function App() {
     name: 'work',
     proc: view.proc
   })} />;
+  // 管理画面を開いたまま無操作になっても、編集操作を再開させない。
+  if(['master','planner','analytics'].includes(view.name)&&!adminOpen){
+    screen=<div className="admin-pin-backdrop" style={{position:'relative',minHeight:'100dvh',background:'#f5f6f8'}}><div className="admin-pin-dialog"><h2>🔒 管理者ロック中</h2><p>管理者コードを入力すると編集を再開できます。</p><div className="admin-pin-actions"><button onClick={()=>setView({name:'work',proc:view.proc})}>作業画面へ戻る</button><button className="admin-pin-primary" onClick={()=>adminGuard(()=>{})}>4桁コードで解除</button></div></div></div>;
+  }
   return <LangCtx.Provider value={ctx}>
       <BiText value={screen} /><BilingualDialog />
       <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
+      {adminRequest==='ready'&&<AdminPinDialog mode={adminMode} onConfirm={confirmAdmin} onCancel={()=>{setAdminRequest(null);adminNextRef.current=null;}} busy={adminBusy} error={adminError}/>}
+      {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
+      {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
+
     </LangCtx.Provider>;
 }
 
