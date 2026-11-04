@@ -7492,6 +7492,42 @@ function OutModal({
     </div>;
 }
 
+/* 記録開始日：テスト記録を削除せず、履歴と評価の表示対象から除外する。 */
+const REPORT_START_DOC=db.collection('outlineReportSettings').doc('shared');
+function useReportStart(){
+  const [start,setStart]=useState('');
+  const [draft,setDraft]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+  useEffect(()=>{
+    let active=true;
+    REPORT_START_DOC.get().then(snap=>{
+      if(!active)return;
+      const value=snap.exists&&/^\d{4}-\d{2}-\d{2}$/.test(snap.data().recordStartDate||'')?snap.data().recordStartDate:'';
+      setStart(value);setDraft(value);
+    }).catch(e=>{if(active)setMessage('記録開始日を取得できません: '+e.message);});
+    return ()=>{active=false;};
+  },[]);
+  async function save(){
+    if(draft&&!/^\d{4}-\d{2}-\d{2}$/.test(draft)){setMessage('正しい日付を入力してください。');return;}
+    setBusy(true);setMessage('');
+    try{
+      await REPORT_START_DOC.set({recordStartDate:draft,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      setStart(draft);setMessage(draft?'記録開始日を保存しました。以前のテスト記録は削除されません。':'開始日の指定を解除しました。');
+    }catch(e){setMessage('保存できませんでした: '+e.message);}
+    finally{setBusy(false);}
+  }
+  return {start,draft,setDraft,busy,message,save};
+}
+function ReportStartEditor({report}){
+  return <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:'10px 12px',marginBottom:12,background:'#fff8e8',border:'1px solid #e9d4a6',borderRadius:9}}>
+    <label style={{fontSize:13,fontWeight:700}}>記録開始日（本運用開始日）<input type="date" value={report.draft} onChange={e=>report.setDraft(e.target.value)} style={{display:'block',width:180,marginTop:4}} /></label>
+    <button type="button" onClick={report.save} disabled={report.busy} style={{minHeight:44,padding:'8px 18px',borderRadius:8,background:'#12306B',color:'white',fontWeight:700}}>{report.busy?'保存中…':'開始日を保存'}</button>
+    <span style={{fontSize:12,color:'#67552c'}}>指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。</span>
+    {report.message&&<div style={{width:'100%',fontSize:12,color:report.message.includes('できません')?'#b3261e':'#216e3c'}}>{report.message}</div>}
+  </div>;
+}
+
 /* ── 評価（日／月／年） ── */
 function AnalyticsScreen({
   proc,
@@ -7505,13 +7541,30 @@ function AnalyticsScreen({
     t,
     b
   } = useLang();
-  const [mode, setMode] = useState('day');
+  const reportStart=useReportStart();
+  const [mode, setMode] = useState('week');
+  const [selectedWorker,setSelectedWorker]=useState('');
   const [allProc, setAllProc] = useState(false);
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState('');
-  const buckets = buildBuckets(mode);
-  const from = buckets[0].key + (mode === 'day' ? '' : mode === 'month' ? '-01' : '-01-01');
-  const to = buckets[buckets.length - 1].key + (mode === 'day' ? '' : mode === 'month' ? '-31' : '-12-31');
+  const today = new Date();
+  const fmtDate = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const fromDate = new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  if(mode==='week')fromDate.setDate(fromDate.getDate()-7);
+  else if(mode==='month')fromDate.setMonth(fromDate.getMonth()-1);
+  else if(mode==='year')fromDate.setFullYear(fromDate.getFullYear()-1);
+  else fromDate.setFullYear(fromDate.getFullYear()-Number(mode));
+  const from = reportStart.start&&reportStart.start>fmtDate(fromDate)?reportStart.start:fmtDate(fromDate),to=fmtDate(today);
+  const spanYears = ['3','5','10'].includes(mode);
+  const bucketMode = spanYears?'year':mode==='year'?'month':'day';
+  const buckets = buildBuckets(bucketMode).filter(bk=>{
+    const k=bucketMode==='year'?bk.key+'-01-01':bucketMode==='month'?bk.key+'-01':bk.key;
+    return k<=to && (bucketMode==='year'?bk.key>=from.slice(0,4):bucketMode==='month'?bk.key>=from.slice(0,7):bk.key>=from);
+  });
+  if(spanYears){buckets.length=0;for(let y=Number(from.slice(0,4));y<=today.getFullYear();y++)buckets.push({key:String(y),label:String(y)});}
+  if(mode==='year'){buckets.length=0;for(let i=12;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const k=fmtDate(d).slice(0,7);buckets.push({key:k,label:k.slice(2)});}}
+  if(mode==='month'){buckets.length=0;for(let i=30;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
+  if(mode==='week'){buckets.length=0;for(let i=7;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
   useEffect(() => {
     let dead = false;
     setRows(null);
@@ -7533,10 +7586,14 @@ function AnalyticsScreen({
       dead = true;
     };
   }, [from, to]);
-  const done = (rows || []).filter((o) => o.status === 'done' && (allProc || o.procId === proc.id));
+  const done = (rows || []).filter((o) => o.status === 'done' && (allProc || o.procId === proc.id) && (!selectedWorker||o.workerName===selectedWorker));
+  const workerNames = [...new Set((rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)).map(o=>o.workerName).filter(Boolean))].sort();
+  const rateOf = arr => {const v=summarize(arr);return v.target?Math.round(v.boxes/v.target*1000)/10:0;};
+  const defectOf = arr => arr.reduce((n,o)=>n+(Number(o.defectCount)||0),0);
+  const trend = buckets.map(bk=>{const arr=done.filter(o=>bucketOf(o,bucketMode)===bk.key);return {...bk,rate:rateOf(arr),defects:defectOf(arr),count:arr.length};});
   const sum = summarize(done);
-  const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, mode) === bk.key)).diff);
-  const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, mode) === bk.key)).boxes);
+  const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).diff);
+  const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).boxes);
   const rate = sum.target ? Math.round(sum.boxes / sum.target * 100) : 0;
   function groupBy(keyFn, labelFn) {
     const m = {};
@@ -7547,7 +7604,7 @@ function AnalyticsScreen({
     return Object.entries(m).map(([k, v]) => ({
       key: k,
       label: labelFn ? labelFn(k, v) : k,
-      ...summarize(v)
+      ...summarize(v),defects:defectOf(v),rate:rateOf(v)
     })).sort((a, b) => b.boxes - a.boxes);
   }
   const byWorker = groupBy((o) => o.workerName || t('担当者なし'));
@@ -7612,6 +7669,7 @@ function AnalyticsScreen({
               ...th,
               width: 90
             }}><BiText value={b('箱')} /></th>
+            <th style={th}>達成率</th><th style={th}>不良数</th>
             <th style={{
               ...th,
               width: 100
@@ -7630,6 +7688,7 @@ function AnalyticsScreen({
             }}><BiText value={r.label} /></td>
                 <td style={td}><BiText value={r.n} /></td>
                 <td style={td}><BiText value={r.boxes} /></td>
+                <td style={{...td,fontWeight:800,color:r.rate>=100?'#1B5E20':NAVY}}>{r.rate}%</td><td style={td}>{r.defects}</td>
                 <td style={{
               ...td,
               fontWeight: 800,
@@ -7640,7 +7699,7 @@ function AnalyticsScreen({
               color: r.anom ? '#B71C1C' : '#C7CDD6'
             }}><BiText value={r.anom || '—'} /></td>
               </tr>)} />
-            <BiText value={list.length === 0 && <tr><td colSpan={5} style={{
+            <BiText value={list.length === 0 && <tr><td colSpan={7} style={{
               ...td,
               textAlign: 'center',
               color: '#9AA3AF',
@@ -7668,6 +7727,7 @@ function AnalyticsScreen({
       overflowY: 'auto',
       padding: '16px 24px'
     }}>
+        <ReportStartEditor report={reportStart} />
         <div style={{
         display: 'flex',
         gap: 10,
@@ -7681,7 +7741,7 @@ function AnalyticsScreen({
           overflow: 'hidden',
           border: '1px solid ' + LINE
         }}>
-            <BiText value={[['day', b('日')], ['month', b('月')], ['year', b('年')]].map(([k, lb]) => <button key={k} onClick={() => setMode(k)} style={{
+            <BiText value={[['week','週'], ['month','月'], ['year','年'], ['3','3年'], ['5','5年'], ['10','10年']].map(([k, lb]) => <button key={k} onClick={() => setMode(k)} style={{
             minHeight: 44,
             padding: '0 20px',
             fontSize: 14,
@@ -7704,6 +7764,7 @@ function AnalyticsScreen({
         }}>
             <BiText value={allProc ? '✓ ' : ''} /><BiText value={t('全工程')} />
           </button>
+          <label style={{fontSize:13,fontWeight:700}}>担当者 <select value={selectedWorker} onChange={e=>setSelectedWorker(e.target.value)} style={{minHeight:44,minWidth:150}}><option value="">全員</option>{workerNames.map(w=><option key={w} value={w}>{w}</option>)}</select></label>
           <div style={{
           fontSize: 12.5,
           color: '#6B7480'
@@ -7734,12 +7795,31 @@ function AnalyticsScreen({
             <BiText value={card(b('完了') + ' ' + b('件'), sum.n)} />
             <BiText value={card(b('完了箱数'), sum.boxes + ' / ' + sum.target)} />
             <BiText value={card(b('達成率'), rate + '%', rate >= 100 ? '#1B5E20' : NAVY)} />
+            <BiText value={card('不良数', defectOf(done) + '個', '#B45309')} />
             <BiText value={card(b('標準'), Math.round(sum.std) + t('分'), '#3A4552')} />
             <BiText value={card(b('実働'), Math.round(sum.act) + t('分'), '#3A4552')} />
             <BiText value={card(b('先行') + '/' + b('遅れ'), (sum.diff >= 0 ? '+' : '−') + Math.abs(Math.round(sum.diff)) + t('分'), sum.diff >= 0 ? '#1B5E20' : '#B71C1C')} />
             <BiText value={card(b('異常'), sum.anom, sum.anom ? '#B71C1C' : '#C7CDD6')} />
           </div>
 
+          <div className="panel" style={{marginBottom:16}}>
+            <div className="panel-h">📈 達成率・不良数の推移（{selectedWorker||'全員'}）</div>
+            <div style={{padding:14,overflowX:'auto'}}>
+              <div style={{display:'flex',gap:8,alignItems:'flex-end',minHeight:205,minWidth:Math.max(360,trend.length*54)}}>
+                {trend.map(v=><div key={v.key} style={{minWidth:45,flex:1,textAlign:'center',fontSize:11}}>
+                  <div style={{color:NAVY,fontWeight:700}}>{v.count?v.rate+'%':'—'}</div>
+                  <div style={{height:110,display:'flex',alignItems:'flex-end',justifyContent:'center',gap:3,borderBottom:'1px solid #CBD5E1'}}>
+                    <div title={'達成率 '+v.rate+'%'} style={{width:16,height:v.count?Math.max(2,Math.min(110,v.rate/120*110)):0,background:'#2563EB',borderRadius:'3px 3px 0 0'}} />
+                    <div title={'不良数 '+v.defects+'個'} style={{width:16,height:v.defects?Math.max(3,Math.min(110,v.defects/Math.max(1,...trend.map(x=>x.defects))*110)):0,background:'#E69B30',borderRadius:'3px 3px 0 0'}} />
+                  </div>
+                  <div style={{color:'#9A5700',fontWeight:700}}>{v.count?v.defects+'個':'—'}</div>
+                  <div style={{color:'#64748B',marginTop:3}}>{v.label}</div>
+                </div>)}
+              </div>
+              <div style={{fontSize:12,color:'#475569',marginTop:10}}>■ 青：達成率（100%基準）　■ 橙：不良数（期間内最大数を基準）　※左右の棒は単位・目盛が異なります。</div>
+              <div style={{fontSize:12,color:'#64748B',marginTop:4}}>達成率＝完了箱数÷予定箱数×100。過去のデータが保存されている期間のみ表示します。</div>
+            </div>
+          </div>
           <div className="panel" style={{
           marginBottom: 16
         }}>
@@ -8141,7 +8221,7 @@ function ResultModal({
     </div>;
 }
 
-/* ── 履歴（直近7日） ── */
+/* ── 履歴（期間検索・過去10年対応） ── */
 function WorkHistory({
   proc,
   logs,
@@ -8153,6 +8233,7 @@ function WorkHistory({
     t,
     b
   } = useLang();
+  const reportStart=useReportStart();
   const [all, setAll] = useState(false);
   const [adj, setAdj] = useState(null);
   const [fromDate,setFromDate]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
@@ -8163,12 +8244,13 @@ function WorkHistory({
   const [historyBusy,setHistoryBusy]=useState(false);
   async function searchHistory(){
     if(!fromDate||!toDate||fromDate>toDate){setHistoryError('開始日と終了日を確認してください。');return;}
+    if(reportStart.start&&toDate<reportStart.start){setHistoryRows([]);setHistoryError('指定期間は記録開始日より前です。');return;}
     setHistoryBusy(true);setHistoryError('');
-    try{const snap=await db.collection('workOrders').where('date','>=',fromDate).where('date','<=',toDate).get();setHistoryRows(snap.docs.map(d=>({id:d.id,...d.data()})));}
+    try{const snap=await db.collection('workOrders').where('date','>=',reportStart.start&&reportStart.start>fromDate?reportStart.start:fromDate).where('date','<=',toDate).get();setHistoryRows(snap.docs.map(d=>({id:d.id,...d.data()})));}
     catch(e){setHistoryError('履歴を取得できません: '+e.message);}
     finally{setHistoryBusy(false);}
   }
-  const list = (historyRows||Object.values(logs||{})).filter((l) => l.status === 'done' && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || (String(l.hinban||'')+' '+String(l.workerName||'')).toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
+  const list = (historyRows||Object.values(logs||{})).filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || (String(l.hinban||'')+' '+String(l.workerName||'')).toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -8204,12 +8286,13 @@ function WorkHistory({
       overflowY: 'auto',
       padding: '18px 26px'
     }}>
+        <ReportStartEditor report={reportStart} />
         <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:12,marginBottom:12,background:'#eef4fc',borderRadius:10}}>
           <label style={{fontSize:12}}>開始日<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{display:'block',width:170}} /></label>
           <label style={{fontSize:12}}>終了日<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{display:'block',width:170}} /></label>
           <label style={{fontSize:12}}>品番・担当者<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="検索" style={{display:'block',width:200}} /></label>
           <button onClick={searchHistory} disabled={historyBusy} style={{minHeight:44,padding:'8px 20px',background:NAVY,color:'#fff',borderRadius:8,fontWeight:700}}>{historyBusy?'読込中…':'過去の履歴を検索'}</button>
-          <small style={{color:'#59697e'}}>初期表示は直近7日。過去の期間は「検索」を押して取得します。</small>
+          <small style={{color:'#59697e'}}>初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。</small>
           {historyError&&<div style={{color:'#b3261e',width:'100%'}}>{historyError}</div>}
         </div>
         <div style={{
