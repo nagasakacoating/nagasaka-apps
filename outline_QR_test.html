@@ -346,6 +346,17 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .admin-pin-dialog input{display:block;width:100%;margin:12px 0;font-size:23px;letter-spacing:8px;text-align:center;min-height:54px}
 .admin-pin-actions{display:flex;gap:10px;margin:18px 0 12px}.admin-pin-actions button{flex:1;min-height:50px;border-radius:9px;background:#eef1f5;color:#12306b;font-weight:700}
 .admin-pin-actions .admin-pin-primary{background:#12306b;color:white}.admin-pin-actions button:disabled{opacity:.5}.admin-pin-dialog small{font-size:12px;color:#59697e}.admin-pin-error{color:#b3261e!important}
+
+/* Androidのキーボードを開かない、管理者専用の数字パッド */
+.admin-pin-dialog{max-height:calc(100dvh - 24px);overflow-y:auto;padding:18px 22px}
+.admin-pin-dots{display:flex;justify-content:center;gap:16px;margin:14px 0 18px}
+.admin-pin-dots span{width:19px;height:19px;border-radius:50%;border:2px solid #12306b;background:white}
+.admin-pin-dots span.filled{background:#12306b}
+.admin-pin-keypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-width:310px;margin:auto}
+.admin-pin-keypad button{min-height:54px;border-radius:10px;background:#edf2f9;color:#12306b;font-size:25px;font-weight:700;touch-action:manipulation}
+.admin-pin-keypad button:nth-child(10){font-size:15px}
+.admin-pin-keypad button:active{background:#cbdcf3}
+@media(max-height:640px){.admin-pin-keypad button{min-height:43px}.admin-pin-dialog{padding:12px 18px}.admin-pin-dots{margin:8px 0}.admin-pin-dialog h2{margin-bottom:6px}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -8299,16 +8310,29 @@ function AdminPinDialog({mode,onConfirm,onCancel,busy,error}){
   const [pin,setPin]=React.useState('');
   const [again,setAgain]=React.useState('');
   const setup=mode==='setup';
-  const valid=pin.length===4&&(!setup||pin===again);
+  const [confirmStep,setConfirmStep]=React.useState(false);
+  const active=setup&&confirmStep?again:pin;
+  const valid=pin.length===4&&(!setup||again.length===4&&pin===again);
+  const addDigit=(digit)=>{
+    if(busy)return;
+    const next=(active+digit).slice(0,4);
+    if(setup&&confirmStep)setAgain(next);else setPin(next);
+  };
+  const erase=()=>{if(busy)return;if(setup&&confirmStep)setAgain(x=>x.slice(0,-1));else setPin(x=>x.slice(0,-1));};
+  const submit=()=>{
+    if(busy)return;
+    if(setup&&!confirmStep){if(pin.length===4)setConfirmStep(true);return;}
+    if(valid)onConfirm(pin);
+  };
   return <div className="admin-pin-backdrop" role="presentation"><div className="admin-pin-dialog" role="dialog" aria-modal="true" aria-label="管理者コード">
     <h2>🔒 管理者{setup?'コード初期登録':'ロック解除'}</h2>
-    <p>{setup?'全タブレット共通の数字4桁を登録します。':'管理者コード（数字4桁）を入力してください。'}</p>
-    <input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]*" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="4桁" aria-label="管理者コード" autoFocus />
-    {setup&&<input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]*" maxLength={4} value={again} onChange={e=>setAgain(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="確認用にもう一度4桁" aria-label="確認用コード" />}
-    {setup&&again.length===4&&pin!==again&&<p className="admin-pin-error">確認用コードが一致しません。</p>}
+    <p>{setup?(confirmStep?'確認のため、同じ4桁をもう一度入力してください。':'全タブレット共通の数字4桁を登録します。'):'管理者コード（数字4桁）を入力してください。'}</p>
+    <div className="admin-pin-dots" aria-label={`${active.length}桁入力済み`}>{[0,1,2,3].map(i=><span key={i} className={i<active.length?'filled':''}></span>)}</div>
+    <div className="admin-pin-keypad">{['1','2','3','4','5','6','7','8','9','戻る','0','⌫'].map(k=><button key={k} type="button" disabled={busy} onClick={()=>k==='戻る'?(setup&&confirmStep?(setConfirmStep(false),setAgain('')):onCancel()):k==='⌫'?erase():addDigit(k)}>{k}</button>)}</div>
+    {setup&&confirmStep&&again.length===4&&pin!==again&&<p className="admin-pin-error">確認用コードが一致しません。⌫で修正してください。</p>}
     {error&&<p className="admin-pin-error">{error}</p>}
-    <div className="admin-pin-actions"><button type="button" onClick={onCancel} disabled={busy}>キャンセル</button><button type="button" className="admin-pin-primary" disabled={!valid||busy} onClick={()=>onConfirm(pin)}>{busy?'確認中…':setup?'登録する':'解除する'}</button></div>
-    <small>解除後は、最後の操作から10分間無操作の場合に自動ロックします。</small>
+    <div className="admin-pin-actions"><button type="button" onClick={onCancel} disabled={busy}>キャンセル</button><button type="button" className="admin-pin-primary" disabled={busy||(setup&&!confirmStep?pin.length!==4:!valid)} onClick={submit}>{busy?'確認中…':setup?(confirmStep?'登録する':'次へ'):'解除する'}</button></div>
+    <small>最後の操作から10分間無操作の場合に自動ロックします。</small>
   </div></div>;
 }
 
