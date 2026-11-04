@@ -7607,6 +7607,14 @@ function AnalyticsScreen({
       ...summarize(v),defects:defectOf(v),rate:rateOf(v)
     })).sort((a, b) => b.boxes - a.boxes);
   }
+  // 「全員」表示時は担当者ごとに固有色を割り当て、達成率と不良数を同じ色で比較する。
+  const workerPalette = ['#2563EB','#D97706','#059669','#9333EA','#DC2626','#0891B2','#BE185D','#4F46E5','#65A30D','#B45309','#0F766E','#7C3AED'];
+  const workerCompare = workerNames.map((name,i)=>{
+    const records=(rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)&&o.workerName===name);
+    return {name,color:workerPalette[i%workerPalette.length],rate:rateOf(records),defects:defectOf(records),count:records.length};
+  });
+  const maxWorkerRate=Math.max(100,...workerCompare.map(x=>x.rate));
+  const maxWorkerDefects=Math.max(1,...workerCompare.map(x=>x.defects));
   const byWorker = groupBy((o) => o.workerName || t('担当者なし'));
   const byItem = groupBy((o) => o.kind === 'task' ? '🔧 ' + (o.taskName || '作業') : o.hinban);
   const card = (k, v, col) => <div key={k} style={{
@@ -7802,8 +7810,27 @@ function AnalyticsScreen({
             <BiText value={card(b('異常'), sum.anom, sum.anom ? '#B71C1C' : '#C7CDD6')} />
           </div>
 
+          {!selectedWorker && <div className="panel" style={{marginBottom:16}}>
+            <div className="panel-h">👥 全担当者の比較（担当者ごとに色分け）</div>
+            <div style={{padding:14}}>
+              {workerCompare.length===0 ? <div style={{color:'#64748B'}}>対象期間に担当者の作業記録がありません。</div> : <>
+                <div style={{fontSize:12,color:'#64748B',marginBottom:12}}>同じ担当者は達成率・不良数とも同じ色です。棒の右側に実数値を表示します。</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,330px),1fr))',gap:20}}>
+                  {[{title:'達成率（%）',field:'rate',max:maxWorkerRate,suffix:'%'},{title:'不良数（個）',field:'defects',max:maxWorkerDefects,suffix:'個'}].map(metric=><div key={metric.field}>
+                    <div style={{fontSize:14,fontWeight:800,marginBottom:10,color:NAVY}}>{metric.title}</div>
+                    {workerCompare.map(w=><div key={w.name} style={{display:'grid',gridTemplateColumns:'90px minmax(80px,1fr) 60px',gap:8,alignItems:'center',marginBottom:9,fontSize:12}}>
+                      <div title={w.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:700}}>{w.name}</div>
+                      <div style={{height:20,background:'#EDF1F5',borderRadius:4,overflow:'hidden'}}><div title={w.name+'：'+w[metric.field]+metric.suffix} style={{height:'100%',width:(w[metric.field]/metric.max*100)+'%',background:w.color,borderRadius:4}} /></div>
+                      <div style={{fontWeight:800,textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{w[metric.field]}{metric.suffix}</div>
+                    </div>)}
+                  </div>)}
+                </div>
+                <div style={{fontSize:11,color:'#64748B',marginTop:10}}>※ 記録開始日・期間・工程の絞り込みを反映しています。色は表示中の担当者一覧に基づき割り当てます。</div>
+              </>}
+            </div>
+          </div>}
           <div className="panel" style={{marginBottom:16}}>
-            <div className="panel-h">📈 達成率・不良数の推移（{selectedWorker||'全員'}）</div>
+            <div className="panel-h">📈 達成率・不良数の推移（{selectedWorker||'全員合計'}）</div>
             <div style={{padding:14,overflowX:'auto'}}>
               <div style={{display:'flex',gap:8,alignItems:'flex-end',minHeight:205,minWidth:Math.max(360,trend.length*54)}}>
                 {trend.map(v=><div key={v.key} style={{minWidth:45,flex:1,textAlign:'center',fontSize:11}}>
