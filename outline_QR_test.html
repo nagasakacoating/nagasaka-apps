@@ -7218,7 +7218,10 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             <strong style={{color:NAVY,fontSize:15}}>不良数・作業者コメント（異常報告とは別）</strong>
             <div style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(0,2fr)',gap:10,alignItems:'start'}}>
               <label style={{fontSize:13,fontWeight:700}}>不良数（個）<input type="number" inputMode="numeric" min="0" step="1" value={defectDraft} onChange={e=>setDefectDraft(e.target.value)} style={{marginTop:5,fontSize:19}} /></label>
-              <label style={{fontSize:13,fontWeight:700}}>作業者コメント（任意）<textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder="不良が多かった理由、作業で気づいたことなど" style={{marginTop:5,fontSize:14}} /></label>
+              <div style={{display:'grid',gap:6,minWidth:0}}>
+                <label style={{fontSize:13,fontWeight:700}}>作業者コメント（任意）<textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder="不良が多かった理由、作業で気づいたことなど" style={{marginTop:5,fontSize:14}} /></label>
+                <button type="button" onClick={e=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();e.currentTarget.blur();}} style={{justifySelf:'end',padding:'10px 20px',background:'#e1edff',color:'#153c80',border:'1px solid #9bb8e8',borderRadius:9,fontSize:15,fontWeight:800,touchAction:'manipulation'}}>✓ 入力完了（キーボードを閉じる）</button>
+              </div>
             </div>
             <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}>記録を保存</button><span style={{fontSize:12,color:noteMessage.startsWith('保存でき')?'#b3261e':'#216e3c'}}>{noteMessage}</span><small style={{color:'#647084'}}>作業終了時にも一緒に保存されます。</small></div>
           </div>}
