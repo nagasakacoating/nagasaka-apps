@@ -5163,6 +5163,40 @@ function useNow() {
   return n;
 }
 
+/* ── スケジュール用：呼称・品番の直接検索（モーダルなし） ── */
+function InlineHinbanSearch({master, procId, value, onPick}) {
+  const {lang, b} = useLang();
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef(null);
+  const kw = query.trim().toLowerCase();
+  const candidates = kw ? hinbansOf(master, procId).filter(h => matchHinban(master, h, kw)).slice(0, 12) : [];
+  const choose = (h) => {
+    onPick(h);
+    setQuery('');
+    setExpanded(false);
+    if (inputRef.current) inputRef.current.blur();
+  };
+  return <div style={{width:'100%',maxWidth:340,minWidth:0,position:'relative'}}>
+    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+      <LocalizedInput ref={inputRef} value={query} lang="ja" enterKeyHint="done"
+        autoComplete="off" autoCorrect="off" placeholder={value ? value + '（変更は検索）' : '呼称・品番を入力'}
+        onFocus={() => setExpanded(true)} onChange={e => {setQuery(e.target.value);setExpanded(true);}}
+        onKeyDown={e => {if(e.key === 'Enter' && !e.nativeEvent.isComposing){e.preventDefault();e.currentTarget.blur();}}}
+        style={{width:'100%',minWidth:0,fontSize:15,minHeight:42,border:'1px solid #B8C5D7',borderRadius:8,padding:'8px 10px'}} />
+      <button type="button" onClick={() => {inputRef.current?.blur();}}
+        style={{flexShrink:0,padding:'9px 8px',fontSize:12,fontWeight:700,border:'1px solid #B8C5D7',borderRadius:8,background:'#EAF2FF',color:'#173A72'}}>入力完了</button>
+    </div>
+    {value && <div style={{fontSize:12,color:'#173A72',marginTop:4,overflowWrap:'anywhere'}}>✓ {value}　{(master[value]||{}).partNo||''}</div>}
+    {expanded && kw && <div style={{marginTop:5,border:'1px solid #C4D2E6',borderRadius:8,background:'#fff',maxHeight:210,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,.12)',position:'relative',zIndex:5}}>
+      {candidates.length ? candidates.map(h => <button key={h} type="button" onClick={() => choose(h)}
+        style={{display:'block',width:'100%',textAlign:'left',padding:'9px 10px',borderBottom:'1px solid #E8EDF4',background:value===h?'#EAF2FF':'#fff',color:'#1A2E4D',fontSize:14}}>
+          <strong>{h}</strong>　{(master[h]||{}).partNo||''}<div style={{fontSize:12,color:'#596777'}}>{dv(master[h]||{},'name',lang)||''}</div>
+        </button>) : <div style={{padding:12,fontSize:13,color:'#677383'}}>該当する製品がありません</div>}
+    </div>}
+  </div>;
+}
+
 /* ── 品番ピッカー（選択式） ── */
 function HinbanPicker({
   master,
@@ -6270,51 +6304,7 @@ function SchedulePlanner({
               color: '#4A5460',
               marginBottom: 5
             }}><BiText value={b('呼称')} /></div>
-            <button onClick={() => setPick(true)} style={{
-              width: '100%',
-              maxWidth: 300,
-              minHeight: 42,
-              padding: '0 14px',
-              borderRadius: 8,
-              border: '1px solid ' + (addH ? NAVY : LINE),
-              background: addH ? '#F2F6FD' : '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              textAlign: 'left'
-            }}>
-              <BiText value={addH ? <>
-                <span style={{
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: NAVY,
-                  whiteSpace: 'normal'
-                }}><BiText value={addH} /></span>
-                <span style={{
-                  fontSize: 12.5,
-                  color: '#5A6472',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'normal'
-                }}><BiText value={[(master[addH] || {}).partNo, dv(master[addH] || {}, 'name', lang)].filter(Boolean).join('　')} /></span>
-                <span style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: NAVY,
-                  whiteSpace: 'normal'
-                }}><BiText value={t('変更')} /></span>
-              </> : <>
-                <span style={{
-                  fontSize: 16
-                }}>🔍</span>
-                <span style={{
-                  fontSize: 14,
-                  color: '#9AA3AF',
-                  flex: 1
-                }}><BiText value={t('選択してください')} /></span>
-              </>} />
-            </button></div>
+            <InlineHinbanSearch master={master} procId={proc.id} value={addH} onPick={setAddH} /></div>
           <div><div style={{
               fontSize: 12,
               fontWeight: 700,
@@ -6578,7 +6568,7 @@ function SchedulePlanner({
         </div>
       </div>
       <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} />
-      <BiText value={pick && <HinbanPicker master={master} procId={proc.id} onPick={(h) => setAddH(h)} onClose={() => setPick(false)} />} />
+
       <BiText value={shiftOpen && <ShiftSettingsModal proc={proc} settings={settings} onClose={() => setShiftOpen(false)} />} />
     </div>;
 }
