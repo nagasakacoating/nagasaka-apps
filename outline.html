@@ -5176,6 +5176,7 @@ function HinbanPicker({
     b
   } = useLang();
   const [q, setQ] = useState('');
+  const searchRef = useRef(null);
   const kw = q.trim().toLowerCase();
   const list = hinbansOf(master, procId).filter((h) => matchHinban(master, h, kw));
   return <div className="large-photo-picker" onClick={(e) => e.target === e.currentTarget && onClose()} style={{
@@ -5192,8 +5193,9 @@ function HinbanPicker({
       background: '#fff',
       borderRadius: 14,
       width: '100%',
-      maxWidth: 900,
-      height: 'calc(100vh - 60px)',
+      maxWidth: 680,
+      height: 'min(72vh, 580px)',
+      maxHeight: 'calc(100dvh - 24px)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden'
@@ -5223,9 +5225,18 @@ function HinbanPicker({
         <div style={{
         padding: '14px 18px 10px'
       }}>
-          <LocalizedInput value={q} onChange={(e) => setQ(e.target.value)} autoFocus placeholder={b('呼称・品番で検索')} style={{
-          fontSize: 16
-        }} />
+          <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+            <div style={{flex:'1 1 210px', minWidth:0}}>
+              <LocalizedInput ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)}
+                enterKeyHint="done" autoComplete="off" autoCorrect="off" lang="ja"
+                placeholder={b('呼称・品番で検索')} style={{fontSize:16, width:'100%'}}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
+            </div>
+            <button type="button" onClick={() => { if (searchRef.current) searchRef.current.blur(); if (document.activeElement) document.activeElement.blur(); }}
+              style={{border:'1px solid #B8C5D7', borderRadius:8, background:'#F2F6FD', color:NAVY, fontSize:14, fontWeight:700, padding:'10px 12px', whiteSpace:'nowrap'}}>
+              ✓ 入力完了
+            </button>
+          </div>
         </div>
         <div style={{
         flex: 1,
@@ -6261,7 +6272,8 @@ function SchedulePlanner({
             }}><BiText value={b('呼称')} /></div>
             <button onClick={() => setPick(true)} style={{
               width: '100%',
-              minHeight: 46,
+              maxWidth: 300,
+              minHeight: 42,
               padding: '0 14px',
               borderRadius: 8,
               border: '1px solid ' + (addH ? NAVY : LINE),
