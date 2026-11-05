@@ -8540,6 +8540,18 @@ function AdminPinDialog({mode,onConfirm,onCancel,busy,error}){
   </div></div>;
 }
 
+// 画面を閉じずに最前面のモーダルでロックする。背後の入力・ポータルも操作不可になる。
+function AdminSessionLock({locked,children}) {
+  const dialog=useRef(null);
+  React.useLayoutEffect(()=>{
+    const el=dialog.current;
+    if(locked&&!el.open)el.showModal();
+    else if(!locked&&el.open)el.close();
+  },[locked]);
+  return <dialog ref={dialog} aria-label="管理者ロック中" onCancel={e=>e.preventDefault()}
+    style={{position:'fixed',inset:0,width:'100%',maxWidth:'none',height:'100dvh',maxHeight:'none',margin:0,padding:0,border:0,background:'#f5f6f8'}}>{children}</dialog>;
+}
+
 function App() {
   const [lang, setLang] = useState(() => {
     try {
@@ -8786,17 +8798,21 @@ function App() {
     name: 'work',
     proc: view.proc
   })} />;
-  // 管理画面を開いたまま無操作になっても、編集操作を再開させない。
-  if(['master','planner','analytics'].includes(view.name)&&!adminOpen){
-    screen=<div className="admin-pin-backdrop" style={{position:'relative',minHeight:'100dvh',background:'#f5f6f8'}}><div className="admin-pin-dialog"><h2>🔒 管理者ロック中</h2><p>管理者コードを入力すると編集を再開できます。</p><div className="admin-pin-actions"><button onClick={()=>setView({name:'work',proc:view.proc})}>作業画面へ戻る</button><button className="admin-pin-primary" onClick={()=>adminGuard(()=>{})}>4桁コードで解除</button></div></div></div>;
-  }
-  return <LangCtx.Provider value={ctx}>
-      <BiText value={screen} /><BilingualDialog />
-      <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
+  // screen は差し替えず、編集中の品番・タブ・入力・スクロール位置を保持する。
+  const adminLocked=['master','planner','analytics'].includes(view.name)&&!adminOpen;
+  const adminPrompt=<>
       {adminRequest==='ready'&&<AdminPinDialog mode={adminMode} onConfirm={confirmAdmin} onCancel={()=>{setAdminRequest(null);adminNextRef.current=null;}} busy={adminBusy} error={adminError}/>}
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
       {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
-
+  </>;
+  return <LangCtx.Provider value={ctx}>
+      <BiText value={screen} /><BilingualDialog />
+      <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
+      <AdminSessionLock locked={adminLocked}>
+        <div className="admin-pin-backdrop" style={{position:'relative',minHeight:'100dvh',background:'#f5f6f8'}}><div className="admin-pin-dialog"><h2>🔒 管理者ロック中</h2><p><BiText value="管理者コードを入力すると、ロック前の画面から編集を再開できます。" other="Masukkan kode pengelola untuk melanjutkan pengeditan dari tampilan sebelum dikunci." /></p><div className="admin-pin-actions"><button onClick={()=>setView({name:'work',proc:view.proc})}>作業画面へ戻る</button><button className="admin-pin-primary" onClick={()=>adminGuard(()=>{})}>4桁コードで解除</button></div></div></div>
+        {adminLocked&&adminPrompt}
+      </AdminSessionLock>
+      {!adminLocked&&adminPrompt}
     </LangCtx.Provider>;
 }
 
