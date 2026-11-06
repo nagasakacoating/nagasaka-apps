@@ -4367,10 +4367,7 @@ function EditorBody({
       color: '#C2410C',
       marginTop: 6
     }}><BiText value={"\u26A0 \u5DE5\u7A0B\u30921\u3064\u4EE5\u4E0A\u9078\u629E\u3057\u306A\u3044\u3068\u3001\u5404\u5DE5\u7A0B\u306E\u4F5C\u696D\u753B\u9762\u306B\u3053\u306E\u88FD\u54C1\u304C\u8868\u793A\u3055\u308C\u307E\u305B\u3093\u3002"} /></div>} />
-<Row>
-      <div><FLbl><BiText value={"QR\u7167\u5408\u6587\u5B57\u5217\uFF08\u88FD\u54C1\uFF09"} /></FLbl><LocalizedInput value={d.qrText || ''} onChange={(e) => S('qrText', e.target.value)} placeholder="未設定なら品番で照合" /></div>
-      <div><FLbl><BiText value={"\u304B\u3093\u3070\u3093QR\u7167\u5408\u6587\u5B57\u5217"} /></FLbl><LocalizedInput value={d.kanbanQr || ''} onChange={(e) => S('kanbanQr', e.target.value)} /></div>
-    </Row>
+{/* QR設定は「かんばん」で行う。既存のqrText・kanbanQrデータは保持する。 */}
 <Row>
       <div><FLbl><BiText value={"\u7AEF\u6570\u54C1\u7F6E\u304D\u5834\u6240\uFF08\u30ED\u30B1\u756A\u53F7\uFF09"} /></FLbl><LocalizedInput value={d.locNo || ''} onChange={(e) => S('locNo', e.target.value)} placeholder="例: A-12" /></div>
       <div><FLbl><BiText value={"\u4F5C\u696D\u52D5\u753BURL"} /></FLbl><LocalizedInput value={d.videoUrl || ''} onChange={(e) => S('videoUrl', e.target.value)} placeholder="https://..." /></div>
