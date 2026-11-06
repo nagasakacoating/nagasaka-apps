@@ -4681,19 +4681,7 @@ function EditorBody({
       size: '',
       dividers: '',
       material: '',
-      steps: [{
-        title: '箱の外観を確認',
-        desc: '納入箱の品番、ラベルを確認します。'
-      }, {
-        title: '箱を開ける',
-        desc: '箱のフタを開け、製品の入れ方を確認します。'
-      }, {
-        title: '製品を確認',
-        desc: '製品の識別マークを確認します。'
-      }, {
-        title: '所定の場所に納める',
-        desc: '確認後、指定の場所に納めます。'
-      }]
+      steps: []
     }} render={(it, set, i) => <>
         <Row cols="170px 1fr">
           <ImgSlot url={it.img} busy={busy === 'box' + i} h={110} onPick={(f) => upImg('box' + i, f, (u) => set({
