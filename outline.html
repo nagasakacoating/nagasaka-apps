@@ -3752,7 +3752,6 @@ function MasterEditor({
     b
   } = useLang();
   const [d, setD] = useState(() => kanbanContainsMaster(data));
-  const [hangerSpecText, setHangerSpecText] = useState(() => (data.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
   const [tab, setTab] = useState('basic');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -3762,7 +3761,6 @@ function MasterEditor({
   const [rnProg, setRnProg] = useState('');
   useEffect(() => {
     setD(kanbanContainsMaster(data));
-    setHangerSpecText((data.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
   }, [hinban]);
   const ref = db.collection('outlineMaster').doc(hinban);
   const [trProg, setTrProg] = useState(null);
@@ -4302,6 +4300,10 @@ function EditorBody({
   busy,
   hinban
 }) {
+  const [hangerSpecText, setHangerSpecText] = useState(() => (d.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
+  useEffect(() => {
+    setHangerSpecText((d.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
+  }, [hinban]);
   const [sheetProc, setSheetProc] = useState(() => {
     const choices = registeredSheetProcesses(d);
     return choices.length === 1 ? choices[0].id : null;
