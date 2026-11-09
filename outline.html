@@ -289,6 +289,23 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .master-editor-dialog textarea[style*="font-size: 12"]{font-size:18px!important}
 .master-editor-dialog .photo-slot-hint{font-size:13px;max-width:none}
 .master-editor-dialog .photo-paste-tools button{font-size:15px;padding:8px 12px}
+.master-editor-wide-process,.master-editor-save-short{display:none}
+@media (orientation:landscape) and (min-width:600px){
+ .master-editor-dialog{display:grid!important;grid-template-columns:minmax(0,1fr) clamp(100px,12vw,130px);grid-template-rows:auto auto minmax(0,1fr);width:calc(100vw - 12px)!important;height:calc(100dvh - 12px)!important}
+ .master-editor-dialog>.master-editor-header{grid-column:1/-1;gap:8px!important;padding:5px 10px!important}
+ .master-editor-header>button{flex-shrink:0}
+ .master-editor-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .master-editor-wide-process{display:flex;align-items:center;gap:6px;min-width:0}
+ .master-editor-wide-process>select{width:auto;min-width:0;max-width:min(26vw,245px);min-height:40px;padding:5px 8px;font-size:14px}
+ .master-editor-dialog>.master-editor-tabs{grid-column:1/-1;padding:3px 8px!important}
+ .master-editor-dialog .master-editor-tabs>button{min-height:42px;padding:4px 10px!important}
+ .master-editor-body{min-width:0;padding:10px 12px!important}
+ .master-editor-dialog>.master-editor-actions{flex-direction:column;align-items:stretch!important;gap:8px!important;padding:8px!important;border-top:0!important;border-left:1px solid #E3E7ED;overflow-y:auto}
+ .master-editor-actions>button{flex:0 0 auto!important;padding:5px 6px!important}
+ .master-editor-save-long,.master-editor-inline-process{display:none}
+ .master-editor-save-short{display:inline}
+ .master-editor-dialog .photo-slot img,.master-editor-dialog .photo-slot>button{height:clamp(150px,52dvh,620px)!important}
+}
 /* Give the reader the same large photo / explanation balance. */
 .product-info .shape-point-list{grid-template-columns:minmax(0,1fr)!important}
 .product-info .shape-point-card,.product-info .shape-point-list.is-single .shape-point-card{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px 18px;align-items:start}
@@ -3748,11 +3765,28 @@ function MasterEditor({
   onRenamed
 }) {
   const {
+    lang,
     t,
     b
   } = useLang();
   const [d, setD] = useState(() => kanbanContainsMaster(data));
   const [tab, setTab] = useState('basic');
+  const [sheetProc, setSheetProc] = useState(null);
+  const editorBody = useRef(null);
+  function chooseSheetProcess(nextProcess) {
+    if (nextProcess === sheetProc) return;
+    setSheetProc(nextProcess);
+    editorBody.current.scrollTop = 0;
+  }
+  function openTab(nextTab) {
+    if (nextTab === tab) return;
+    if (nextTab === 'sheet') {
+      const choices = registeredSheetProcesses(d);
+      setSheetProc(choices.length === 1 ? choices[0].id : null);
+    }
+    setTab(nextTab);
+    editorBody.current.scrollTop = 0;
+  }
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(null);
@@ -3902,7 +3936,7 @@ function MasterEditor({
       flexDirection: 'column',
       overflow: 'hidden'
     }}>
-        <div style={{
+        <div className="master-editor-header" style={{
         background: NAVY,
         padding: '14px 20px',
         display: 'flex',
@@ -3910,12 +3944,21 @@ function MasterEditor({
         gap: 14,
         flexShrink: 0
       }}>
-          <div style={{
+          <div className="master-editor-title" title={hinban} style={{
           fontSize: 20,
           fontWeight: 700,
           color: '#fff',
           flex: 1
         }}>{hinban}</div>
+          {tab === 'sheet' && <label className="master-editor-wide-process" style={{color:'#fff',fontSize:12}}>
+            <BiText value="工程" other="Proses" />
+            <select aria-label={lang === 'id' ? 'Proses' : '要領書・工数の工程'} value={sheetProc || ''} onChange={(e) => chooseSheetProcess(e.target.value || null)}>
+              <option value="">{lang === 'id' ? 'Pilih proses' : '工程を選択'}</option>
+              {PROCESSES.map((process) => <option key={process.id} value={process.id}>
+                {process.no}. {lang === 'id' ? process.id_ || process.ja : process.ja}{masterSheetHasData(d.sheets?.[process.id]) ? ' ●' : ''}
+              </option>)}
+            </select>
+          </label>}
           <button onClick={() => setRenaming(true)} style={{
           padding: '7px 16px',
           borderRadius: 7,
@@ -3950,7 +3993,7 @@ function MasterEditor({
         overscrollBehaviorX: 'contain',
         flexShrink: 0
       }}>
-          <BiText value={TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{
+          <BiText value={TABS.map(([k, l]) => <button key={k} onClick={() => openTab(k)} style={{
           padding: '7px 13px',
           borderRadius: 18,
           whiteSpace: 'normal',
@@ -3960,16 +4003,16 @@ function MasterEditor({
           color: tab === k ? '#fff' : '#4A5460'
         }}><BiText value={l} /></button>)} />
         </div>
-        <div style={{
+        <div className="master-editor-body" ref={editorBody} style={{
         flex: 1,
         minHeight: 0,
         overflowY: renaming ? 'hidden' : 'auto',
         overscrollBehavior: 'contain',
         padding: '18px 20px'
       }}>
-          <EditorBody tab={tab} d={d} upd={upd} upImg={upImg} busy={busy} hinban={hinban} />
+          <EditorBody tab={tab} d={d} upd={upd} upImg={upImg} busy={busy} hinban={hinban} sheetProc={sheetProc} setSheetProc={chooseSheetProcess} />
         </div>
-        <div style={{
+        <div className="master-editor-actions" style={{
         padding: '12px 20px',
         borderTop: '1px solid ' + LINE,
         display: 'flex',
@@ -3987,7 +4030,9 @@ function MasterEditor({
           fontSize: 16,
           fontWeight: 700
         }}>
-            <BiText value={trProg ? `🌐 翻訳中 ${trProg.done}/${trProg.total}` : saving ? '保存中...' : '保存する（未翻訳分を自動でID翻訳）'} />
+            {saving || trProg
+              ? <BiText value={trProg ? `🌐 翻訳中 ${trProg.done}/${trProg.total}` : '保存中...'} />
+              : <><span className="master-editor-save-short"><BiText value="保存する" /></span><span className="master-editor-save-long"><BiText value="保存する（未翻訳分を自動でID翻訳）" /></span></>}
           </button>
           <button onClick={async () => (await showBiDialog("confirm", '登録内容の全ての日本語を翻訳し直します。手入力した翻訳も上書きされます。よろしいですか？')) && save(true)} disabled={saving} style={{
           minHeight: 48,
@@ -4298,22 +4343,14 @@ function EditorBody({
   upd,
   upImg,
   busy,
-  hinban
+  hinban,
+  sheetProc,
+  setSheetProc
 }) {
   const [hangerSpecText, setHangerSpecText] = useState(() => (d.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
   useEffect(() => {
     setHangerSpecText((d.hanger?.spec || []).map(r => `${r.k}：${r.v}`).join('\n'));
   }, [hinban]);
-  const [sheetProc, setSheetProc] = useState(() => {
-    const choices = registeredSheetProcesses(d);
-    return choices.length === 1 ? choices[0].id : null;
-  });
-  // Resolve on opening this tab, not after each keystroke in its form.
-  useEffect(() => {
-    if (tab !== 'sheet') return;
-    const choices = registeredSheetProcesses(d);
-    setSheetProc(choices.length === 1 ? choices[0].id : null);
-  }, [tab, hinban]);
   const S = (k, v) => upd({
     [k]: v
   });
@@ -4797,6 +4834,7 @@ function EditorBody({
     });
     const baseCap = d.packing && d.packing.capacity || '';
     return <>
+      <div className="master-editor-inline-process">
       <FLbl><BiText value={"\u5DE5\u7A0B\u3092\u9078\u629E\uFF08\u5DE5\u7A0B\u3054\u3068\u306B\u8981\u9818\u66F8\u30FB1\u7BB1\u5DE5\u6570\u30FB\u53CE\u5BB9\u6570\u3092\u767B\u9332\u3057\u307E\u3059\uFF09"} /></FLbl>
       <div style={{
         display: 'flex',
@@ -4817,6 +4855,7 @@ function EditorBody({
             border: '1px solid ' + (on ? NAVY : has ? '#C3D6F0' : LINE)
           }}><BiText value={p.no} />. <BiText value={p.ja} /><BiText value={has && !on ? ' ●' : ''} /></button>;
         })} />
+      </div>
       </div>
       <BiText value={capacityByProc(d).length > 0 && <div style={{
         marginTop: 10,
