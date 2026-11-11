@@ -275,6 +275,7 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .master-editor-dialog>div:first-child{padding:8px 14px!important}
 .master-editor-dialog .master-editor-tabs{padding:6px 10px!important}
 .master-editor-dialog .master-editor-tabs>button{min-height:50px}
+.master-editor-body{touch-action:pan-y pinch-zoom}
 .master-editor-dialog .editor-primary-photo-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:18px;align-items:start}
 .master-editor-dialog .editor-primary-photo,.master-editor-dialog .editor-primary-fields{min-width:0}
 .master-editor-dialog .editor-primary-fields .responsive-grid{grid-template-columns:minmax(0,1fr)!important;gap:8px!important}
@@ -3801,6 +3802,11 @@ function MasterEditor({
   const [tab, setTab] = useState('basic');
   const [sheetProc, setSheetProc] = useState(null);
   const editorBody = useRef(null);
+  const activeTabButton = useRef(null);
+  const tabSwipe = useRef(null);
+  useEffect(() => {
+    activeTabButton.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [tab]);
   function chooseSheetProcess(nextProcess) {
     if (nextProcess === sheetProc) return;
     setSheetProc(nextProcess);
@@ -3944,6 +3950,31 @@ function MasterEditor({
     }
   }
   const TABS = [['basic', '基本情報'], ['shape', '形状確認'], ['teekin', 'テーキン'], ['hanger', 'ハンガー'], ['steps', '作業の流れ'], ['caution', '注意ポイント'], ['tools', '必要道具'], ['packing', '収容数・荷姿'], ['boxes', '納入箱'], ['idmark', '識別マーク'], ['kanban', 'かんばん'], ['sheet', '要領書・工数']];
+  function startTabSwipe(e) {
+    tabSwipe.current = null;
+    if (renaming || biDialog || e.touches.length !== 1 || !e.currentTarget.contains(e.target)) return;
+    if (e.target.closest('input, textarea, select, button, a, label, [contenteditable], [role="button"]:not(img)')) return;
+    const touch = e.touches[0];
+    tabSwipe.current = { id: touch.identifier, x: touch.clientX, y: touch.clientY };
+  }
+  function trackTabSwipe(e) {
+    const start = tabSwipe.current;
+    if (!start) return;
+    const touch = e.touches[0];
+    if (e.touches.length !== 1 || Math.abs(touch.clientY - start.y) > 28) tabSwipe.current = null;
+  }
+  function finishTabSwipe(e) {
+    const start = tabSwipe.current;
+    tabSwipe.current = null;
+    if (!start || renaming || biDialog || e.touches.length || !e.currentTarget.contains(e.target)) return;
+    const touch = Array.from(e.changedTouches).find((point) => point.identifier === start.id);
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 56 || Math.abs(dy) > 28) return;
+    const next = TABS[TABS.findIndex(([key]) => key === tab) + (dx < 0 ? 1 : -1)];
+    if (next) openTab(next[0]);
+  }
   return <div style={{
     position: 'fixed',
     inset: 0,
@@ -4021,7 +4052,8 @@ function MasterEditor({
         overscrollBehaviorX: 'contain',
         flexShrink: 0
       }}>
-          <BiText value={TABS.map(([k, l]) => <button key={k} onClick={() => openTab(k)} style={{
+          <BiText value={TABS.map(([k, l]) => <button key={k} ref={tab === k ? activeTabButton : null}
+            aria-pressed={tab === k} onClick={() => openTab(k)} style={{
           padding: '7px 13px',
           borderRadius: 18,
           whiteSpace: 'normal',
@@ -4031,7 +4063,9 @@ function MasterEditor({
           color: tab === k ? '#fff' : '#4A5460'
         }}><BiText value={l} /></button>)} />
         </div>
-        <div className="master-editor-body" ref={editorBody} style={{
+        <div className="master-editor-body" ref={editorBody}
+          onTouchStart={startTabSwipe} onTouchMove={trackTabSwipe} onTouchEnd={finishTabSwipe}
+          onTouchCancel={() => {tabSwipe.current = null;}} style={{
         flex: 1,
         minHeight: 0,
         overflowY: renaming ? 'hidden' : 'auto',
