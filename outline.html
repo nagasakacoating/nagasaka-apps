@@ -1127,6 +1127,15 @@ const DICT = {
   '更新': 'Perbarui',
   'ログアウト': 'Keluar',
   'QR照合': 'Pengecekan QR',
+  '不良数・作業者コメント（異常報告とは別）': 'Jumlah produk cacat dan komentar operator (terpisah dari laporan kelainan)',
+  '不良数（個）': 'Jumlah produk cacat (pcs)',
+  '作業者コメント（任意）': 'Komentar operator (opsional)',
+  '不良が多かった理由、作業で気づいたことなど': 'Alasan banyaknya produk cacat, hal yang diperhatikan saat bekerja, dll.',
+  '✓ 入力完了（キーボードを閉じる）': '✓ Selesai mengisi (tutup keyboard)',
+  '記録を保存': 'Simpan catatan',
+  '作業終了時にも一緒に保存されます。': 'Catatan juga disimpan saat pekerjaan diakhiri.',
+  '不良数は0以上の整数で入力してください。': 'Masukkan jumlah produk cacat sebagai bilangan bulat 0 atau lebih.',
+  '保存できません': 'Gagal menyimpan',
   '作業指示': 'Instruksi Pekerjaan',
   'マスター管理': 'Manajemen Master',
   '言語': 'Bahasa',
@@ -7093,14 +7102,25 @@ function WorkRunScreen({
   const [defectDraft,setDefectDraft]=useState(String(log.defectCount??0));
   const [workerCommentDraft,setWorkerCommentDraft]=useState(log.workerComment||'');
   const [noteBusy,setNoteBusy]=useState(false);
-  const [noteMessage,setNoteMessage]=useState('');
+  const [noteStatus,setNoteStatus]=useState(null);
   useEffect(()=>{setDefectDraft(String(log.defectCount??0));setWorkerCommentDraft(log.workerComment||'');},[log.id]);
   async function saveWorkNotes(){
-    if(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))){setNoteMessage('不良数は0以上の整数で入力してください。');return false;}
-    setNoteBusy(true);setNoteMessage('');
-    try{await db.collection('workOrders').doc(log.id).update({defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)});setNoteMessage('保存しました');return true;}
-    catch(e){setNoteMessage('保存できません: '+e.message);return false;}
-    finally{setNoteBusy(false);}
+    if(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))){
+      setNoteStatus({label:'不良数は0以上の整数で入力してください。',error:true});
+      return false;
+    }
+    setNoteBusy(true);
+    setNoteStatus(null);
+    try{
+      await db.collection('workOrders').doc(log.id).update({defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)});
+      setNoteStatus({label:'保存しました'});
+      return true;
+    }catch(e){
+      setNoteStatus({label:'保存できません',error:true,detail:e.message});
+      return false;
+    }finally{
+      setNoteBusy(false);
+    }
   }
 const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({blocked:false,busy:false,flash:false});
   const isTask = log.kind === 'task';
@@ -7428,15 +7448,19 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           }}>🤝 <BiText value={t('ライン応援')} /></button>
           </div>
           {!isTask&&<div style={{border:'1px solid #b9c7dd',borderRadius:10,padding:12,background:'#f7faff',display:'grid',gap:8}}>
-            <strong style={{color:NAVY,fontSize:15}}>不良数・作業者コメント（異常報告とは別）</strong>
+            <strong style={{color:NAVY,fontSize:15}}><BiText value="不良数・作業者コメント（異常報告とは別）" /></strong>
             <div style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(0,2fr)',gap:10,alignItems:'start'}}>
-              <label style={{fontSize:13,fontWeight:700}}>不良数（個）<input type="number" inputMode="numeric" min="0" step="1" value={defectDraft} onChange={e=>setDefectDraft(e.target.value)} style={{marginTop:5,fontSize:19}} /></label>
+              <label style={{fontSize:13,fontWeight:700}}><BiText value="不良数（個）" /><input type="number" inputMode="numeric" min="0" step="1" value={defectDraft} onChange={e=>setDefectDraft(e.target.value)} style={{marginTop:5,fontSize:19}} /></label>
               <div style={{display:'grid',gap:6,minWidth:0}}>
-                <label style={{fontSize:13,fontWeight:700}}>作業者コメント（任意）<textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder="不良が多かった理由、作業で気づいたことなど" style={{marginTop:5,fontSize:14}} /></label>
-                <button type="button" onClick={e=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();e.currentTarget.blur();}} style={{justifySelf:'end',padding:'10px 20px',background:'#e1edff',color:'#153c80',border:'1px solid #9bb8e8',borderRadius:9,fontSize:15,fontWeight:800,touchAction:'manipulation'}}>✓ 入力完了（キーボードを閉じる）</button>
+                <label style={{fontSize:13,fontWeight:700}}><BiText value="作業者コメント（任意）" /><textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder={lang === 'id' ? DICT['不良が多かった理由、作業で気づいたことなど'] : '不良が多かった理由、作業で気づいたことなど'} style={{marginTop:5,fontSize:14}} /></label>
+                <button type="button" onClick={e=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();e.currentTarget.blur();}} style={{justifySelf:'end',padding:'10px 20px',background:'#e1edff',color:'#153c80',border:'1px solid #9bb8e8',borderRadius:9,fontSize:15,fontWeight:800,touchAction:'manipulation'}}><BiText value="✓ 入力完了（キーボードを閉じる）" /></button>
               </div>
             </div>
-            <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}>記録を保存</button><span style={{fontSize:12,color:noteMessage.startsWith('保存でき')?'#b3261e':'#216e3c'}}>{noteMessage}</span><small style={{color:'#647084'}}>作業終了時にも一緒に保存されます。</small></div>
+            <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+              <button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}><BiText value="記録を保存" /></button>
+              {noteStatus&&<span role="status" style={{fontSize:12,color:noteStatus.error?'#b3261e':'#216e3c'}}><BiText value={noteStatus.label} />{noteStatus.detail&&<>: {noteStatus.detail}</>}</span>}
+              <small style={{color:'#647084'}}><BiText value="作業終了時にも一緒に保存されます。" /></small>
+            </div>
           </div>}
           <div className="responsive-grid" style={{
           display: 'grid',
