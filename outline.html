@@ -62,6 +62,9 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .topbar-process{min-width:0;flex:1;line-height:1.5}
 .topbar-title{font-size:21px;font-weight:700;text-align:center;min-width:0;line-height:1.4}
 .lang-user{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+.fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;min-height:44px;padding:6px 8px;border:1px solid #ffffff80;border-radius:7px;color:#fff;white-space:nowrap;flex-shrink:0;font-size:13px;font-weight:600}
+.fullscreen-toggle[aria-pressed=true]{background:#fff;color:#12306B}
+@media(max-width:520px){.fullscreen-toggle-label{display:none}}
 .language-switch{display:flex;align-items:center;gap:2px;background:white;border-radius:8px;padding:3px;flex-shrink:0;color:#8A93A0;font-size:13px}
 .language-switch button{min-width:44px;min-height:38px;padding:6px 10px;color:#12306B;font-size:14px;font-weight:700;border-radius:6px}
 .language-switch button[aria-pressed=true]{background:#12306B;color:white}
@@ -1694,7 +1697,48 @@ function WarnBox({
     </div>;
 }
 /* 幅に応じて段組みを切り替える共通ナビゲーション */
-function LangUser({ user }) {
+function FullscreenButton() {
+  const { lang } = useLang();
+  const [active, setActive] = useState(() => Boolean(document.fullscreenElement));
+
+  useEffect(() => {
+    const sync = () => setActive(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+
+  const canEnter = document.fullscreenEnabled
+    && window.matchMedia('(display-mode: browser)').matches
+    && window.matchMedia('(pointer: coarse)').matches;
+  if (!active && !canEnter) return null;
+
+  const label = lang === 'id' ? 'Layar penuh' : '全画面';
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      }
+    } catch {
+      window.alert(lang === 'id'
+        ? 'Mode layar penuh tidak dapat diubah.'
+        : '全画面表示を切り替えられませんでした。');
+    }
+  }
+
+  return React.createElement('button', {
+    type: 'button',
+    className: 'fullscreen-toggle',
+    'aria-label': label,
+    'aria-pressed': active,
+    title: label,
+    onClick: toggleFullscreen
+  },
+  React.createElement('span', { 'aria-hidden': true }, '⛶'),
+  React.createElement('span', { className: 'fullscreen-toggle-label' }, label));
+}
+function LangUser({ user, showFullscreen = false }) {
   const { lang, setLang } = useLang();
   return <div className="lang-user">
     <div className="language-switch" role="group" aria-label="言語 / Bahasa">
@@ -1702,6 +1746,7 @@ function LangUser({ user }) {
       <span aria-hidden="true">⇄</span>
       <button onClick={() => setLang('id')} aria-pressed={lang === 'id'}>ID</button>
     </div>
+    {showFullscreen && <FullscreenButton />}
     {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
   </div>;
 }
@@ -1713,7 +1758,7 @@ function TopBar({ title, left, onBack, user }) {
       {left && <div className="topbar-process">{left}</div>}
     </div>
     <div className="topbar-title"><BiText value={title} /></div>
-    <LangUser user={user} />
+    <LangUser user={user} showFullscreen />
   </header>;
 }
 function FooterBar({ left, right }) {
