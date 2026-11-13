@@ -70,6 +70,10 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .lang-user{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
 .fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;min-height:44px;padding:6px 8px;border:1px solid #ffffff80;border-radius:7px;color:#fff;white-space:nowrap;flex-shrink:0;font-size:13px;font-weight:600}
 .fullscreen-toggle[aria-pressed=true]{background:#fff;color:#12306B}
+.browser-controls{display:inline-flex;flex-shrink:0;gap:4px}
+.browser-controls>button{min-height:44px;padding:5px 8px;border:1px solid #ffffff80;border-radius:7px;color:#fff;white-space:nowrap;font-size:13px;font-weight:700}
+.browser-address{width:100%;min-height:44px;margin:10px 0;padding:8px;border:1px solid #aab7c9;border-radius:6px}
+@media(max-width:560px){.app-topbar>.lang-user{flex-wrap:wrap;gap:6px}}
 @media(max-width:520px){.fullscreen-toggle-label{display:none}}
 .language-switch{display:flex;align-items:center;gap:2px;background:white;border-radius:8px;padding:3px;flex-shrink:0;color:#8A93A0;font-size:13px}
 .language-switch button{min-width:44px;min-height:38px;padding:6px 10px;color:#12306B;font-size:14px;font-weight:700;border-radius:6px}
@@ -87,7 +91,6 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .footer-clock{flex-wrap:wrap;flex:1 1 220px;font-variant-numeric:tabular-nums}
 .footer-clock .bi-text{overflow-wrap:normal;white-space:nowrap}
 .plan-mobile-label{display:none}
-.worker-picker>button{min-height:44px;flex-shrink:0;max-width:100%}
 .plan-table{min-width:900px}
 .search-screen table,.history-screen table{min-width:760px}
 .planner-screen table{min-width:1100px}
@@ -120,8 +123,6 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
  .app-screen>div{padding-left:12px!important;padding-right:12px!important}
  .responsive-grid{grid-template-columns:minmax(0,1fr)!important}
  .plan-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
- .worker-picker{flex-basis:100%!important;min-width:0!important}
- .worker-picker>span:first-child{flex-basis:100%}
  .work-plan-screen input[type=date]{width:100%!important;min-height:44px;font-size:16px!important}
  .next-work{padding:14px!important;gap:12px!important}
  .next-work>div{flex-basis:100%!important;min-width:0!important}
@@ -541,7 +542,7 @@ async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,wor
     if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
     if(order.hinban!==hinban||order.procId!==procId||order.kind==='task'||order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
-    if((order.workerChanges?.length||0)!==workerChangeCount)return {ignored:true,until:qrCooldownEnd(order)};
+    if(!hasWorkOrderWorker(order)||(order.workerChanges?.length||0)!==workerChangeCount)return {ignored:true,until:qrCooldownEnd(order)};
     const oldEvents=order.qrCountEvents||[];if(oldEvents.some(e=>e.id===eventId))return {count:Number(order.doneBoxes)||0,until:qrCooldownEnd(order)};
     if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
     if(qrCooldownEnd(order)>Date.now())return {ignored:true,until:qrCooldownEnd(order),count:Number(order.doneBoxes)||0};
@@ -566,27 +567,39 @@ async function undoVerifiedKanban(orderId,workerChangeCount=0){
     tx.update(ref,patch);
   });
 }
-async function startProductOrder({order,hinban,procId,payload}){
+const WORKER_REQUIRED = '担当者を選択してください。';
+function hasWorkOrderWorker(order) {
+  return !!(order.workerId && String(order.workerName||'').trim());
+}
+async function requireRegisteredWorker(tx, workerId) {
+  if(!workerId)throw new Error(WORKER_REQUIRED);
+  const snapshot=await tx.get(db.collection('workers').doc(workerId));
+  const name=snapshot.exists && String(snapshot.data().name||'').trim();
+  if(!name)throw new Error(WORKER_REQUIRED);
+  return {id:workerId,name};
+}
+async function startWorkOrder({order,hinban,procId,payload}){
+  const isTask=order.kind==='task';
   const ref=db.collection('workOrders').doc(order.id);
-  const masterRef=db.collection('outlineMaster').doc(hinban);
   const guardRef=db.collection('kanbanSettings').doc('runtime');
   return db.runTransaction(async tx=>{
     const os=await tx.get(ref);
     const current=os.exists&&os.data();
-    if(!current||current.hinban!==hinban||current.procId!==procId||current.status!=='pending')
+    if(!current||current.hinban!==hinban||current.procId!==procId||current.status!=='pending'||(current.kind==='task')!==isTask)
       throw new Error('作業状態が変わりました。計画表を確認してください。');
     const localBlock=qrReadLocal(order.id);
     if(current.qrBlocked||(localBlock&&current.qrUnlockOf!==localBlock.lockId))
       throw new Error('管理者の解除が必要です。');
-    const ms=await tx.get(masterRef);
-    const usesQr=current.qrMode==='kanban-v1'||(ms.exists&&kanbanRules(ms.data()).length>0);
+    const worker=await requireRegisteredWorker(tx,payload.workerId);
+    const ms=isTask?null:await tx.get(db.collection('outlineMaster').doc(hinban));
+    const usesQr=!isTask&&(current.qrMode==='kanban-v1'||(ms.exists&&kanbanRules(ms.data()).length>0));
     if(usesQr){
       if(!ms.exists)throw new Error('作業またはマスターが見つかりません。');
       const guard=await tx.get(guardRef);
       if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)
         throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     }
-    tx.update(ref,usesQr?{...payload,qrMode:'kanban-v1'}:payload);
+    tx.update(ref,{...payload,workerId:worker.id,workerName:worker.name,...(usesQr?{qrMode:'kanban-v1'}:{})});
   });
 }
 function QrDialog({title,onClose,busy,children}){
@@ -692,6 +705,7 @@ function KanbanVerdict({ok,kind}){
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
+  const workerMissing=mode==='count'&&order&&!hasWorkOrderWorker(order);
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
   useEffect(()=>{alive.current=true;qrGuardReady().then(ok=>{if(alive.current)setGuard(ok);}).catch(()=>{if(alive.current)setGuard(false);});return()=>{alive.current=false;};},[]);
   useEffect(()=>{if(order&&local&&order.qrUnlockOf===local.lockId&&!order.qrBlocked){qrKeepLocal(order.id,null);setLocal(null);}},[order&&order.qrUnlockOf,order&&order.qrBlocked]);
@@ -717,7 +731,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
       }catch(e){if(alive.current){setError('解除できません。管理者の解除用QRを確認してください。');setFlash({ok:false,kind:'manager'});}}
       finally{pending.current=false;if(alive.current)setBusy(false);}return;
     }
-    if(blocked||complete||(mode==='count'&&!running))return;
+    if(blocked||complete||workerMissing||(mode==='count'&&!running))return;
     // 待ち時間中も照合だけは実行する。品違いは即座に不一致・ロック、
     // 正しいQRは二度読み取り防止のため箱数登録しない。
     const checked=verifyKanban(raw,hinban,m,master);setError('');
@@ -733,9 +747,9 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
     }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   }
-  const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||complete||(mode==='count'&&!running)));
+  const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||complete||workerMissing||(mode==='count'&&!running)));
   useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
-  const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete}/>;
+  const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete&&!workerMissing))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete&&!workerMissing}/>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
     {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
@@ -797,11 +811,11 @@ function KanbanEditor({items,onChange,upImg,busy,hinban}){
     </>}/>
   </>;
 }
-function KanbanPlanButton({order,master}){
+function KanbanPlanButton({order,master,onlyBlocked=false}){
   const [open,setOpen]=useState(false);
   const localBlock=qrReadLocal(order.id);
   const blocked=order.qrBlocked||(localBlock&&order.qrUnlockOf!==localBlock.lockId);
-  if(order.kind==='task'||order.status==='done'||(!blocked&&order.status!=='running'))return null;
+  if(order.kind==='task'||order.status==='done'||(!blocked&&(onlyBlocked||order.status!=='running')))return null;
   const m=master[order.hinban]||{};
   return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} ><BiText value={blocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
     {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={order.status==='running'?'count':'verify'} onClose={()=>setOpen(false)}/>}</>;
@@ -1380,6 +1394,12 @@ const PROCESS_LABELS = {
   "保存に失敗しました": ["Falha ao salvar", "Lưu thất bại"],
   "先行・遅れ": ["Adiantamento ou atraso", "Sớm hoặc chậm tiến độ"],
   "作業状態または担当者が変わりました。画面を確認してください。": ["O estado do trabalho ou o operador mudou. Confira a tela.", "Trạng thái công việc hoặc người phụ trách đã thay đổi. Hãy kiểm tra màn hình."],
+  "担当者を選択してください。": ["Selecione um operador.", "Hãy chọn người phụ trách."],
+  "担当者を確定": ["Confirmar operador", "Xác nhận người phụ trách"],
+  "担当者を登録": ["Registrar operador", "Đăng ký người phụ trách"],
+  "登録する": ["Registrar", "Đăng ký"],
+  "選択を解除": ["Limpar seleção", "Bỏ chọn"],
+  "マスターの担当者管理で担当者を登録してください。": ["Cadastre um operador no menu de gerenciamento de operadores.", "Hãy đăng ký người phụ trách trong phần quản lý người phụ trách."],
   "担当者を変更": ["Trocar operador", "Đổi người phụ trách"],
   "交代する担当者": ["Novo operador", "Người phụ trách mới"],
   "交代を確定": ["Confirmar troca", "Xác nhận đổi người"],
@@ -1472,6 +1492,12 @@ const PROCESS_LABELS = {
   "要領書が未登録です": ["Instruções de trabalho não cadastradas", "Chưa đăng ký hướng dẫn thao tác"],
   "未登録": ["Não cadastrado", "Chưa đăng ký"],
   "全画面": ["Tela cheia", "Toàn màn hình"],
+  "更新": ["Atualizar", "Tải lại"],
+  "アプリのアドレス": ["Endereço do aplicativo", "Địa chỉ ứng dụng"],
+  "Chromeのアドレス欄に、このURLを貼り付けて開いてください。": ["Cole este endereço na barra do Chrome para abrir o aplicativo.", "Dán địa chỉ này vào thanh địa chỉ Chrome để mở ứng dụng."],
+  "URLをコピー": ["Copiar URL", "Sao chép URL"],
+  "URLをコピーしました。": ["URL copiada.", "Đã sao chép URL."],
+  "ページを更新しますか？未保存の入力は消えます。": ["Atualizar a página? Os dados não salvos serão perdidos.", "Tải lại trang? Nội dung chưa lưu sẽ mất."],
   "全画面を解除": ["Sair da tela cheia", "Thoát toàn màn hình"],
   "スキップ": ["Pular", "Bỏ qua"],
   "履歴": ["Histórico", "Lịch sử"],
@@ -1533,7 +1559,13 @@ function singleLanguageText(text, lang) {
   return HAS_JAPANESE.test(result) ? text : result;
 }
 Object.assign(DICT,{
-  '担当者を変更':'Ganti petugas','交代する担当者':'Petugas pengganti','交代を確定':'Konfirmasi pergantian',
+  'アプリのアドレス':'Alamat aplikasi','URLをコピー':'Salin URL','URLをコピーしました。':'URL telah disalin.',
+  'Chromeのアドレス欄に、このURLを貼り付けて開いてください。':'Tempel URL ini di bilah alamat Chrome untuk membuka aplikasi.',
+  'ページを更新しますか？未保存の入力は消えます。':'Muat ulang halaman? Isian yang belum disimpan akan hilang.',
+  '担当者を確定':'Konfirmasi petugas','担当者を選択してください。':'Silakan pilih petugas.','担当者を登録':'Daftarkan petugas',
+  '登録する':'Daftarkan','選択を解除':'Batalkan pilihan',
+  'マスターの担当者管理で担当者を登録してください。':'Daftarkan petugas di menu manajemen petugas.',
+  '担当者を変更':'Ganti petugas' ,'交代する担当者':'Petugas pengganti','交代を確定':'Konfirmasi pergantian',
   '現在の担当者':'Petugas saat ini','担当者変更記録':'Riwayat pergantian petugas',
   '変更操作アカウント':'Akun yang mengganti petugas','交代までの実績を保存します。':'Hasil kerja hingga pergantian akan disimpan.'
 });
@@ -1936,6 +1968,39 @@ function FullscreenButton() {
   React.createElement('span', { 'aria-hidden': true }, active ? '↙' : '⛶'),
   React.createElement('span', { className: 'fullscreen-toggle-label' }, label));
 }
+function refreshOutlinePage() {
+  const url=new URL(window.location.href);
+  url.searchParams.set('refresh',Date.now().toString(36));
+  window.location.replace(url.href);
+}
+function BrowserControls() {
+  const [showAddress,setShowAddress]=useState(false);
+  const [copied,setCopied]=useState(false);
+  const addressInput=useRef(null);
+  const address=new URL(window.location.pathname,window.location.origin).href;
+  async function refresh() {
+    if(await showBiDialog('confirm','ページを更新しますか？未保存の入力は消えます。'))refreshOutlinePage();
+  }
+  async function copyAddress() {
+    try{
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+    }catch{
+      addressInput.current?.focus();
+      addressInput.current?.select();
+    }
+  }
+  return <div className="browser-controls">
+    <button type="button" onClick={refresh}>↻ <BiText value="更新"/></button>
+    <button type="button" onClick={()=>{setCopied(false);setShowAddress(true);}}>URL</button>
+    {showAddress&&<QrDialog title="アプリのアドレス" onClose={()=>setShowAddress(false)}>
+      <p><BiText value="Chromeのアドレス欄に、このURLを貼り付けて開いてください。"/></p>
+      <input className="browser-address" ref={addressInput} aria-label="URL" value={address} readOnly onFocus={e=>e.currentTarget.select()}/>
+      <button type="button" onClick={copyAddress}><BiText value="URLをコピー"/></button>
+      {copied&&<p role="status"><BiText value="URLをコピーしました。"/></p>}
+    </QrDialog>}
+  </div>;
+}
 function LangUser({ user, showFullscreen = false }) {
   const { lang, setLang, singleLanguage } = useLang();
   return <div className="lang-user">
@@ -1947,7 +2012,7 @@ function LangUser({ user, showFullscreen = false }) {
       <span aria-hidden="true">⇄</span>
       <button onClick={() => setLang('id')} aria-pressed={lang === 'id'}>ID</button>
     </div>}
-    {showFullscreen && <FullscreenButton />}
+    {showFullscreen && <><FullscreenButton /><BrowserControls /></>}
     {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
   </div>;
 }
@@ -5542,7 +5607,7 @@ function workerBoxBaseline(order) {
   const changes=order.workerChanges || [];
   return changes[changes.length-1]?.boxTotal || 0;
 }
-async function updateWorkRun(order, buildPatch) {
+async function updateWorkRun(order, buildPatch, {allowMissingWorker=false}={}) {
   const ref=db.collection('workOrders').doc(order.id);
   return db.runTransaction(async tx=>{
     const snapshot=await tx.get(ref);
@@ -5553,27 +5618,52 @@ async function updateWorkRun(order, buildPatch) {
       throw new Error('作業状態または担当者が変わりました。画面を確認してください。');
     const localBlock=qrReadLocal(order.id);
     if(current.qrBlocked || (localBlock&&current.qrUnlockOf!==localBlock.lockId))throw new Error('管理者の解除が必要です。');
-    const patch=buildPatch(current);
+    if(!allowMissingWorker&&!hasWorkOrderWorker(current))throw new Error(WORKER_REQUIRED);
+    const patch=await buildPatch(current,tx);
     if(patch)tx.update(ref,patch);
     return patch;
   });
 }
+function workerHandoffPatch(current, worker, notes, user, at) {
+  const segment=currentWorkerSegment(current,at,notes);
+  const change={
+    at, segment, boxTotal:Number(current.doneBoxes)||0,
+    nextWorkerId:worker.id,nextWorkerName:worker.name,
+    changedBy:user?.email||user?.displayName||user?.uid||'', changedByUid:user?.uid||''
+  };
+  return {
+    workerId:worker.id,workerName:worker.name,
+    workerChanges:[...(current.workerChanges||[]),change],
+    ...(current.kind!=='task'?{defectCount:0,workerComment:''}:{})
+  };
+}
+function workerHandoffTime(order) {
+  return Math.max(Date.now(),order.startAt||0,order.workerChanges?.at(-1)?.at||0);
+}
 function changeWorkOrderWorker(order, nextWorker, notes, user) {
-  return updateWorkRun(order,current=>{
-    if(current.workerId===nextWorker.id)throw new Error('別の担当者を選択してください。');
-    const at=Math.max(Date.now(),current.startAt||0,current.workerChanges?.at(-1)?.at||0);
-    const segment=currentWorkerSegment(current,at,notes);
-    const change={
-      at, segment, boxTotal:Number(current.doneBoxes)||0,
-      nextWorkerId:nextWorker.id,nextWorkerName:nextWorker.name,
-      changedBy:user?.email||user?.displayName||user?.uid||'', changedByUid:user?.uid||''
-    };
-    return {
-      workerId:nextWorker.id,workerName:nextWorker.name,
-      workerChanges:[...(current.workerChanges||[]),change],
-      ...((current.kind!=='task') ? {defectCount:0,workerComment:''} : {})
-    };
-  });
+  return updateWorkRun(order,async (current,tx)=>{
+    const worker=await requireRegisteredWorker(tx,nextWorker.id);
+    if(hasWorkOrderWorker(current)&&current.workerId===worker.id)throw new Error('別の担当者を選択してください。');
+    return workerHandoffPatch(current,worker,notes,user,workerHandoffTime(current));
+  },{allowMissingWorker:true});
+}
+function continueWorkOrder(order, workerId, user) {
+  return updateWorkRun(order,async (current,tx)=>{
+    const worker=await requireRegisteredWorker(tx,workerId);
+    const at=workerHandoffTime(current);
+    const changesWorker=!hasWorkOrderWorker(current)||current.workerId!==worker.id;
+    const patch=changesWorker?workerHandoffPatch(current,worker,{},user,at):{workerName:worker.name};
+    if(current.status!=='paused')return patch;
+    const pauses=[...(current.pauses||[])];
+    const last=pauses[pauses.length-1];
+    if(last&&!last.to)pauses[pauses.length-1]={...last,to:Math.max(last.from,at)};
+    return {...patch,status:'running',pauses};
+  },{allowMissingWorker:true});
+}
+function resumeWorkOrder(order) {
+  if(order.status!=='paused')return Promise.reject(new Error('作業状態が変わりました。計画表を確認してください。'));
+  if(!hasWorkOrderWorker(order))return Promise.reject(new Error(WORKER_REQUIRED));
+  return continueWorkOrder(order,order.workerId);
 }
 function WorkerChangeHistory({order}) {
   const changes=order.workerChanges || [];
@@ -6131,7 +6221,32 @@ function WorkPlanScreen({
     t,
     b
   } = useLang();
-  const [wid, setWid] = useState(null);
+  const [startOrder,setStartOrder]=useState(null);
+  const [workerId,setWorkerId]=useState('');
+  const [workerBusy,setWorkerBusy]=useState(false);
+  const [workerError,setWorkerError]=useState('');
+  const confirmingWorker=useRef(false);
+  function openWorkerSelection(order) {
+    setWorkerId('');
+    setWorkerError('');
+    setStartOrder(order);
+  }
+  async function confirmWorker() {
+    const worker=workers[workerId];
+    if(!worker?.name?.trim()||confirmingWorker.current)return;
+    if(startOrder.status==='pending'){
+      onOpenSheet(startOrder,worker);
+      return;
+    }
+    confirmingWorker.current=true;
+    setWorkerBusy(true);
+    setWorkerError('');
+    try{
+      await continueWorkOrder(startOrder,worker.id,user);
+      onResume(startOrder);
+    }catch(e){setWorkerError(e.message);}
+    finally{confirmingWorker.current=false;setWorkerBusy(false);}
+  }
   const [scanW, setScanW] = useState(false);
   const [date, setDate] = useState(todayKey());
   const [now, setNow] = useState(new Date());
@@ -6143,7 +6258,6 @@ function WorkPlanScreen({
   const stamp = `${now.getFullYear()}/${pad2(now.getMonth() + 1)}/${pad2(now.getDate())} (${wd}) ${fmtHM(now)}`;
   const stamp_id = stamp.replace('(' + wd + ')', '(' + ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][now.getDay()] + ')');
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const worker = wlist.find((w) => w.id === wid) || null;
   const raw = Object.values(orders || {}).filter((o) => o.procId === proc.id && o.date === date).sort((a, b) => (a.order || 0) - (b.order || 0));
   const rows = buildTimeline(raw, settings);
   const nextRow = rows.find((o) => o.status === 'pending' || o.status === 'running' || o.status === 'paused');
@@ -6155,7 +6269,7 @@ function WorkPlanScreen({
     const v = (text || '').trim();
     const w = wlist.find((x) => x.qr && (x.qr === v || v.includes(x.qr))) || wlist.find((x) => x.name === v);
     setScanW(false);
-    if (w) setWid(w.id);else showBiDialog("alert", '担当者が見つかりません: ' + v.slice(0, 30));
+    if (w) setWorkerId(w.id);else showBiDialog("alert", '担当者が見つかりません: ' + v.slice(0, 30));
   }
   const badge = (o) => {
     const map = {
@@ -6202,55 +6316,7 @@ function WorkPlanScreen({
       overflowY: 'auto',
       padding: '16px 24px'
     }}>
-        {/* 担当者 ＋ サマリ */}
-        <div style={{
-        display: 'flex',
-        gap: 14,
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        marginBottom: 14
-      }}>
-          <div className="worker-picker" style={{
-          display: 'flex',
-          gap: 8,
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          flex: 1,
-          minWidth: 0
-        }}>
-            <span style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: '#5A6472'
-          }}><BiText value={b('今の担当者')} /></span>
-            <button onClick={() => setWid(null)} style={{
-            padding: '8px 14px',
-            borderRadius: 20,
-            fontSize: 14,
-            fontWeight: 700,
-            border: '1px solid ' + (wid === null ? '#5A6472' : LINE),
-            background: wid === null ? '#5A6472' : '#fff',
-            color: wid === null ? '#fff' : '#5A6472'
-          }}>⏭ <BiText value={t('スキップ')} /></button>
-            <BiText value={wlist.map((w) => <button key={w.id} onClick={() => setWid(w.id)} style={{
-            padding: '8px 16px',
-            borderRadius: 20,
-            fontSize: 14,
-            fontWeight: 700,
-            border: '1px solid ' + (wid === w.id ? NAVY : LINE),
-            background: wid === w.id ? NAVY : '#fff',
-            color: wid === w.id ? '#fff' : '#3A4552'
-          }}>👤 {w.name}</button>)} />
-            <BiText value={QR_ENABLED && <button onClick={() => setScanW(true)} style={{
-            padding: '8px 14px',
-            borderRadius: 20,
-            fontSize: 13,
-            fontWeight: 700,
-            border: '1px dashed ' + NAVY,
-            background: '#F2F6FD',
-            color: NAVY
-          }}>▦ <BiText value={t('担当者QR')} /></button>} />
-          </div>
+        <div style={{display:'flex',marginBottom:14}}>
           <LocalizedInput type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{
           width: 168,
           fontSize: 14
@@ -6333,7 +6399,7 @@ function WorkPlanScreen({
                 </div>
               </div>
             </div>
-            <button onClick={() => nextRow.status === 'pending' ? onOpenSheet(nextRow, worker) : onResume(nextRow)} style={{
+            <button onClick={() => openWorkerSelection(nextRow)} style={{
           minHeight: 72,
           padding: '0 36px',
           borderRadius: 12,
@@ -6342,7 +6408,7 @@ function WorkPlanScreen({
           fontSize: 22,
           fontWeight: 800
         }}>
-              <BiText value={nextRow.status === 'pending' ? '▶ ' + t('作業開始') : '▶ ' + t('作業に戻る')} />
+              <BiText value={'▶ ' + t('作業開始')} />
             </button>
           </div>} />
         {/* 計画表 */}
@@ -6519,11 +6585,11 @@ function WorkPlanScreen({
                     <td style={{
                   ...td,
                   textAlign: 'center'
-                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span><KanbanPlanButton order={o} master={master}/>
+                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span><KanbanPlanButton order={o} master={master} onlyBlocked/>
                       <BiText value={o.status === 'done' ? <span style={{
                     fontSize: 13,
                     color: '#9AA3AF'
-                  }}>✓ <BiText value={t('完了')} /></span> : <button onClick={() => o.status === 'pending' ? onOpenSheet(o, worker) : onResume(o)} style={{
+                  }}>✓ <BiText value={t('完了')} /></span> : <button onClick={() => openWorkerSelection(o)} style={{
                     minHeight: 38,
                     padding: '0 10px',
                     borderRadius: 8,
@@ -6533,7 +6599,7 @@ function WorkPlanScreen({
                     fontWeight: 700,
                     whiteSpace: 'normal'
                   }}>
-                            <BiText value={o.status === 'pending' ? t('作業開始') : t('作業に戻る')} />
+                            <BiText value={t('作業開始')} />
                           </button>} />
                     </td>
                   </tr>;
@@ -6577,6 +6643,19 @@ function WorkPlanScreen({
         whiteSpace: 'normal'
       }}><BiText value={lb} /></button>)} />
         </div>} />
+      {startOrder&&!scanW&&<QrDialog title="担当者を選択" busy={workerBusy} onClose={()=>setStartOrder(null)}>
+        <p style={{fontWeight:700,marginBottom:10}}>{startOrder.hinban||startOrder.taskName}</p>
+        {startOrder.workerName&&<p><BiText value="現在の担当者"/>　{startOrder.workerName}</p>}
+        <WorkOrderWorkerPicker workers={workers} value={workerId} onChange={setWorkerId} disabled={workerBusy}/>
+        {workerError&&<p role="alert"><BiText value={workerError}/></p>}
+        <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+          {QR_ENABLED&&<button type="button" disabled={workerBusy} onClick={()=>setScanW(true)}><BiText value="担当者QR"/></button>}
+          <button type="button" disabled={workerBusy||!workers[workerId]?.name?.trim()} onClick={confirmWorker}
+            style={{background:'#174da0',color:'#fff',fontWeight:800,padding:'8px 20px'}}>
+            <BiText value={startOrder.status==='pending'?"担当者を確定":"作業開始"}/>
+          </button>
+        </div>
+      </QrDialog>}
       <BiText value={QR_ENABLED && scanW && <QRScannerModal expectedValue="" label={t('担当者QR')} onSuccess={resolveWorker} onClose={() => setScanW(false)} />} />
     </div>;
 }
@@ -7198,10 +7277,25 @@ function SheetSteps({
 }
 
 /* ── 要領書確認画面（作業開始前） ── */
+function WorkOrderWorkerPicker({workers,value,onChange,disabled,exclude,label='担当者を選択'}) {
+  const {lang}=useLang();
+  const choices=Object.values(workers||{}).filter(w=>w.id!==exclude&&w.name?.trim())
+    .sort((a,b)=>(a.order||0)-(b.order||0));
+  return <label style={{display:'block',fontWeight:700,color:NAVY}}>
+    <BiText value={label}/>
+    <select value={value} disabled={disabled} onChange={e=>onChange(e.target.value)}
+      style={{display:'block',width:'100%',minHeight:48,marginTop:6,padding:'6px 8px'}}>
+      <option value="">{singleLanguageText('選択してください',lang)}</option>
+      {choices.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
+    </select>
+    {!choices.length&&!exclude&&<small><BiText value="マスターの担当者管理で担当者を登録してください。"/></small>}
+  </label>;
+}
 function WorkSheetScreen({
   proc,
   order,
   worker,
+  workers,
   master,
   user,
   onBack,
@@ -7213,6 +7307,7 @@ function WorkSheetScreen({
     t,
     b
   } = useLang();
+  const isTask=order.kind==='task';
   const hinban = order.hinban;
   const m = master[hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
@@ -7223,14 +7318,15 @@ function WorkSheetScreen({
   const [starting, setStarting] = useState(false);
   const localBlock = qrReadLocal(order.id);
   const qrReady = !order.qrBlocked && (!localBlock || order.qrUnlockOf === localBlock.lockId);
-  const useWorker = worker || (order.assignedWorkerId ? {
-    id: order.assignedWorkerId,
-    name: order.assignedWorkerName
-  } : null);
+  const [workerId,setWorkerId]=useState(worker?.id || order.assignedWorkerId || '');
+  const useWorker=workers?.[workerId];
+  const canStart=!!(useWorker?.name?.trim() && qrReady && (isTask || ack));
   async function start(){
-    if(starting||!ack||!qrReady)return;setStarting(true);
-    try{const payload={status:'running',startAt:Date.now(),kosu,capacity:cap,workerId:useWorker?useWorker.id:null,workerName:useWorker?useWorker.name:''};
-      await startProductOrder({order,hinban,procId:proc.id,payload});
+    if(starting||!canStart)return;
+    setStarting(true);
+    try{
+      const payload={status:'running',startAt:Date.now(),workerId:useWorker.id,...(isTask?{}:{kosu,capacity:cap})};
+      await startWorkOrder({order,hinban,procId:proc.id,payload});
       onStart(order.id);
     }catch(e){showBiDialog('alert',e.message);setStarting(false);}
   }
@@ -7239,7 +7335,7 @@ function WorkSheetScreen({
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar title={b('要領書') + '：' + hinban} onBack={onBack} user={user} left={<div style={{
+      <TopBar title={isTask ? order.taskName : b('要領書') + '：' + hinban} onBack={onBack} user={user} left={<div style={{
       color: '#fff',
       fontSize: 14,
       fontWeight: 600,
@@ -7257,6 +7353,7 @@ function WorkSheetScreen({
         overflowY: 'auto',
         padding: '18px 22px'
       }}>
+          {isTask ? <h2><BiText value={order.taskName || '作業'}/></h2> : <>
           <div className="worksheet-product-header" style={{
           display: 'flex',
           alignItems: 'center',
@@ -7289,6 +7386,7 @@ function WorkSheetScreen({
         }}>📋 <BiText value={b('作業手順を確認してください')} /></div>
           <SheetSteps sheet={sheet} lang={lang} />
           <WarnBox items={dva(sheet, 'notes', lang)} translations={hasProcessLanguages(proc.id) ? sheet : undefined} />
+          </>}
         </div>
         <div style={{
         flex: '0 0 360px',
@@ -7300,27 +7398,11 @@ function WorkSheetScreen({
         gap: 14,
         overflowY: 'auto'
       }}>
-          <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '12px 14px',
-          background: '#F2F6FD',
-          borderRadius: 10
-        }}>
-            <span style={{
-            fontSize: 22
-          }}>👤</span>
-            <div><div style={{
-              fontSize: 11,
-              color: '#6B7480'
-            }}><BiText value={b('担当者')} /></div>
-              <div style={{
-              fontSize: 17,
-              fontWeight: 700,
-              color: useWorker ? NAVY : '#9AA3AF'
-            }}><BiText value={useWorker ? useWorker.name : t('担当者なし')} /></div></div>
+          <div style={{padding:12,background:'#F2F6FD',borderRadius:10}}>
+            <WorkOrderWorkerPicker workers={workers} value={useWorker?workerId:''} onChange={setWorkerId} disabled={starting}/>
           </div>
+          {!useWorker&&<p role="status" style={{color:'#9a3412',margin:0}}><BiText value={WORKER_REQUIRED}/></p>}
+          {!isTask&&<>
           <div style={{
           padding: '16px',
           background: '#F2F6FD',
@@ -7417,10 +7499,11 @@ function WorkSheetScreen({
             color: ack ? '#1B5E20' : '#4A5460'
           }}><BiText value={b('確認しました')} /></span>
           </label>
-          <button onClick={start} disabled={starting || !ack || !qrReady} style={{
+          </>}
+          <button onClick={start} disabled={starting || !canStart} style={{
           minHeight: 74,
           borderRadius: 12,
-          background: starting || !ack || !qrReady ? '#C7CDD6' : '#2E7D4F',
+          background: starting || !canStart ? '#C7CDD6' : '#2E7D4F',
           color: '#fff',
           fontSize: 24,
           fontWeight: 800
@@ -7429,7 +7512,7 @@ function WorkSheetScreen({
           </button>
         </div>
       </div>
-<FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
+<FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={!isTask&&<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
     </div>;
 }
 
@@ -7464,8 +7547,9 @@ function WorkRunScreen({
   const [workerError,setWorkerError]=useState('');
   const [workerBusy,setWorkerBusy]=useState(false);
   const changingWorker=!!workerChange;
-  const workerChoices=Object.values(workers||{}).filter(w=>w.id!==log.workerId)
-    .sort((a,b)=>(a.order||0)-(b.order||0));
+  const workerMissing=!hasWorkOrderWorker(log);
+  const workerUnavailable=workerMissing||!workers?.[log.workerId]?.name?.trim();
+  const workerChoices=Object.values(workers||{}).filter(w=>(workerMissing||w.id!==log.workerId)&&w.name?.trim());
   async function confirmWorkerChange(){
     const next=workers?.[nextWorkerId];
     if(!next||workerBusy)return;
@@ -7513,7 +7597,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
   const todaySum = summarize(Object.values(orders || {}).filter((o) => o.status === 'done' && o.procId === proc.id && o.date === log.date));
   const paused = log.status === 'paused';
   async function w(fn) {
-    if (busy||changingWorker||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
+    if (workerMissing||busy||changingWorker||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
     setBusy(true);
     try {
       await fn();
@@ -7530,12 +7614,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
   const pause = (type) => w(()=>updateWorkRun(log,current=>({
     status:'paused',pauses:[...(current.pauses||[]),{type,from:Date.now()}]
   })));
-  const resume = () => w(()=>updateWorkRun(log,current=>{
-    const pauses=[...(current.pauses||[])];
-    const last=pauses[pauses.length-1];
-    if(last&&!last.to)pauses[pauses.length-1]={...last,to:Date.now()};
-    return {status:'running',pauses};
-  }));
+  const resume = () => w(()=>resumeWorkOrder(log));
   const addAnom = (comment) => w(()=>updateWorkRun(log,current=>({
     anomalies:[...(current.anomalies||[]),{at:Date.now(),comment}]
   })));
@@ -7598,7 +7677,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
   const curType = c.cur ? c.cur.type === 'break' ? t('休憩') : t('ライン応援') : '';
-  const bigBtn = (label, onClick, bg, disabled, h) => <button onClick={onClick} disabled={disabled || busy || qrGate.busy || qrGate.flash} style={{
+  const bigBtn = (label, onClick, bg, disabled, h) => <button onClick={onClick} disabled={workerMissing || disabled || busy || qrGate.busy || qrGate.flash} style={{
     minHeight: h || 64,
     borderRadius: 12,
     background: disabled ? '#C7CDD6' : bg,
@@ -7628,22 +7707,19 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         <button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
           className="workrun-worker-change">
-          <span aria-hidden="true">👤 ⇄</span><BiText value="担当者を変更"/>
+          <span aria-hidden="true">👤 ⇄</span><BiText value={workerMissing ? "担当者を登録" : "担当者を変更"}/>
         </button>
+        {workerUnavailable&&<span role="status" style={{color:'#9a3412',fontWeight:700}}><BiText value={WORKER_REQUIRED}/></span>}
         <WorkerChangeHistory order={log}/>
       </div>
-      {changingWorker&&<QrDialog title="担当者を変更" busy={workerBusy} onClose={()=>setWorkerChange(null)}>
-        <p><BiText value="現在の担当者"/>　{workerChange.workerName||'—'}</p>
-        <label><BiText value="交代する担当者"/>
-          <select value={nextWorkerId} disabled={workerBusy} onChange={e=>setNextWorkerId(e.target.value)}
-            style={{display:'block',width:'100%',minHeight:44,margin:'8px 0'}}>
-            <option value="">{singleLanguageText('選択してください',lang)}</option>
-            {workerChoices.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </label>
-        <p><BiText value="交代までの実績を保存します。"/></p>
+      {changingWorker&&<QrDialog title={workerMissing?"担当者を登録":"担当者を変更"} busy={workerBusy} onClose={()=>setWorkerChange(null)}>
+        {!workerMissing&&<p><BiText value="現在の担当者"/>　{workerChange.workerName}</p>}
+        <WorkOrderWorkerPicker workers={workers} value={nextWorkerId} onChange={setNextWorkerId}
+          disabled={workerBusy} exclude={workerMissing?undefined:workerChange.workerId}
+          label={workerMissing?"担当者を選択":"交代する担当者"}/>
+        {!workerMissing&&<p><BiText value="交代までの実績を保存します。"/></p>}
         {workerError&&<p role="alert"><BiText value={workerError}/></p>}
-        <button type="button" disabled={!nextWorkerId||workerBusy} onClick={confirmWorkerChange}><BiText value="交代を確定"/></button>
+        <button type="button" disabled={!nextWorkerId||workerBusy} onClick={confirmWorkerChange}><BiText value={workerMissing?"登録する":"交代を確定"}/></button>
       </QrDialog>}
       <BiText value={paused && <div style={{
       background: '#FDE68A',
@@ -7656,7 +7732,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       fontSize: 17
     }}>
           ⏸ <BiText value={t('一時停止中')} />（<BiText value={curType} />）　<BiText value={c.cur && fmtDur(now - c.cur.from)} />
-          <button onClick={resume} disabled={qrBlocked||busy||qrGate.busy||qrGate.flash} style={{
+          <button onClick={resume} disabled={workerUnavailable||qrBlocked||busy||qrGate.busy||qrGate.flash} style={{
         marginLeft: 'auto',
         minHeight: 44,
         padding: '0 26px',
@@ -7809,7 +7885,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
           gap: 8
         }}>
-            <BiText value={!isTask && <button onClick={undoBox} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused || done <= workerBoxBaseline(log)} style={{
+            <BiText value={!isTask && <button onClick={undoBox} disabled={workerMissing || qrGate.busy || qrGate.flash || qrBlocked || busy || paused || done <= workerBoxBaseline(log)} style={{
             minHeight: 46,
             borderRadius: 10,
             border: '1px solid ' + LINE,
@@ -7818,7 +7894,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             fontSize: 14,
             fontWeight: 700
           }}>↩ <BiText value={t('1つ戻す')} /></button>} />
-            <button onClick={() => pause('break')} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
+            <button onClick={() => pause('break')} disabled={workerMissing || qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
             minHeight: 46,
             borderRadius: 10,
             background: paused ? '#E8EAEE' : '#FEF3C7',
@@ -7826,7 +7902,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             fontSize: 14,
             fontWeight: 800
           }}>☕ <BiText value={t('休憩')} /></button>
-            <button onClick={() => pause('support')} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
+            <button onClick={() => pause('support')} disabled={workerMissing || qrGate.busy || qrGate.flash || qrBlocked || busy || paused} style={{
             minHeight: 46,
             borderRadius: 10,
             background: paused ? '#E8EAEE' : '#DBEAFE',
@@ -7845,7 +7921,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
               </div>
             </div>
             <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
-              <button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy||changingWorker} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}><BiText value="記録を保存" /></button>
+              <button type="button" onClick={saveWorkNotes} disabled={workerMissing||noteBusy||busy||changingWorker} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}><BiText value="記録を保存" /></button>
               {noteStatus&&<span role="status" style={{fontSize:12,color:noteStatus.error?'#b3261e':'#216e3c'}}><BiText value={noteStatus.label} />{noteStatus.detail&&<>: {noteStatus.detail}</>}</span>}
               <small style={{color:'#647084'}}><BiText value="作業終了時にも一緒に保存されます。" /></small>
             </div>
@@ -7855,7 +7931,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           gridTemplateColumns: '1fr 1fr',
           gap: 8
         }}>
-            <button onClick={() => setAnom(true)} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
+            <button onClick={() => setAnom(true)} disabled={workerMissing || qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
             minHeight: 52,
             borderRadius: 10,
             background: '#FDECEA',
@@ -7863,7 +7939,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             fontSize: 15,
             fontWeight: 800
           }}>⚠ <BiText value={t('異常')} /><BiText value={(log.anomalies || []).length ? ` (${log.anomalies.length})` : ''} /></button>
-            <button onClick={() => isTask ? finish(0) : setOut(true)} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
+            <button onClick={() => isTask ? finish(0) : setOut(true)} disabled={workerMissing || qrGate.busy || qrGate.flash || qrBlocked || busy} style={{
             minHeight: 52,
             borderRadius: 10,
             background: NAVY,
@@ -9324,30 +9400,12 @@ function App() {
   })} onQR={() => setScanHome(true)} onSearch={() => setView({
     name: 'search',
     proc: view.proc
-  })} onMaster={() => adminGuard(() => setView({name:'master',proc:view.proc}))} onLogout={() => auth.signOut()} onOpenSheet={async (o, w) => {
-    if (o.kind === 'task') {
-      try {
-        await db.collection('workOrders').doc(o.id).update({
-          status: 'running',
-          startAt: Date.now(),
-          workerId: w ? w.id : o.assignedWorkerId || null,
-          workerName: w ? w.name : o.assignedWorkerName || ''
-        });
-        setView({
-          name: 'workrun',
-          proc: view.proc,
-          logId: o.id
-        });
-      } catch (e) {
-        showBiDialog("alert", '開始に失敗: ' + e.message);
-      }
-    } else setView({
-      name: 'worksheet',
-      proc: view.proc,
-      orderId: o.id,
-      worker: w
-    });
-  }} onResume={(o) => setView({
+  })} onMaster={() => adminGuard(() => setView({name:'master',proc:view.proc}))} onLogout={() => auth.signOut()} onOpenSheet={(o,w) => setView({
+    name:'worksheet',
+    proc:view.proc,
+    orderId:o.id,
+    worker:w
+  })} onResume={(o) => setView({
     name: 'workrun',
     proc: view.proc,
     logId: o.id
@@ -9359,7 +9417,7 @@ function App() {
     proc: view.proc
   })} />;else if (view.name === 'worksheet') {
     const o = orders[view.orderId];
-    screen = o ? <WorkSheetScreen proc={view.proc} order={o} worker={view.worker} master={master} user={user} onBack={() => setView({
+    screen = o ? <WorkSheetScreen key={o.id} proc={view.proc} order={o} worker={view.worker} workers={workers} master={master} user={user} onBack={() => setView({
       name: 'work',
       proc: view.proc
     })} onStart={(id) => setView({
