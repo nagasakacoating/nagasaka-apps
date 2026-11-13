@@ -529,13 +529,14 @@ function verifyKanban(raw,hinban,m,allMaster={}){
   for(const [other,data] of Object.entries(allMaster))if(other!==hinban&&kanbanRules(data).some(r=>matchKanbanRule(raw,r).ok))return {ok:false,error:'同じQRが複数の品番に一致します。マスターを確認してください。'};
   return {...success,raw:String(raw),hinban};
 }
-async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master}){
+async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,workerChangeCount=0}){
   const orderRef=db.collection('workOrders').doc(orderId),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
   return db.runTransaction(async tx=>{
     const orderSnap=await tx.get(orderRef),masterSnap=await tx.get(masterRef),guard=await tx.get(guardRef);
     if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
     if(order.hinban!==hinban||order.procId!==procId||order.kind==='task'||order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    if((order.workerChanges?.length||0)!==workerChangeCount)return {ignored:true,until:qrCooldownEnd(order)};
     const oldEvents=order.qrCountEvents||[];if(oldEvents.some(e=>e.id===eventId))return {count:Number(order.doneBoxes)||0,until:qrCooldownEnd(order)};
     if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
     if(qrCooldownEnd(order)>Date.now())return {ignored:true,until:qrCooldownEnd(order),count:Number(order.doneBoxes)||0};
@@ -548,12 +549,13 @@ async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master}){
     tx.update(orderRef,patch);return {count:done+1,until:Date.now()+interval};
   });
 }
-async function undoVerifiedKanban(orderId){
+async function undoVerifiedKanban(orderId,workerChangeCount=0){
   const ref=db.collection('workOrders').doc(orderId);return db.runTransaction(async tx=>{
     const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
     if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
     if(order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
-    const count=Number(order.doneBoxes)||0,events=order.qrCountEvents||[],last=events[events.length-1];if(count<=0)return;
+    if((order.workerChanges?.length||0)!==workerChangeCount)throw new Error('担当者が変わりました。画面を確認してください。');
+    const count=Number(order.doneBoxes)||0,events=order.qrCountEvents||[],last=events[events.length-1];if(count<=workerBoxBaseline(order))return;
     if(last&&last.doneAfter!==count)throw new Error('QR完了履歴と箱数が異なります。管理者に確認してください。');
     const patch={doneBoxes:count-1};if(last){patch.qrCountEvents=events.slice(0,-1);patch.qrLastCheck=events.length>1?events[events.length-2]:null;if(last.serial){const key=JSON.stringify([order.hinban,last.serial]);patch.qrUsedBoxKeys=(order.qrUsedBoxKeys||[]).filter(x=>x!==key);}}
     tx.update(ref,patch);
@@ -721,7 +723,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
     // 品番照合が一致した時点で青○を表示する（箱数登録の通信完了を待たない）。
     setResult(checked);setFlash({ok:true,kind:'count'});
     try{
-      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master});
+      const counted=await countVerifiedKanban({orderId:order.id,hinban,procId,raw,eventId:'qr-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),master,workerChangeCount:order.workerChanges?.length||0});
       if(alive.current){setLocalUntil(counted.until);}
     }catch(e){if(alive.current)await persistBlock(e.message,checked.code);}
     finally{pending.current=false;if(alive.current)setBusy(false);}
@@ -1371,6 +1373,16 @@ const PROCESS_LABELS = {
   "予定箱数に達しました": ["Meta de caixas atingida", "Đã đạt số thùng dự kiến"],
   "保存しました": ["Salvo", "Đã lưu"],
   "保存に失敗しました": ["Falha ao salvar", "Lưu thất bại"],
+  "先行・遅れ": ["Adiantamento ou atraso", "Sớm hoặc chậm tiến độ"],
+  "作業状態または担当者が変わりました。画面を確認してください。": ["O estado do trabalho ou o operador mudou. Confira a tela.", "Trạng thái công việc hoặc người phụ trách đã thay đổi. Hãy kiểm tra màn hình."],
+  "担当者を変更": ["Trocar operador", "Đổi người phụ trách"],
+  "交代する担当者": ["Novo operador", "Người phụ trách mới"],
+  "交代を確定": ["Confirmar troca", "Xác nhận đổi người"],
+  "現在の担当者": ["Operador atual", "Người phụ trách hiện tại"],
+  "担当者変更記録": ["Histórico de trocas de operador", "Lịch sử đổi người phụ trách"],
+  "変更操作アカウント": ["Conta que fez a troca", "Tài khoản thực hiện thay đổi"],
+  "交代までの実績を保存します。": ["O resultado até a troca será salvo.", "Kết quả đến lúc bàn giao sẽ được lưu."],
+  "選択してください": ["Selecione", "Vui lòng chọn"],
   "言語": ["Idioma", "Ngôn ngữ"],
   "製品揃え": ["Preparação de peças", "Chuẩn bị sản phẩm"],
   "小物掛け": ["Pendurar peças pequenas", "Treo chi tiết nhỏ"],
@@ -1514,6 +1526,11 @@ function singleLanguageText(text, lang) {
   for (const label of PROCESS_LABEL_PARTS) result = result.split(label).join(PROCESS_LABELS[label][column]);
   return HAS_JAPANESE.test(result) ? text : result;
 }
+Object.assign(DICT,{
+  '担当者を変更':'Ganti petugas','交代する担当者':'Petugas pengganti','交代を確定':'Konfirmasi pergantian',
+  '現在の担当者':'Petugas saat ini','担当者変更記録':'Riwayat pergantian petugas',
+  '変更操作アカウント':'Akun yang mengganti petugas','交代までの実績を保存します。':'Hasil kerja hingga pergantian akan disimpan.'
+});
 const LangCtx = createContext({
   lang: 'ja'
 });
@@ -5481,6 +5498,106 @@ function summarize(list) {
   });
 }
 
+/* 作業指示の累計を保ち、担当者ごとの実績を交代時点で確定する。 */
+function currentWorkerSegment(order, end, notes = {}, fraction = 0) {
+  const changes = order.workerChanges || [];
+  const previous = changes[changes.length - 1];
+  const start = previous?.at || order.startAt || end;
+  const boxBaseline = previous?.boxTotal || 0;
+  const pauses = (order.pauses || []).filter(p => p.from < end && (!p.to || p.to > start))
+    .map(p => ({...p, from:Math.max(start,p.from), to:Math.min(end,p.to || end)}));
+  const doneBoxes = Math.max(0,(Number(order.doneBoxes)||0)-boxBaseline);
+  const totals = calcLog({...order,startAt:start,endAt:end,pauses,doneBoxes,fraction},end);
+  const isTask = order.kind === 'task';
+  const stdMin = isTask ? 0 : totals.stdMin;
+  return {
+    workerId:order.workerId || null, workerName:order.workerName || '',
+    startAt:start, endAt:end, doneBoxes, fraction, kosu:Number(order.kosu)||0,
+    stdMin, actMin:totals.actMin, pausedMin:totals.paused/60000,
+    diffMin:isTask ? 0 : stdMin-totals.actMin,
+    targetBoxes:isTask || !Number(order.kosu) ? 0 : totals.actMin/Number(order.kosu),
+    defectCount:notes.defectCount ?? order.defectCount ?? 0,
+    workerComment:notes.workerComment ?? order.workerComment ?? '',
+    anomalies:(order.anomalies || []).filter(a=>a.at>=start && a.at<end)
+  };
+}
+function workerEvaluationRows(order) {
+  const changes = order.workerChanges || [];
+  if (!changes.length) return order.status === 'done' ? [order] : [];
+  const entries = changes.map(change=>change.segment);
+  if (order.status === 'done') entries.push(currentWorkerSegment(order,order.endAt,{},Number(order.fraction)||0));
+  return entries.map((entry,i)=>({...order,...entry,id:order.id+'-worker-'+i,status:'done',adjustMin:0,workerSegment:true}));
+}
+function orderDefectTotal(order) {
+  return (Number(order.defectCount)||0)+(order.workerChanges||[]).reduce((sum,x)=>sum+(Number(x.segment.defectCount)||0),0);
+}
+function workerBoxBaseline(order) {
+  const changes=order.workerChanges || [];
+  return changes[changes.length-1]?.boxTotal || 0;
+}
+async function updateWorkRun(order, buildPatch) {
+  const ref=db.collection('workOrders').doc(order.id);
+  return db.runTransaction(async tx=>{
+    const snapshot=await tx.get(ref);
+    const current=snapshot.exists&&snapshot.data();
+    if(!current || !['running','paused'].includes(current.status) ||
+       (current.workerChanges?.length || 0)!==(order.workerChanges?.length || 0) ||
+       current.status!==order.status)
+      throw new Error('作業状態または担当者が変わりました。画面を確認してください。');
+    const localBlock=qrReadLocal(order.id);
+    if(current.qrBlocked || (localBlock&&current.qrUnlockOf!==localBlock.lockId))throw new Error('管理者の解除が必要です。');
+    const patch=buildPatch(current);
+    if(patch)tx.update(ref,patch);
+    return patch;
+  });
+}
+function changeWorkOrderWorker(order, nextWorker, notes, user) {
+  return updateWorkRun(order,current=>{
+    if(current.workerId===nextWorker.id)throw new Error('別の担当者を選択してください。');
+    const at=Math.max(Date.now(),current.startAt||0,current.workerChanges?.at(-1)?.at||0);
+    const segment=currentWorkerSegment(current,at,notes);
+    const change={
+      at, segment, boxTotal:Number(current.doneBoxes)||0,
+      nextWorkerId:nextWorker.id,nextWorkerName:nextWorker.name,
+      changedBy:user?.email||user?.displayName||user?.uid||'', changedByUid:user?.uid||''
+    };
+    return {
+      workerId:nextWorker.id,workerName:nextWorker.name,
+      workerChanges:[...(current.workerChanges||[]),change],
+      ...((current.kind!=='task') ? {defectCount:0,workerComment:''} : {})
+    };
+  });
+}
+function WorkerChangeHistory({order}) {
+  const changes=order.workerChanges || [];
+  if(!changes.length)return null;
+  const number=n=>Number(n).toFixed(1);
+  const finalSegment=order.status==='done'?currentWorkerSegment(order,order.endAt,{},Number(order.fraction)||0):null;
+  function segmentValues(row) {
+    return <>
+      <div><BiText value="完了箱数"/> {row.doneBoxes}{row.fraction>0&&<> + {row.fraction} <BiText value="個"/></>}　<BiText value="実働"/> {number(row.actMin)} <BiText value="分"/>
+        {row.kosu>0&&<>　<BiText value="先行・遅れ"/> {row.diffMin>=0?'+':''}{number(row.diffMin)} <BiText value="分"/></>}
+        {order.kind!=='task'&&<>　<BiText value="不良数（個）"/> {row.defectCount}</>}</div>
+      {row.workerComment&&<div style={{whiteSpace:'pre-wrap'}}>{row.workerComment}</div>}
+    </>;
+  }
+  return <details style={{padding:'6px 0',fontSize:12}}>
+    <summary><BiText value="担当者変更記録"/> ({changes.length})</summary>
+    {changes.map((change,i)=>{
+      const row=change.segment;
+      return <div key={i} style={{marginTop:8}}>
+        <div>{new Date(change.at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}　{row.workerName||'—'} → {change.nextWorkerName}</div>
+        {change.changedBy&&<div><BiText value="変更操作アカウント"/> {change.changedBy}</div>}
+        {segmentValues(row)}
+      </div>;
+    })}
+    {finalSegment&&<div style={{marginTop:8}}>
+      <div>{finalSegment.workerName||'—'}　<BiText value="作業終了"/></div>
+      {segmentValues(finalSegment)}
+    </div>}
+  </details>;
+}
+
 /* ── 棒グラフ（先行+は緑／遅れ−は赤） ── */
 function DiffBarChart({
   buckets,
@@ -7312,6 +7429,7 @@ function WorkSheetScreen({
 /* ── 実行画面（作業中） ── */
 function WorkRunScreen({
   proc,
+  workers,
   log,
   master,
   orders,
@@ -7334,7 +7452,29 @@ function WorkRunScreen({
   const [workerCommentDraft,setWorkerCommentDraft]=useState(log.workerComment||'');
   const [noteBusy,setNoteBusy]=useState(false);
   const [noteStatus,setNoteStatus]=useState(null);
-  useEffect(()=>{setDefectDraft(String(log.defectCount??0));setWorkerCommentDraft(log.workerComment||'');},[log.id]);
+  const [workerChange,setWorkerChange]=useState(null);
+  const [nextWorkerId,setNextWorkerId]=useState('');
+  const [workerError,setWorkerError]=useState('');
+  const [workerBusy,setWorkerBusy]=useState(false);
+  const changingWorker=!!workerChange;
+  const workerChoices=Object.values(workers||{}).filter(w=>w.id!==log.workerId)
+    .sort((a,b)=>(a.order||0)-(b.order||0));
+  async function confirmWorkerChange(){
+    const next=workers?.[nextWorkerId];
+    if(!next||workerBusy)return;
+    if(!isTask && (!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft)))){
+      setWorkerError('不良数は0以上の整数で入力してください。');return;
+    }
+    setWorkerBusy(true);setWorkerError('');
+    try{
+      await changeWorkOrderWorker(workerChange,next,isTask?{}:{
+        defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)
+      },user);
+      setWorkerChange(null);setNoteStatus(null);
+    }catch(e){setWorkerError(e.message);}
+    finally{setWorkerBusy(false);}
+  }
+  useEffect(()=>{setDefectDraft(String(log.defectCount??0));setWorkerCommentDraft(log.workerComment||'');},[log.id,log.workerChanges?.length]);
   async function saveWorkNotes(){
     if(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))){
       setNoteStatus({label:'不良数は0以上の整数で入力してください。',error:true});
@@ -7343,7 +7483,7 @@ function WorkRunScreen({
     setNoteBusy(true);
     setNoteStatus(null);
     try{
-      await db.collection('workOrders').doc(log.id).update({defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)});
+      await updateWorkRun(log,()=>({defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)}));
       setNoteStatus({label:'保存しました'});
       return true;
     }catch(e){
@@ -7365,9 +7505,8 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
   /* 今日・同一工程の完了分の累計（リザルトに表示） */
   const todaySum = summarize(Object.values(orders || {}).filter((o) => o.status === 'done' && o.procId === proc.id && o.date === log.date));
   const paused = log.status === 'paused';
-  const ref = db.collection('workOrders').doc(log.id);
   async function w(fn) {
-    if (busy||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
+    if (busy||changingWorker||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
     setBusy(true);
     try {
       await fn();
@@ -7377,84 +7516,74 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       setBusy(false);
     }
   }
-  const addBox = () => needsQr ? document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'}) : w(() => ref.update({
-    doneBoxes: (log.doneBoxes || 0) + 1
+  const addBox = () => needsQr ? document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'}) :
+    w(()=>updateWorkRun(log,current=>({doneBoxes:(Number(current.doneBoxes)||0)+1})));
+  const undoBox = () => needsQr ? w(()=>undoVerifiedKanban(log.id,log.workerChanges?.length||0)) :
+    w(()=>updateWorkRun(log,current=>(Number(current.doneBoxes)||0)>workerBoxBaseline(current)?{doneBoxes:current.doneBoxes-1}:null));
+  const pause = (type) => w(()=>updateWorkRun(log,current=>({
+    status:'paused',pauses:[...(current.pauses||[]),{type,from:Date.now()}]
+  })));
+  const resume = () => w(()=>updateWorkRun(log,current=>{
+    const pauses=[...(current.pauses||[])];
+    const last=pauses[pauses.length-1];
+    if(last&&!last.to)pauses[pauses.length-1]={...last,to:Date.now()};
+    return {status:'running',pauses};
   }));
-  const undoBox = () => needsQr ? w(()=>undoVerifiedKanban(log.id)) : w(() => ref.update({
-    doneBoxes: Math.max(0, (log.doneBoxes || 0) - 1)
-  }));
-  const pause = (type) => w(() => ref.update({
-    status: 'paused',
-    pauses: [...(log.pauses || []), {
-      type,
-      from: Date.now()
-    }]
-  }));
-  const resume = () => w(() => {
-    const ps = [...(log.pauses || [])];
-    const last = ps[ps.length - 1];
-    if (last && !last.to) ps[ps.length - 1] = {
-      ...last,
-      to: Date.now()
-    };
-    return ref.update({
-      status: 'running',
-      pauses: ps
-    });
-  });
-  const addAnom = (comment) => w(() => ref.update({
-    anomalies: [...(log.anomalies || []), {
-      at: Date.now(),
-      comment
-    }]
-  }));
+  const addAnom = (comment) => w(()=>updateWorkRun(log,current=>({
+    anomalies:[...(current.anomalies||[]),{at:Date.now(),comment}]
+  })));
   async function finish(fraction) {
     let res = null;
     await w(async () => {
-      const ps = [...(log.pauses || [])];
-      const last = ps[ps.length - 1];
-      const end = Date.now();
-      if (last && !last.to) ps[ps.length - 1] = {
-        ...last,
-        to: end
-      };
-      const snap = calcLog({
-        ...log,
-        pauses: ps,
-        fraction,
-        endAt: end
-      }, end);
-      const std = isTask ? taskPlanMin : snap.stdMin;
-      if(!isTask&&(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))))throw new Error('不良数は0以上の整数で入力してください。');
-      const payload = {
-        ...(!isTask?{defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)}:{}),
-        status: 'done',
-        endAt: end,
-        pauses: ps,
-        fraction,
-        stdMin: Math.round(std * 10) / 10,
-        actMin: Math.round(snap.actMin * 10) / 10,
-        diffMin: Math.round((std - snap.actMin) * 10) / 10,
-        pausedMin: Math.round(snap.paused / 600) / 100
-      };
-      await ref.update(payload);
-      res = {
-        title: isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || ''),
-        isTask,
-        doneBoxes: log.doneBoxes || 0,
-        targetBoxes: log.targetBoxes || 0,
-        fraction: Number(fraction) || 0,
-        stdMin: payload.stdMin,
-        actMin: payload.actMin,
-        diffMin: payload.diffMin,
-        pausedMin: payload.pausedMin,
-        startAt: log.startAt || end,
-        endAt: end,
-        anomCount: (log.anomalies || []).length
-      };
+      let pendingResult;
+      await updateWorkRun(log,current=>{
+        const ps = [...(current.pauses || [])];
+        const last = ps[ps.length - 1];
+        const end = Date.now();
+        if (last && !last.to) ps[ps.length - 1] = {
+          ...last,
+          to: end
+        };
+        const snap = calcLog({
+          ...current,
+          pauses: ps,
+          fraction,
+          endAt: end
+        }, end);
+        const std = isTask ? taskPlanMin : snap.stdMin;
+        if(!isTask&&(!/^\d+$/.test(defectDraft)||!Number.isSafeInteger(Number(defectDraft))))throw new Error('不良数は0以上の整数で入力してください。');
+        const payload = {
+          ...(!isTask?{defectCount:Number(defectDraft),workerComment:workerCommentDraft.trim().slice(0,2000)}:{}),
+          status: 'done',
+          endAt: end,
+          pauses: ps,
+          fraction,
+          stdMin: Math.round(std * 10) / 10,
+          actMin: Math.round(snap.actMin * 10) / 10,
+          diffMin: Math.round((std - snap.actMin) * 10) / 10,
+          pausedMin: Math.round(snap.paused / 600) / 100
+        };
+
+        pendingResult = {
+          title: isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || ''),
+          isTask,
+          doneBoxes: current.doneBoxes || 0,
+          targetBoxes: log.targetBoxes || 0,
+          fraction: Number(fraction) || 0,
+          stdMin: payload.stdMin,
+          actMin: payload.actMin,
+          diffMin: payload.diffMin,
+          pausedMin: payload.pausedMin,
+          startAt: log.startAt || end,
+          endAt: end,
+          anomCount: (current.anomalies || []).length
+        };
+        return payload;
+      });
+      res=pendingResult;
     });
     setOut(false);
-    if (res) setResult(res);else onDone();
+    if (res) setResult(res);
   }
   const done = log.doneBoxes || 0,
     target = log.targetBoxes || 0;
@@ -7488,6 +7617,27 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
+      <div style={{display:'flex',alignItems:'center',gap:10,padding:'5px 12px',flexWrap:'wrap'}}>
+        <button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
+          onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
+          style={{minHeight:44,padding:'6px 12px',background:'#eef4fc',color:NAVY,borderRadius:7,fontWeight:700}}>
+          <BiText value="担当者を変更"/>
+        </button>
+        <WorkerChangeHistory order={log}/>
+      </div>
+      {changingWorker&&<QrDialog title="担当者を変更" busy={workerBusy} onClose={()=>setWorkerChange(null)}>
+        <p><BiText value="現在の担当者"/>　{workerChange.workerName||'—'}</p>
+        <label><BiText value="交代する担当者"/>
+          <select value={nextWorkerId} disabled={workerBusy} onChange={e=>setNextWorkerId(e.target.value)}
+            style={{display:'block',width:'100%',minHeight:44,margin:'8px 0'}}>
+            <option value="">{singleLanguageText('選択してください',lang)}</option>
+            {workerChoices.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </label>
+        <p><BiText value="交代までの実績を保存します。"/></p>
+        {workerError&&<p role="alert"><BiText value={workerError}/></p>}
+        <button type="button" disabled={!nextWorkerId||workerBusy} onClick={confirmWorkerChange}><BiText value="交代を確定"/></button>
+      </QrDialog>}
       <BiText value={paused && <div style={{
       background: '#FDE68A',
       color: '#7A5A00',
@@ -7516,7 +7666,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       minHeight: 0
     }}>
         {/* 左：要領書 */}
-        <div className="workrun-observe"><button type="button" className="workrun-steps-toggle" aria-expanded={showSteps} onClick={()=>setShowSteps(true)}><BiText value="手順を見る"/></button>{needsQr&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} inline suspended={showSteps||anom||out||!!result||busy} onStateChange={setQrGate}/>}</div>
+        <div className="workrun-observe"><button type="button" className="workrun-steps-toggle" aria-expanded={showSteps} onClick={()=>setShowSteps(true)}><BiText value="手順を見る"/></button>{needsQr&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} inline suspended={showSteps||anom||out||!!result||busy||changingWorker} onStateChange={setQrGate}/>}</div>
         {/* 右：操作パネル */}
         <div className="workrun-controls" style={{
         flex: '0 0 520px',
@@ -7652,12 +7802,12 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
           gap: 8
         }}>
-            <BiText value={!isTask && <button onClick={undoBox} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused || done <= 0} style={{
+            <BiText value={!isTask && <button onClick={undoBox} disabled={qrGate.busy || qrGate.flash || qrBlocked || busy || paused || done <= workerBoxBaseline(log)} style={{
             minHeight: 46,
             borderRadius: 10,
             border: '1px solid ' + LINE,
             background: '#fff',
-            color: done > 0 && !paused ? '#3A4552' : '#C7CDD6',
+            color: done > workerBoxBaseline(log) && !paused ? '#3A4552' : '#C7CDD6',
             fontSize: 14,
             fontWeight: 700
           }}>↩ <BiText value={t('1つ戻す')} /></button>} />
@@ -7688,7 +7838,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
               </div>
             </div>
             <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
-              <button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}><BiText value="記録を保存" /></button>
+              <button type="button" onClick={saveWorkNotes} disabled={noteBusy||busy||changingWorker} style={{padding:'10px 18px',background:NAVY,color:'white',borderRadius:8,fontWeight:700}}><BiText value="記録を保存" /></button>
               {noteStatus&&<span role="status" style={{fontSize:12,color:noteStatus.error?'#b3261e':'#216e3c'}}><BiText value={noteStatus.label} />{noteStatus.detail&&<>: {noteStatus.detail}</>}</span>}
               <small style={{color:'#647084'}}><BiText value="作業終了時にも一緒に保存されます。" /></small>
             </div>
@@ -8054,18 +8204,20 @@ function AnalyticsScreen({
       dead = true;
     };
   }, [from, to]);
-  const done = (rows || []).filter((o) => o.status === 'done' && (allProc || o.procId === proc.id) && (!selectedWorker||o.workerName===selectedWorker));
-  const workerNames = [...new Set((rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)).map(o=>o.workerName).filter(Boolean))].sort();
-  const rateOf = arr => {const v=summarize(arr);return v.target?Math.round(v.boxes/v.target*1000)/10:0;};
-  const defectOf = arr => arr.reduce((n,o)=>n+(Number(o.defectCount)||0),0);
+  const completedOrders=(rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id));
+  const personnelRows=(rows||[]).filter(o=>allProc||o.procId===proc.id).flatMap(workerEvaluationRows);
+  const workerNames=[...new Set(personnelRows.map(o=>o.workerName).filter(Boolean))].sort();
+  const done=selectedWorker?personnelRows.filter(o=>o.workerName===selectedWorker):completedOrders;
+  const rateOf = arr => {const v=summarize(arr);const fraction=arr.reduce((sum,o)=>sum+(o.workerSegment&&Number(o.capacity)>0?(Number(o.fraction)||0)/Number(o.capacity):0),0);return v.target?Math.round((v.boxes+fraction)/v.target*1000)/10:0;};
+  const defectOf = arr => arr.reduce((n,o)=>n+(o.workerSegment?(Number(o.defectCount)||0):orderDefectTotal(o)),0);
   const trend = buckets.map(bk=>{const arr=done.filter(o=>bucketOf(o,bucketMode)===bk.key);return {...bk,rate:rateOf(arr),defects:defectOf(arr),count:arr.length};});
   const sum = summarize(done);
   const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).diff);
   const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).boxes);
-  const rate = sum.target ? Math.round(sum.boxes / sum.target * 100) : 0;
-  function groupBy(keyFn, labelFn) {
+  const rate = selectedWorker ? Math.round(rateOf(done)) : sum.target ? Math.round(sum.boxes/sum.target*100) : 0;
+  function groupBy(keyFn, labelFn, source = done) {
     const m = {};
-    done.forEach((o) => {
+    source.forEach((o) => {
       const k = keyFn(o) || '—';
       (m[k] = m[k] || []).push(o);
     });
@@ -8078,12 +8230,12 @@ function AnalyticsScreen({
   // 「全員」表示時は担当者ごとに固有色を割り当て、達成率と不良数を同じ色で比較する。
   const workerPalette = ['#2563EB','#D97706','#059669','#9333EA','#DC2626','#0891B2','#BE185D','#4F46E5','#65A30D','#B45309','#0F766E','#7C3AED'];
   const workerCompare = workerNames.map((name,i)=>{
-    const records=(rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id)&&o.workerName===name);
+    const records=personnelRows.filter(o=>o.workerName===name);
     return {name,color:workerPalette[i%workerPalette.length],rate:rateOf(records),defects:defectOf(records),count:records.length};
   });
   const maxWorkerRate=Math.max(100,...workerCompare.map(x=>x.rate));
   const maxWorkerDefects=Math.max(1,...workerCompare.map(x=>x.defects));
-  const byWorker = groupBy((o) => o.workerName || t('担当者なし'));
+  const byWorker = groupBy(o=>o.workerName||t('担当者なし'),null,selectedWorker?done:personnelRows);
   const byItem = groupBy((o) => o.kind === 'task' ? '🔧 ' + (o.taskName || '作業') : o.hinban);
   const card = (k, v, col) => <div key={k} style={{
     padding: '12px 14px',
@@ -8745,7 +8897,11 @@ function WorkHistory({
     catch(e){setHistoryError('履歴を取得できません: '+e.message);}
     finally{setHistoryBusy(false);}
   }
-  const list = (historyRows||Object.values(logs||{})).filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || (String(l.hinban||'')+' '+String(l.workerName||'')).toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
+  const historySource=historyRows||Object.values(logs||{});
+  const activeChanges=historySource.filter(l=>['running','paused'].includes(l.status)&&l.workerChanges?.length&&
+    l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
+    (!query||[l.hinban,l.workerName,...l.workerChanges.map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
+  const list = historySource.filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || [l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -8830,6 +8986,10 @@ function WorkHistory({
           }}>⚠ <BiText value={sum.anom} /></span>
           </div>
         </div>
+        {activeChanges.map(l=><section key={l.id} style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
+          <strong>{l.hinban||l.taskName}　<BiText value="作業中"/></strong>
+          <WorkerChangeHistory order={l}/>
+        </section>)}
         <div style={{
         border: '1px solid ' + LINE,
         borderRadius: 10,
@@ -8861,7 +9021,7 @@ function WorkHistory({
                     <td style={td}><BiText value={l.date} /></td><td style={{
                   ...td,
                   color: l.workerName ? '#1A1A1A' : '#9AA3AF'
-                }}><BiText value={l.workerName || t('担当者なし')} /></td><BiText value={all && <td style={td}><BiText value={l.procName} /></td>} />
+                }}><BiText value={l.workerName || t('担当者なし')} /><WorkerChangeHistory order={l}/></td><BiText value={all && <td style={td}><BiText value={l.procName} /></td>} />
                     <td style={{
                   ...td,
                   fontWeight: 700
@@ -8882,7 +9042,7 @@ function WorkHistory({
                     color: '#6D3FBF'
                   }}><BiText value={"\uFF08\u8ABF\u6574 "} /><BiText value={hasAdj > 0 ? '+' : ''} /><BiText value={hasAdj} />）</div> : null} />
                     </td>
-                    <td style={td}>{l.defectCount??'—'}</td><td style={{...td,maxWidth:260,whiteSpace:'pre-wrap'}}>{l.workerComment||''}</td>
+                    <td style={td}>{l.workerChanges?.length?orderDefectTotal(l):l.defectCount??'—'}</td><td style={{...td,maxWidth:260,whiteSpace:'pre-wrap'}}>{l.workerComment||''}</td>
                     <td style={{
                   ...td,
                   color: '#B71C1C',
@@ -9207,7 +9367,7 @@ function App() {
     })} /> : <LoadingScreen />;
   } else if (view.name === 'workrun') {
     const log = orders[view.logId];
-    screen = log ? <WorkRunScreen proc={view.proc} log={log} master={master} orders={orders} user={user} onExit={() => setView({
+    screen = log ? <WorkRunScreen key={log.id} proc={view.proc} workers={workers} log={log} master={master} orders={orders} user={user} onExit={() => setView({
       name: 'work',
       proc: view.proc
     })} onInfo={(h) => setView({
