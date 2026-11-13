@@ -70,6 +70,11 @@ button:focus-visible{outline:3px solid #4285d4;outline-offset:3px}
 .lang-user{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
 .fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;min-height:44px;padding:6px 8px;border:1px solid #ffffff80;border-radius:7px;color:#fff;white-space:nowrap;flex-shrink:0;font-size:13px;font-weight:600}
 .fullscreen-toggle[aria-pressed=true]{background:#fff;color:#12306B}
+button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px solid #6786ad;border-radius:8px;background:#fff;color:#12306b;font-size:13px;font-weight:800;white-space:nowrap}
+.kanban-qr-dialog>header .return-japanese{margin-left:auto}
+.app-topbar>.lang-user{flex-wrap:wrap}
+.overlay-language{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:1}
+@media(max-width:520px){.overlay-language{top:4px;right:4px}}
 .browser-controls{display:inline-flex;flex-shrink:0;gap:4px}
 .browser-controls>button{min-height:44px;padding:5px 8px;border:1px solid #ffffff80;border-radius:7px;color:#fff;white-space:nowrap;font-size:13px;font-weight:700}
 .browser-address{width:100%;min-height:44px;margin:10px 0;padding:8px;border:1px solid #aab7c9;border-radius:6px}
@@ -607,7 +612,7 @@ function QrDialog({title,onClose,busy,children}){
   useEffect(()=>{const previous=document.activeElement,els=[document.documentElement,document.body],old=els.map(el=>el.style.overflow);els.forEach(el=>el.style.overflow='hidden');close.current&&close.current.focus();return()=>{els.forEach((el,i)=>el.style.overflow=old[i]);if(previous&&previous.isConnected)previous.focus();};},[]);
   return ReactDOM.createPortal(<div className="kanban-qr-backdrop" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget&&!busy)onClose();}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'&&!busy){e.preventDefault();onClose();}if(e.key==='Tab'){const controls=Array.from(ref.current.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex="0"]')).filter(x=>x.getClientRects().length);const first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}}>
     <section ref={ref} role="dialog" aria-modal="true" aria-labelledby="kanban-qr-title" className="kanban-qr-dialog">
-      <header><strong id="kanban-qr-title"><BiText value={title}/></strong><button type="button" ref={close} onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></header>
+      <header><strong id="kanban-qr-title"><BiText value={title}/></strong><ReturnJapaneseButton/><button type="button" ref={close} onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></header>
       <div className="kanban-qr-body">{children}</div>
     </section>
   </div>,document.body);
@@ -1545,14 +1550,144 @@ const PROCESS_LABELS = {
   "設定を確認中…": ["Verificando configurações…", "Đang kiểm tra cài đặt…"],
   "管理者解除の初期設定が必要です。管理者に確認してください。": ["É preciso configurar o desbloqueio. Consulte o supervisor.", "Cần thiết lập chức năng mở khóa. Hãy báo quản lý."],
   "作業状態が変わりました。計画表を確認してください。": ["O status do trabalho mudou. Confira o plano.", "Trạng thái công việc đã thay đổi. Hãy kiểm tra kế hoạch."],
+  "作業手順": ["Etapas do trabalho", "Các bước thao tác"],
+  "製品の入った箱を、2箱ずつ作業台に乗せる。": ["Coloque duas caixas de peças por vez sobre a bancada.", "Đặt từng hai thùng chứa sản phẩm lên bàn thao tác."],
+  "ハンガーを作業場上のフックに掛ける。": ["Pendure o suporte no gancho acima da área de trabalho.", "Treo giá treo lên móc phía trên khu vực làm việc."],
+  "作業": ["Trabalho", "Công việc"],
+  "製品写真": ["Foto da peça", "Ảnh sản phẩm"],
+  "形状確認ポイント": ["Pontos para conferir o formato", "Điểm kiểm tra hình dạng"],
+  "テーキン": ["Teekin", "Teekin"],
+  "ハンガー写真": ["Foto do suporte de suspensão", "Ảnh giá treo"],
+  "作業の流れ": ["Sequência de trabalho", "Trình tự thao tác"],
+  "注意ポイント": ["Pontos de atenção", "Điểm cần lưu ý"],
+  "必要道具類": ["Ferramentas necessárias", "Dụng cụ cần thiết"],
+  "収容数・梱包荷姿": ["Capacidade e forma de embalagem", "Sức chứa và quy cách đóng gói"],
+  "納入箱": ["Caixa de entrega", "Thùng giao hàng"],
+  "識別マーク": ["Marca de identificação", "Dấu nhận dạng"],
+  "かんばん情報": ["Informações do kanban", "Thông tin kanban"],
+  "端数品置き場所": ["Local para peças restantes", "Nơi đặt sản phẩm lẻ"],
+  "かんばん": ["Kanban", "Kanban"],
+  "QR照合": ["Conferência por QR", "Đối chiếu mã QR"],
+  "QR自動照合中": ["Conferência automática de QR ativa", "Đang tự động đối chiếu mã QR"],
+  "選択中の品番": ["Código da peça selecionada", "Mã sản phẩm đã chọn"],
+  "QR読取機能を読み込めません。通信を確認してください。": ["Não foi possível carregar o leitor de QR. Verifique a conexão.", "Không tải được trình đọc mã QR. Hãy kiểm tra kết nối."],
+  "カメラを使用できません。カメラの許可・接続を確認してください。": ["Não foi possível usar a câmera. Verifique a permissão e a conexão.", "Không thể sử dụng camera. Hãy kiểm tra quyền và kết nối camera."],
+  "予定箱数に達しました。作業終了してください。": ["A meta de caixas foi atingida. Encerre o trabalho.", "Đã đạt số thùng dự kiến. Hãy kết thúc công việc."],
+  "照合成功": ["QR conferido com sucesso", "Đối chiếu thành công"],
+  "一致：選択中の品番です": ["Confere com o código da peça selecionada.", "Khớp với mã sản phẩm đã chọn."],
+  "ロックの保存を確認できません。通信を確認し、管理者を呼んでください。": ["Não foi possível confirmar o bloqueio. Verifique a conexão e chame o supervisor.", "Không xác nhận được việc lưu khóa. Hãy kiểm tra kết nối và gọi quản lý."],
+  "解除しました。かんばんQRをもう一度照合してください。": ["Desbloqueado. Confira novamente o QR do kanban.", "Đã mở khóa. Hãy đối chiếu lại mã QR kanban."],
+  "解除できません。管理者の解除用QRを確認してください。": ["Não foi possível desbloquear. Verifique o QR de desbloqueio do supervisor.", "Không thể mở khóa. Hãy kiểm tra mã QR mở khóa của quản lý."],
+  "更新に失敗:": ["Falha na atualização:", "Cập nhật thất bại:"],
+  "不良数は0以上の整数で入力してください。": ["Digite a quantidade de peças com defeito como um número inteiro igual ou maior que zero.", "Hãy nhập số sản phẩm lỗi là số nguyên từ 0 trở lên."],
+  "保存できません": ["Não foi possível salvar", "Không lưu được"],
+  "保存する": ["Salvar", "Lưu"],
+  "記録する": ["Registrar", "Ghi nhận"],
+  "前へ": ["Anterior", "Trước"],
+  "次へ": ["Próximo", "Tiếp"],
+  "前の項目へ": ["Item anterior", "Mục trước"],
+  "次の項目へ": ["Próximo item", "Mục tiếp theo"],
+  "一覧に戻る": ["Voltar à lista", "Quay lại danh sách"],
+  "PDFで表示": ["Ver em PDF", "Xem PDF"],
+  "印刷する": ["Imprimir", "In"],
+  "写真なし": ["Sem foto", "Không có ảnh"],
+  "画像を拡大表示": ["Ampliar imagem", "Phóng to ảnh"],
+  "全体写真": ["Foto geral", "Ảnh tổng thể"],
+  "拡大写真": ["Foto ampliada", "Ảnh phóng to"],
+  "類似品": ["Peças semelhantes", "Sản phẩm tương tự"],
+  "類似品との違い": ["Diferenças em relação a peças semelhantes", "Điểm khác với sản phẩm tương tự"],
+  "主な特徴": ["Características principais", "Đặc điểm chính"],
+  "仕様": ["Especificações", "Thông số"],
+  "使用時の注意": ["Cuidados ao usar", "Lưu ý khi sử dụng"],
+  "代表の収容数": ["Capacidade padrão", "Sức chứa tiêu chuẩn"],
+  "この工程の収容数": ["Capacidade neste processo", "Sức chứa ở công đoạn này"],
+  "工程別の収容数": ["Capacidade por processo", "Sức chứa theo công đoạn"],
+  "工程により異なります": ["Varia conforme o processo", "Thay đổi theo công đoạn"],
+  "1箱あたりの収容数": ["Capacidade por caixa", "Sức chứa mỗi thùng"],
+  "荷姿により異なります": ["Varia conforme a embalagem", "Thay đổi theo quy cách đóng gói"],
+  "製品イメージ": ["Imagem da peça", "Hình ảnh sản phẩm"],
+  "梱包荷姿": ["Forma de embalagem", "Quy cách đóng gói"],
+  "仕切り": ["Divisória", "Vách ngăn"],
+  "向き": ["Orientação", "Hướng"],
+  "使用中": ["Em uso", "Đang sử dụng"],
+  "未使用": ["Fora de uso", "Không sử dụng"],
+  "外寸": ["Dimensões externas", "Kích thước ngoài"],
+  "仕切数": ["Quantidade de divisórias", "Số vách ngăn"],
+  "材質": ["Material", "Vật liệu"],
+  "種類": ["Tipo", "Loại"],
+  "用途": ["Finalidade", "Mục đích sử dụng"],
+  "使用工程": ["Processo de uso", "Công đoạn sử dụng"],
+  "発行先": ["Destino", "Nơi phát hành"],
+  "サイズ": ["Tamanho", "Kích thước"],
+  "備考": ["Observações", "Ghi chú"],
+  "この品番で使用するハンガーの写真と仕様です。": ["Fotos e especificações do suporte usado nesta peça.", "Ảnh và thông số giá treo dùng cho sản phẩm này."],
+  "上記のポイントを確認し、類似品と間違えないようにしてください。": ["Confira os pontos acima para evitar confusão com peças semelhantes.", "Hãy kiểm tra các điểm trên để tránh nhầm với sản phẩm tương tự."],
+  "不明な場合は、必ず管理者に確認してください。": ["Em caso de dúvida, consulte o supervisor.", "Nếu chưa rõ, hãy hỏi quản lý."],
+  "この品番の作業で使用する道具・備品です。作業前に準備してください。": ["Ferramentas e materiais usados nesta peça. Prepare-os antes de começar.", "Dụng cụ và vật tư dùng cho sản phẩm này. Hãy chuẩn bị trước khi làm việc."],
+  "この品番の収容数と梱包荷姿は以下の通りです。作業時に確認してください。": ["Confira a capacidade e a forma de embalagem abaixo durante o trabalho.", "Hãy kiểm tra sức chứa và quy cách đóng gói bên dưới khi thao tác."],
+  "納入箱の確認を行います。製品の入った箱を確認し、指定の場所に納めてください。": ["Confira a caixa de entrega com as peças e coloque-a no local indicado.", "Hãy kiểm tra thùng giao hàng chứa sản phẩm và đặt vào vị trí quy định."],
+  "この品番の識別マークは以下の通りです。製品の識別・工程管理に使用します。": ["Use as marcas abaixo para identificar a peça e controlar o processo.", "Dùng các dấu dưới đây để nhận dạng sản phẩm và quản lý công đoạn."],
+  "呼称・品番で検索": ["Buscar por nome ou código da peça", "Tìm theo tên gọi hoặc mã sản phẩm"],
+  "キーワード": ["Palavra-chave", "Từ khóa"],
+  "更新日": ["Data de atualização", "Ngày cập nhật"],
+  "選択": ["Selecionar", "Chọn"],
+  "工程を選択": ["Selecionar processo", "Chọn công đoạn"],
+  "クリア": ["Limpar", "Xóa"],
+  "作業動画を再生": ["Reproduzir vídeo de trabalho", "Phát video thao tác"],
+  "動画が未登録です": ["Vídeo não cadastrado", "Chưa đăng ký video"],
+  "計画がありません": ["Nenhum trabalho planejado", "Không có kế hoạch"],
+  "評価": ["Avaliação", "Đánh giá"],
+  "ログアウト": ["Sair", "Đăng xuất"],
+  "その他": ["Outros", "Khác"],
+  "設備の異常": ["Problema no equipamento", "Bất thường thiết bị"],
+  "素材の異常": ["Problema no material", "Bất thường vật liệu"],
+  "塗装の異常": ["Problema na pintura", "Bất thường sơn"],
+  "かんばんの異常": ["Problema no kanban", "Bất thường kanban"],
+  "部品不足": ["Falta de peças", "Thiếu linh kiện"],
+  "端数（個）": ["Peças restantes (unid.)", "Sản phẩm lẻ (cái)"],
+  "満数でない最後の箱の個数（任意）": ["Quantidade na última caixa incompleta (opcional)", "Số sản phẩm trong thùng cuối chưa đầy (không bắt buộc)"],
+  "開始日": ["Data inicial", "Ngày bắt đầu"],
+  "終了日": ["Data final", "Ngày kết thúc"],
+  "品番・担当者": ["Código da peça ou operador", "Mã sản phẩm hoặc người phụ trách"],
+  "検索": ["Buscar", "Tìm kiếm"],
+  "過去の履歴を検索": ["Buscar no histórico", "Tìm trong lịch sử"],
+  "不良数": ["Peças com defeito", "Số sản phẩm lỗi"],
+  "作業者コメント": ["Comentário do operador", "Ghi chú của người thao tác"],
+  "全工程": ["Todos os processos", "Tất cả công đoạn"],
+  "日付": ["Data", "Ngày"],
+  "停止": ["Parada", "Dừng"],
+  "調整": ["Ajuste", "Điều chỉnh"],
+  "履歴がありません": ["Nenhum registro", "Không có lịch sử"],
+  "（期間検索）": [" (busca por período)", " (tìm theo khoảng thời gian)"],
+  "開始 → 終了": ["Início → Fim", "Bắt đầu → Kết thúc"],
+  "開始日と終了日を確認してください。": ["Confira as datas inicial e final.", "Hãy kiểm tra ngày bắt đầu và kết thúc."],
+  "指定期間は記録開始日より前です。": ["O período selecionado é anterior ao início dos registros.", "Khoảng thời gian đã chọn nằm trước ngày bắt đầu ghi nhận."],
+  "読込中…": ["Carregando…", "Đang tải…"],
+  "履歴を取得できません:": ["Não foi possível carregar o histórico:", "Không thể tải lịch sử:"],
+  "記録開始日（本運用開始日）": ["Data de início dos registros (início da operação)", "Ngày bắt đầu ghi nhận (ngày vận hành chính thức)"],
+  "開始日を保存": ["Salvar data inicial", "Lưu ngày bắt đầu"],
+  "保存中…": ["Salvando…", "Đang lưu…"],
+  "指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。": ["Os registros de teste anteriores à data ficam fora do histórico e da avaliação. Deixe em branco para remover o filtro.", "Bản ghi thử nghiệm trước ngày này sẽ được loại khỏi lịch sử và đánh giá. Để trống để bỏ bộ lọc."],
+  "初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。": ["A tela mostra os últimos 7 dias. Busque registros salvos de até 10 anos atrás.", "Màn hình hiển thị 7 ngày gần nhất. Có thể tìm các bản ghi đã lưu trong vòng 10 năm."],
+  "登録済みの翻訳がありません": ["Tradução ainda não cadastrada", "Chưa đăng ký bản dịch"],
 };
+const PHOTO_STEP_LABELS=new Map([
+  '製品の入った箱を、2箱ずつ作業台に乗せる。',
+  'ハンガーを作業場上のフックに掛ける。'
+].map(text=>[text.normalize('NFKC').replace(/[\s、,。]+/g,''),PROCESS_LABELS[text]]));
+const masterTranslations = new Map();
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang) {
   if (typeof text !== 'string' || lang === 'ja') return text;
   if (lang === 'id') return knownBi(text) || text;
   const column = lang === 'pt-BR' ? 0 : 1;
   const key = text.trim();
-  if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,PROCESS_LABELS[key][column]);
+  const registered=masterTranslations.get(key)?.[lang];
+  if(registered)return text.replace(key,()=>registered);
+  if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
+  const normalized=key.normalize('NFKC').replace(/[\s、,。]+/g,'');
+  const knownStep=PHOTO_STEP_LABELS.get(normalized);
+  if(knownStep)return knownStep[column];
   // Translate composite labels only when every Japanese fragment is known.
   let result = text;
   for (const label of PROCESS_LABEL_PARTS) result = result.split(label).join(PROCESS_LABELS[label][column]);
@@ -1712,6 +1847,64 @@ function collectTranslateJobs(d, force) {
   });
   return jobs;
 }
+async function fillProcessTranslations(data, onProgress) {
+  const sheets=data.sheets||{};
+  const records=new Map((data.displayTranslations||[]).map(entry=>[entry.ja,{...entry.translations}]));
+  // Reuse the Japanese text fields already included in the master translation flow.
+  const shared=[...new Set(collectTranslateJobs(JSON.parse(JSON.stringify({...data,sheets:{}})),true).map(job=>job.jp))];
+  const targetSheets=Object.entries(sheets).filter(([id])=>hasProcessLanguages(id)).map(([,sheet])=>sheet);
+  const texts=[...new Set([...shared,...targetSheets.flatMap(sheet=>[
+    ...(sheet.steps||[]).map(step=>step.text),...(sheet.notes||[])
+  ])].filter(text=>typeof text==='string'&&HAS_JAPANESE.test(text)).map(text=>text.trim()))];
+  for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+    for(const sheet of targetSheets){
+      for(const step of sheet.steps||[]){
+        const ja=step.text?.trim();
+        if(ja&&step['text_'+key])records.set(ja,{...records.get(ja),[lang]:step['text_'+key]});
+      }
+      (sheet.notes||[]).forEach((note,i)=>{
+        const ja=note.trim(),saved=sheet['notes_'+key]?.[i];
+        if(ja&&saved)records.set(ja,{...records.get(ja),[lang]:saved});
+      });
+    }
+  }
+  const plans=PROCESS_TRANSLATION_FIELDS.map(([lang])=>({
+    lang,options:{sourceLanguage:'ja',targetLanguage:lang==='pt-BR'?'pt':lang},
+    missing:texts.filter(ja=>!records.get(ja)?.[lang]&&!Object.hasOwn(PROCESS_LABELS,ja))
+  }));
+  const total=plans.reduce((sum,plan)=>sum+plan.missing.length,0);
+  let done=0,failedTexts=0;
+  onProgress(done,total);
+  const api=window.Translator;
+  const translators=plans.map(plan=>plan.missing.length?api.create({...plan.options,monitor(monitor){
+    monitor.addEventListener('downloadprogress',()=>onProgress(done,total));
+  }}):null);
+  const results=await Promise.allSettled(plans.map(async (plan,index)=>{
+    if(!translators[index])return;
+    const translator=await translators[index];
+    try{
+      for(const ja of plan.missing){
+        try{
+          const translated=(await translator.translate(ja)).trim();
+          if(!translated||translated===ja)throw new Error('Translation unavailable');
+          records.set(ja,{...records.get(ja),[plan.lang]:translated});
+        }catch{failedTexts++;}
+        onProgress(++done,total);
+      }
+    }finally{translator.destroy();}
+  }));
+  results.forEach((result,i)=>{if(result.status==='rejected')failedTexts+=plans[i].missing.length;});
+  if(total>0&&failedTexts===total)throw new Error('対応するパソコンのブラウザで言語パックを確認してください。');
+  for(const sheet of targetSheets){
+    for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+      const lookup=text=>{const ja=text?.trim();return records.get(ja)?.[lang]||PROCESS_LABELS[ja]?.[lang==='pt-BR'?0:1]||'';};
+      for(const step of sheet.steps||[])if(!step['text_'+key]&&step.text)step['text_'+key]=lookup(step.text);
+      sheet['notes_'+key]=(sheet.notes||[]).map((note,i)=>sheet['notes_'+key]?.[i]||lookup(note));
+    }
+  }
+  data.displayTranslations=shared.filter(ja=>records.has(ja)).map(ja=>({ja,translations:records.get(ja)}));
+  return failedTexts;
+}
 async function runTranslate(jobs, onProgress) {
   let done = 0,
     fail = 0;
@@ -1842,6 +2035,7 @@ function ImageModal({ src, onClose, caption, onLongPress }) {
     <div ref={viewer} className="photo-viewer" role="dialog" aria-modal="true" aria-labelledby="photo-viewer-title" onClick={(e) => e.stopPropagation()}>
       <div className="photo-viewer-header"><div><div id="photo-viewer-title"><BiText value={caption || '画像を拡大表示'} /></div>
         {onLongPress && <div className="photo-hold-hint"><BiText value="長押しで写真の削除確認" /></div>}</div>
+        <ReturnJapaneseButton/>
         <button type="button" ref={closeButton} onClick={(e) => {e.stopPropagation();onClose();}} className="photo-viewer-close" aria-label="拡大表示を閉じる / Tutup tampilan gambar"><BiText value="閉じる" /></button>
       </div>
       <PhotoCopyControls key={src} src={src} caption={caption} copyRef={copyRef} />
@@ -2001,6 +2195,16 @@ function BrowserControls() {
     </QrDialog>}
   </div>;
 }
+function ReturnJapaneseButton() {
+  const {lang,returnToJapanese,setLang}=useLang();
+  if(!lang||lang==='ja')return null;
+  return <button type="button" className="return-japanese" lang="ja" translate="no"
+    onClick={()=>{if(returnToJapanese)returnToJapanese();else setLang?.('ja');}}>日本語に戻す</button>;
+}
+function OverlayJapaneseButton() {
+  const {lang}=useLang();
+  return lang!=='ja'&&<div className="overlay-language"><ReturnJapaneseButton/></div>;
+}
 function LangUser({ user, showFullscreen = false }) {
   const { lang, setLang, singleLanguage } = useLang();
   return <div className="lang-user">
@@ -2012,6 +2216,7 @@ function LangUser({ user, showFullscreen = false }) {
       <span aria-hidden="true">⇄</span>
       <button onClick={() => setLang('id')} aria-pressed={lang === 'id'}>ID</button>
     </div>}
+    <ReturnJapaneseButton />
     {showFullscreen && <><FullscreenButton /><BrowserControls /></>}
     {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
   </div>;
@@ -2089,6 +2294,7 @@ function QRScannerModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 16,
@@ -2207,6 +2413,7 @@ function VideoModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       width: '100%',
       maxWidth: 900
@@ -3070,7 +3277,7 @@ function PageContent({
                 lineHeight: 1.8,
                 color: '#2A3340',
                 whiteSpace: 'pre-wrap'
-              }}><BiText value={L(s, 'text')} /></div>
+              }}><BiText value={L(s, 'text')} other={s.text_id} translations={{'pt-BR':s.text_pt,vi:s.text_vi}} /></div>
               </div>)} />
           </div> : none} />
       </Body></P>
@@ -3893,6 +4100,7 @@ function WorkersPanel({
     justifyContent: 'center',
     padding: 20
   }}>
+      <OverlayJapaneseButton/>
       <div role="dialog" aria-modal="true" aria-label="担当者管理" style={{
       background: '#fff',
       borderRadius: 14,
@@ -4026,6 +4234,7 @@ function RenameModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 16,
@@ -4161,6 +4370,26 @@ function MasterEditor({
   }, [hinban]);
   const ref = db.collection('outlineMaster').doc(hinban);
   const [trProg, setTrProg] = useState(null);
+  async function generateProcessTranslations() {
+    if(saving)return;
+    if(!window.Translator){
+      showBiDialog('alert','パソコンの対応するChromeまたはEdgeで翻訳を登録してください。');
+      return;
+    }
+    setSaving(true);
+    setTrProg({done:0,total:1});
+    try{
+      const nd=JSON.parse(JSON.stringify(d));
+      const failed=await fillProcessTranslations(nd,(done,total)=>setTrProg({done,total}));
+      setD(nd);
+      showBiDialog('alert',(failed?failed+'件の翻訳を入力できませんでした。':'')+'翻訳内容を確認し、「保存する」を押してください。');
+    }catch(e){
+      showBiDialog('alert','翻訳を登録できませんでした。'+e.message);
+    }finally{
+      setSaving(false);
+      setTrProg(null);
+    }
+  }
   function upd(patch) {
     setD((p) => ({
       ...p,
@@ -4489,6 +4718,10 @@ function MasterEditor({
               ? <BiText value={trProg ? `🌐 翻訳中 ${trProg.done}/${trProg.total}` : '保存中...'} />
               : <><span className="master-editor-save-short"><BiText value="保存する" /></span><span className="master-editor-save-long"><BiText value="保存する（未翻訳分を自動でID翻訳）" /></span></>}
           </button>
+          {tab==='sheet'&&hasProcessLanguages(sheetProc)&&<button type="button" disabled={saving||!!busy} onClick={generateProcessTranslations}
+            style={{minHeight:48,padding:'0 12px',borderRadius:8,background:'#eaf2ff',color:NAVY,fontWeight:700}}>
+            <BiText value="ポルトガル語・ベトナム語を入力"/>
+          </button>}
           <button onClick={async () => (await showBiDialog("confirm", '登録内容の全ての日本語を翻訳し直します。手入力した翻訳も上書きされます。よろしいですか？')) && save(true)} disabled={saving} style={{
           minHeight: 48,
           padding: '0 16px',
@@ -8021,6 +8254,7 @@ function AnomalyModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 16,
@@ -8114,6 +8348,7 @@ function OutModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 16,
@@ -8222,10 +8457,10 @@ function useReportStart(){
 }
 function ReportStartEditor({report}){
   return <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:'10px 12px',marginBottom:12,background:'#fff8e8',border:'1px solid #e9d4a6',borderRadius:9}}>
-    <label style={{fontSize:13,fontWeight:700}}>記録開始日（本運用開始日）<input type="date" value={report.draft} onChange={e=>report.setDraft(e.target.value)} style={{display:'block',width:180,marginTop:4}} /></label>
-    <button type="button" onClick={report.save} disabled={report.busy} style={{minHeight:44,padding:'8px 18px',borderRadius:8,background:'#12306B',color:'white',fontWeight:700}}>{report.busy?'保存中…':'開始日を保存'}</button>
-    <span style={{fontSize:12,color:'#67552c'}}>指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。</span>
-    {report.message&&<div style={{width:'100%',fontSize:12,color:report.message.includes('できません')?'#b3261e':'#216e3c'}}>{report.message}</div>}
+    <label style={{fontSize:13,fontWeight:700}}><BiText value="記録開始日（本運用開始日）"/><input type="date" value={report.draft} onChange={e=>report.setDraft(e.target.value)} style={{display:'block',width:180,marginTop:4}} /></label>
+    <button type="button" onClick={report.save} disabled={report.busy} style={{minHeight:44,padding:'8px 18px',borderRadius:8,background:'#12306B',color:'white',fontWeight:700}}><BiText value={report.busy?'保存中…':'開始日を保存'}/></button>
+    <span style={{fontSize:12,color:'#67552c'}}><BiText value="指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。"/></span>
+    {report.message&&<div style={{width:'100%',fontSize:12,color:report.message.includes('できません')?'#b3261e':'#216e3c'}}><BiText value={report.message}/></div>}
   </div>;
 }
 
@@ -8380,7 +8615,7 @@ function AnalyticsScreen({
               ...th,
               width: 90
             }}><BiText value={b('箱')} /></th>
-            <th style={th}>達成率</th><th style={th}>不良数</th>
+            <th style={th}>達成率</th><th style={th}><BiText value="不良数"/></th>
             <th style={{
               ...th,
               width: 100
@@ -8652,6 +8887,7 @@ function AdjustModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 16,
@@ -8840,6 +9076,7 @@ function ResultModal({
     justifyContent: 'center',
     padding: 24
   }}>
+      <OverlayJapaneseButton/>
       <div style={{
       background: '#fff',
       borderRadius: 18,
@@ -9022,12 +9259,12 @@ function WorkHistory({
     }}>
         <ReportStartEditor report={reportStart} />
         <div style={{display:'flex',alignItems:'end',gap:8,flexWrap:'wrap',padding:12,marginBottom:12,background:'#eef4fc',borderRadius:10}}>
-          <label style={{fontSize:12}}>開始日<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{display:'block',width:170}} /></label>
-          <label style={{fontSize:12}}>終了日<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{display:'block',width:170}} /></label>
-          <label style={{fontSize:12}}>品番・担当者<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="検索" style={{display:'block',width:200}} /></label>
-          <button onClick={searchHistory} disabled={historyBusy} style={{minHeight:44,padding:'8px 20px',background:NAVY,color:'#fff',borderRadius:8,fontWeight:700}}>{historyBusy?'読込中…':'過去の履歴を検索'}</button>
-          <small style={{color:'#59697e'}}>初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。</small>
-          {historyError&&<div style={{color:'#b3261e',width:'100%'}}>{historyError}</div>}
+          <label style={{fontSize:12}}><BiText value="開始日"/><input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{display:'block',width:170}} /></label>
+          <label style={{fontSize:12}}><BiText value="終了日"/><input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{display:'block',width:170}} /></label>
+          <label style={{fontSize:12}}><BiText value="品番・担当者"/><LocalizedInput value={query} onChange={e=>setQuery(e.target.value)} placeholder="検索" style={{display:'block',width:200}} /></label>
+          <button onClick={searchHistory} disabled={historyBusy} style={{minHeight:44,padding:'8px 20px',background:NAVY,color:'#fff',borderRadius:8,fontWeight:700}}><BiText value={historyBusy?'読込中…':'過去の履歴を検索'}/></button>
+          <small style={{color:'#59697e'}}><BiText value="初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。"/></small>
+          {historyError&&<div style={{color:'#b3261e',width:'100%'}}><BiText value={historyError}/></div>}
         </div>
         <div style={{
         display: 'flex',
@@ -9087,7 +9324,7 @@ function WorkHistory({
               background: NAVY
             }}>
               <th style={th}><BiText value={"\u65E5\u4ED8"} /></th><th style={th}><TH k="担当者" /></th><BiText value={all && <th style={th}><BiText value={"\u5DE5\u7A0B"} /></th>} /><th style={th}><TH k="呼称" /></th>
-              <th style={th}><BiText value={"\u958B\u59CB \u2192 \u7D42\u4E86"} /></th><th style={th}><TH k="完了箱数" /></th><th style={th}><TH k="実働" /></th><th style={th}><BiText value={"\u505C\u6B62"} /></th><th style={th}><TH k="先行" k2="遅れ" /></th><th style={th}>不良数</th><th style={th}>作業者コメント</th><th style={th}><TH k="異常" /></th><th style={{
+              <th style={th}><BiText value={"\u958B\u59CB \u2192 \u7D42\u4E86"} /></th><th style={th}><TH k="完了箱数" /></th><th style={th}><TH k="実働" /></th><th style={th}><BiText value={"\u505C\u6B62"} /></th><th style={th}><TH k="先行" k2="遅れ" /></th><th style={th}><BiText value="不良数"/></th><th style={th}><BiText value="作業者コメント"/></th><th style={th}><TH k="異常" /></th><th style={{
                 ...th,
                 width: 92,
                 textAlign: 'center'
@@ -9192,7 +9429,7 @@ function AdminPinDialog({mode,onConfirm,onCancel,busy,error}){
     if(setup&&!confirmStep){if(pin.length===4)setConfirmStep(true);return;}
     if(valid)onConfirm(pin);
   };
-  return <div className="admin-pin-backdrop" role="presentation"><div className="admin-pin-dialog" role="dialog" aria-modal="true" aria-label="管理者コード">
+  return <div className="admin-pin-backdrop" role="presentation"><OverlayJapaneseButton/><div className="admin-pin-dialog" role="dialog" aria-modal="true" aria-label="管理者コード">
     <h2>🔒 管理者{setup?'コード初期登録':'ロック解除'}</h2>
     <p>{setup?(confirmStep?'確認のため、同じ4桁をもう一度入力してください。':'全タブレット共通の数字4桁を登録します。'):'管理者コード（数字4桁）を入力してください。'}</p>
     <div className="admin-pin-dots" aria-label={`${active.length}桁入力済み`}>{[0,1,2,3].map(i=><span key={i} className={i<active.length?'filled':''}></span>)}</div>
@@ -9349,12 +9586,23 @@ function App() {
     };
   }, [user]);
   indexBi(master);
+  masterTranslations.clear();
+  for(const product of Object.values(master)){
+    for(const entry of product.displayTranslations||[]){
+      if(typeof entry?.ja==='string')masterTranslations.set(entry.ja,{...masterTranslations.get(entry.ja),...entry.translations});
+    }
+  }
+  function returnToJapanese() {
+    setLang('ja');
+    changeProcessLang('ja');
+  }
   const ctx = {
     lang,
     setLang,
+    returnToJapanese,
     ...makeT(lang)
   };
-  if (!ready) return <LangCtx.Provider value={ctx}><LoadingScreen /></LangCtx.Provider>;
+  if (!ready) return <LangCtx.Provider value={ctx}><div className="login-language"><ReturnJapaneseButton/></div><LoadingScreen /></LangCtx.Provider>;
   if (!user) return <LangCtx.Provider value={ctx}><div className="login-language"><LangUser /></div><LoginScreen /><BilingualDialog /></LangCtx.Provider>;
 
   /* QRガイド読取 → 品番解決 */
@@ -9463,10 +9711,13 @@ function App() {
   const screenContext = singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true} : ctx;
   return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
+      {(err||(view.name==='workrun'&&!orders[view.logId])||(view.name==='worksheet'&&!orders[view.orderId]))&&
+        <div className="login-language"><ReturnJapaneseButton/></div>}
       <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
       <AdminSessionLock locked={adminLocked}>
         <div className="admin-pin-backdrop" style={{position:'relative',minHeight:'100dvh',background:'#f5f6f8'}}><div className="admin-pin-dialog"><h2>🔒 管理者ロック中</h2><p><BiText value="管理者コードを入力すると、ロック前の画面から編集を再開できます。" other="Masukkan kode pengelola untuk melanjutkan pengeditan dari tampilan sebelum dikunci." /></p><div className="admin-pin-actions"><button onClick={()=>setView({name:'work',proc:view.proc})}>作業画面へ戻る</button><button className="admin-pin-primary" onClick={()=>adminGuard(()=>{})}>4桁コードで解除</button></div></div></div>
         {adminLocked&&adminPrompt}
+        {adminLocked&&adminRequest!=='ready'&&<OverlayJapaneseButton/>}
       </AdminSessionLock>
       {!adminLocked&&adminPrompt}
     </LangCtx.Provider>;
@@ -9564,6 +9815,11 @@ function BiText({ value, other, source, translations }) {
     const ja = pair?.ja || value;
     const translated = lang === 'id' ? pair?.id : lang === 'ja' ? '' : translations?.[lang];
     const main = translated || singleLanguageText(ja, lang);
+    const missing = lang!=='ja' && main===ja && HAS_JAPANESE.test(ja) && translations && lang!=='id';
+    if(missing)return <span className="bi-text" data-bi="true">
+      <small lang={lang}>{singleLanguageText('登録済みの翻訳がありません',lang)}</small>
+      <span className="bi-main" lang="ja">{ja}</span>
+    </span>;
     return <span className="bi-text" data-bi="true"><span className="bi-main" lang={main === ja ? 'ja' : lang}>{main}</span></span>;
   }
   if (!pair) return value == null ? null : value;
@@ -9668,6 +9924,7 @@ function BilingualDialog() {
     if (e.key === 'Escape') {e.preventDefault();close(false);}
     if (e.key === 'Tab') {const controls = e.currentTarget.querySelectorAll('input,button');const first = controls[0],last = controls[controls.length - 1];if (e.shiftKey && document.activeElement === first) {e.preventDefault();last.focus();} else if (!e.shiftKey && document.activeElement === last) {e.preventDefault();first.focus();}}
   }}><div className="bi-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bi-dialog-message">
+    <ReturnJapaneseButton/>
     <div id="bi-dialog-message" style={{ fontSize: 17, lineHeight: 1.6 }}><BiText value={job.message} /></div>
     {job.kind === 'prompt' && <input ref={field} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && close(true)} style={{ marginTop: 16 }} />}
     <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
