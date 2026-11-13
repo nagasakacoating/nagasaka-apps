@@ -15,6 +15,11 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <style>
+.workrun-worker-change{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:min(100%,240px);min-height:56px;padding:8px 20px;background:#174da0;color:#fff;border:2px solid #123b7b;border-radius:10px;font-size:19px;font-weight:800;line-height:1.2;touch-action:manipulation}
+.workrun-worker-change .bi-sub{color:#e3edff}
+.workrun-worker-change:focus-visible{outline:3px solid #2665bd;outline-offset:3px}
+.workrun-worker-change:disabled{background:#e4e9f0;color:#49576b;border-color:#aab7c9}
+.workrun-worker-change:disabled .bi-sub{color:inherit}
 .process-language-switch{min-height:36px;max-width:150px;border:1px solid #c7d6eb;border-radius:7px;padding:4px 7px;background:white;color:#12306b;font:inherit;font-size:12px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overscroll-behavior:none}
@@ -7620,8 +7625,8 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       <div style={{display:'flex',alignItems:'center',gap:10,padding:'5px 12px',flexWrap:'wrap'}}>
         <button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
-          style={{minHeight:44,padding:'6px 12px',background:'#eef4fc',color:NAVY,borderRadius:7,fontWeight:700}}>
-          <BiText value="担当者を変更"/>
+          className="workrun-worker-change">
+          <span aria-hidden="true">👤 ⇄</span><BiText value="担当者を変更"/>
         </button>
         <WorkerChangeHistory order={log}/>
       </div>
