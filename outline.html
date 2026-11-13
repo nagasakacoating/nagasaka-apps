@@ -1686,6 +1686,16 @@ const PROCESS_LABELS = {
   "製品の入っている箱を小さい台車に積み上げる。※最大10箱までにすること！！": ["Empilhe as caixas com as peças no carrinho pequeno. Limite a pilha a 10 caixas.", "Xếp các thùng chứa sản phẩm lên xe đẩy nhỏ. Chỉ xếp tối đa 10 thùng."],
   "製品を乗せた台車を作業場に運ぶ。※転倒注意！！": ["Leve o carrinho carregado até a área de trabalho. Cuidado para o carrinho não tombar.", "Đẩy xe chở sản phẩm đến khu vực làm việc. Cẩn thận để xe không bị lật."],
   "ボディCP": ["Corpo CP", "Thân CP"],
+  "類似品混入注意": ["Não misture peças semelhantes.", "Chú ý không để lẫn chi tiết tương tự."],
+  "製品の重なり注意": ["Evite que as peças fiquem sobrepostas.", "Chú ý không để các chi tiết chồng lên nhau."],
+  "掛け穴を矢剣の奥までしっかり入れる事": ["Encaixe bem o furo de suspensão da peça até o fundo do pino do suporte.", "Luồn chắc lỗ treo của chi tiết vào hết chiều sâu của chốt treo."],
+  "通電不良注意(茶色)": ["Atenção a falhas de contato elétrico (coloração marrom).", "Chú ý lỗi tiếp xúc điện (màu nâu)."],
+  "製品落下注意": ["Cuidado para não deixar as peças caírem.", "Chú ý không để chi tiết rơi."],
+  "製品転倒注意": ["Cuidado para não deixar as peças tombarem.", "Chú ý không để chi tiết bị đổ."],
+  "掛け向きは、おもて裏どちらでも良い": ["As peças podem ser penduradas com qualquer uma das faces voltada para a frente.", "Có thể treo chi tiết với mặt trước hoặc mặt sau hướng ra ngoài."],
+  "ラインに掛けた後で押さえを忘れない事": ["Após pendurar na linha, não se esqueça de acionar o fixador.", "Sau khi treo lên dây chuyền, đừng quên gài bộ phận giữ."],
+  "必ず手袋を使用する事": ["Use luvas obrigatoriamente.", "Bắt buộc đeo găng tay."],
+  "怪我に注意する事": ["Tenha cuidado para evitar lesões.", "Cẩn thận để tránh bị thương."],
   "翻訳中です…": ["Traduzindo…", "Đang dịch…"],
   "翻訳できなかった項目があります。": ["Alguns itens não puderam ser traduzidos.", "Không thể dịch một số mục."],
   "翻訳を再試行": ["Tentar traduzir novamente", "Thử dịch lại"],
@@ -1710,9 +1720,9 @@ function singleLanguageText(text, lang) {
   if (lang === 'id') return knownBi(text) || text;
   const column = lang === 'pt-BR' ? 0 : 1;
   const key = text.trim();
+  if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
   const registered=masterTranslations.get(key)?.[lang];
   if(registered)return text.replace(key,()=>registered);
-  if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
   const normalized=normalizeStepTranslation(key);
   const knownStep=PHOTO_STEP_LABELS.get(normalized);
   if(knownStep)return knownStep[column];
