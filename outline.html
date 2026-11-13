@@ -434,6 +434,9 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 <body>
 <div id="root"></div>
 
+<script>
+  window.loadOutlineTranslator = () => import('https://esm.sh/runonweb@0.1.0/translate');
+</script>
 <script type="text/babel">
 
 function qrStamp(value){return value&&typeof value.toMillis==='function'?value.toMillis():value&&typeof value.seconds==='number'?value.seconds*1000:typeof value==='number'?value:0;}
@@ -1872,7 +1875,6 @@ function hasMultilingualProduct(data) {
   return (data.procIds||[]).some(hasProcessLanguages) ||
     Object.entries(data.sheets||{}).some(([id,sheet])=>hasProcessLanguages(id)&&masterSheetHasData(sheet));
 }
-const OUTLINE_TRANSLATION_MODULE='https://esm.sh/runonweb@0.1.0/translate';
 function translationDeadline(task, timeoutMs) {
   let timer;
   const timeout=new Promise((_,reject)=>{
@@ -1913,7 +1915,7 @@ async function translateProductJobs(jobs, onProgress, loadModule, isActive=()=>t
   finally{translator?.dispose();}
   return failed;
 }
-const loadOutlineTranslator=()=>import(OUTLINE_TRANSLATION_MODULE);
+const loadOutlineTranslator=()=>window.loadOutlineTranslator();
 async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator) {
   if(!hasMultilingualProduct(data))return 0;
   const shared=sharedTranslationTexts(data);
