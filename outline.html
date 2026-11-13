@@ -434,9 +434,6 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 <body>
 <div id="root"></div>
 
-<script>
-  window.loadOutlineTranslator = () => import('https://esm.sh/runonweb@0.1.0/translate');
-</script>
 <script type="text/babel">
 
 function qrStamp(value){return value&&typeof value.toMillis==='function'?value.toMillis():value&&typeof value.seconds==='number'?value.seconds*1000:typeof value==='number'?value:0;}
@@ -1685,6 +1682,10 @@ const PROCESS_LABELS = {
   "指定日より前のテスト記録は削除せず、履歴・評価から除外します。空欄で解除。": ["Os registros de teste anteriores à data ficam fora do histórico e da avaliação. Deixe em branco para remover o filtro.", "Bản ghi thử nghiệm trước ngày này sẽ được loại khỏi lịch sử và đánh giá. Để trống để bỏ bộ lọc."],
   "初期表示は直近7日。過去10年まで日付を指定して検索できます（保存済みの記録のみ）。": ["A tela mostra os últimos 7 dias. Busque registros salvos de até 10 anos atrás.", "Màn hình hiển thị 7 ngày gần nhất. Có thể tìm các bản ghi đã lưu trong vòng 10 năm."],
   "ハンガーの1番下の段の、左側から製品を掛けていく。※手のひらと指で掛け穴を前方に向けながら掛ける事！！": ["Comece a pendurar as peças pelo lado esquerdo da fileira mais baixa do suporte. Use a palma da mão e os dedos para manter o furo de suspensão voltado para a frente enquanto pendura cada peça.", "Bắt đầu treo các chi tiết từ phía bên trái của hàng dưới cùng trên giá treo. Khi treo, dùng lòng bàn tay và các ngón tay để giữ lỗ treo hướng về phía trước."],
+  "製品が入っている箱を縛っている紐を取り外し、紐入れに入れる。": ["Retire os cordões que amarram as caixas com as peças e coloque-os no recipiente para cordões.", "Tháo dây buộc các thùng chứa sản phẩm và bỏ dây vào thùng đựng dây."],
+  "製品の入っている箱を小さい台車に積み上げる。※最大10箱までにすること！！": ["Empilhe as caixas com as peças no carrinho pequeno. Limite a pilha a 10 caixas.", "Xếp các thùng chứa sản phẩm lên xe đẩy nhỏ. Chỉ xếp tối đa 10 thùng."],
+  "製品を乗せた台車を作業場に運ぶ。※転倒注意！！": ["Leve o carrinho carregado até a área de trabalho. Cuidado para o carrinho não tombar.", "Đẩy xe chở sản phẩm đến khu vực làm việc. Cẩn thận để xe không bị lật."],
+  "ボディCP": ["Corpo CP", "Thân CP"],
   "翻訳中です…": ["Traduzindo…", "Đang dịch…"],
   "翻訳できなかった項目があります。": ["Alguns itens não puderam ser traduzidos.", "Không thể dịch một số mục."],
   "翻訳を再試行": ["Tentar traduzir novamente", "Thử dịch lại"],
@@ -1697,6 +1698,9 @@ const PHOTO_STEP_LABELS=new Map([
   '製品の入った箱を、2箱ずつ作業台に乗せる。',
   'ハンガーを作業場上のフックに掛ける。',
   '製品を片手に4〜5個ずつ取り出す。',
+  '製品が入っている箱を縛っている紐を取り外し、紐入れに入れる。',
+  '製品の入っている箱を小さい台車に積み上げる。※最大10箱までにすること！！',
+  '製品を乗せた台車を作業場に運ぶ。※転倒注意！！',
   'ハンガーの1番下の段の、左側から製品を掛けていく。※手のひらと指で掛け穴を前方に向けながら掛ける事！！'
 ].map(text=>[normalizeStepTranslation(text),PROCESS_LABELS[text]]));
 const masterTranslations = new Map();
@@ -1907,15 +1911,67 @@ async function translateProductJobs(jobs, onProgress, loadModule, isActive=()=>t
         apply(value);
       }catch(error){
         if(error.message==='Translation timed out')throw error;
+        console.warn('Outline translation item:',error.message);
         failed++;
       }
       onProgress({done:++done,total});
     }
-  }catch{failed+=total-done;}
+  }catch(error){
+    console.warn('Outline translation engine:',error.message);
+    failed+=total-done;
+  }
   finally{translator?.dispose();}
   return failed;
 }
-const loadOutlineTranslator=()=>window.loadOutlineTranslator();
+class OutlineTranslator {
+  constructor({to,onProgress}) {
+    this.to=to;
+    this.onProgress=onProgress;
+    this.pending=new Map();
+    this.loaded=new Map();
+    this.nextId=0;
+    this.worker=new Worker(new URL('./outline-translation-worker.js?v=1',window.location.href));
+    this.worker.onmessage=({data})=>{
+      const pending=this.pending.get(data.id);
+      if(!pending)return;
+      this.pending.delete(data.id);
+      if(data.error)pending.reject(new Error(data.error));
+      else pending.resolve(data);
+    };
+    this.worker.onerror=({message})=>{
+      this.failure=new Error(message||'Translation worker failed to start');
+      this.rejectPending(this.failure);
+    };
+  }
+  request(operation,to,text) {
+    if(this.failure)return Promise.reject(this.failure);
+    return new Promise((resolve,reject)=>{
+      const id=++this.nextId;
+      this.pending.set(id,{resolve,reject});
+      this.worker.postMessage({id,operation,to,text});
+    });
+  }
+  load(to=this.to) {
+    if(!this.loaded.has(to)){
+      this.onProgress?.({status:'loading'});
+      this.loaded.set(to,this.request('load',to));
+    }
+    return this.loaded.get(to);
+  }
+  async translate(text,{to}) {
+    await this.load(to);
+    return this.request('translate',to,text);
+  }
+  rejectPending(error) {
+    for(const {reject} of this.pending.values())reject(error);
+    this.pending.clear();
+  }
+  dispose() {
+    this.worker.terminate();
+    this.rejectPending(new Error('Translation worker closed'));
+  }
+}
+const loadOutlineTranslator=async()=>({Translator:OutlineTranslator});
 async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator) {
   if(!hasMultilingualProduct(data))return 0;
   const shared=sharedTranslationTexts(data);
