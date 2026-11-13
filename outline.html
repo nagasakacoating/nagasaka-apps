@@ -15,6 +15,7 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <style>
+.process-language-switch{min-height:36px;max-width:150px;border:1px solid #c7d6eb;border-radius:7px;padding:4px 7px;background:white;color:#12306b;font:inherit;font-size:12px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overscroll-behavior:none}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;background:#F5F6F8;color:#1A1A1A}
@@ -558,16 +559,27 @@ async function undoVerifiedKanban(orderId){
     tx.update(ref,patch);
   });
 }
-async function startQrCheckedOrder({order,hinban,procId,raw,master,payload}){
-  const ref=db.collection('workOrders').doc(order.id),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
+async function startProductOrder({order,hinban,procId,payload}){
+  const ref=db.collection('workOrders').doc(order.id);
+  const masterRef=db.collection('outlineMaster').doc(hinban);
+  const guardRef=db.collection('kanbanSettings').doc('runtime');
   return db.runTransaction(async tx=>{
-    const os=await tx.get(ref),ms=await tx.get(masterRef),guard=await tx.get(guardRef);
-    if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
-    if(!os.exists||!ms.exists)throw new Error('作業またはマスターが見つかりません。');const current=os.data(),data=ms.data();
-    if(current.hinban!==hinban||current.procId!==procId||current.status!=='pending')throw new Error('作業状態が変わりました。計画表を確認してください。');
-    if(current.qrBlocked||qrReadLocal(order.id))throw new Error('管理者の解除が必要です。');
-    const checked=verifyKanban(raw,hinban,data,{...master,[hinban]:data});if(!checked.ok)throw new Error(checked.error);
-    tx.update(ref,{...payload,qrMode:'kanban-v1',qrStartCheck:{at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex}});
+    const os=await tx.get(ref);
+    const current=os.exists&&os.data();
+    if(!current||current.hinban!==hinban||current.procId!==procId||current.status!=='pending')
+      throw new Error('作業状態が変わりました。計画表を確認してください。');
+    const localBlock=qrReadLocal(order.id);
+    if(current.qrBlocked||(localBlock&&current.qrUnlockOf!==localBlock.lockId))
+      throw new Error('管理者の解除が必要です。');
+    const ms=await tx.get(masterRef);
+    const usesQr=current.qrMode==='kanban-v1'||(ms.exists&&kanbanRules(ms.data()).length>0);
+    if(usesQr){
+      if(!ms.exists)throw new Error('作業またはマスターが見つかりません。');
+      const guard=await tx.get(guardRef);
+      if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)
+        throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
+    }
+    tx.update(ref,usesQr?{...payload,qrMode:'kanban-v1'}:payload);
   });
 }
 function QrDialog({title,onClose,busy,children}){
@@ -643,6 +655,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(continuous&&!want);if(continuous)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
   function useExternal(){cameraWanted.current=false;setExternalOnly(true);try{localStorage.setItem('outline-continuous-camera','off');}catch(e){}stop();setError('');}
   async function readFile(e){const file=e.target.files&&e.target.files[0];e.target.value='';if(!file||disabled)return;if(!continuous)stop();setError('');let decoded;try{decoded=await decodePhoto(file);const raw=decodeQrImage(decoded.image);if(!raw)throw new Error('QRが見つかりません。明るさ・距離を変えてください。');if(active.current)read(raw);}catch(err){if(active.current)setError(err.message);}finally{if(decoded)decoded.release();}}
+  const {lang,singleLanguage}=useLang();
   const cameraView=<div className={compact?'qr-preview-frame':undefined}>
     <video ref={video} className="qr-camera-video" autoPlay playsInline muted aria-label="Camera live preview" style={{display:compact||running||starting?'block':'none'}}/>
     {compact&&!running&&<div className="qr-preview-placeholder"><BiText value={externalOnly?'外付けスキャナー受付中':starting?'カメラ起動中…':'カメラ停止中'}/></div>}
@@ -655,7 +668,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   return <div className="qr-input-panel" data-continuous={continuous} data-compact={compact}>
     {compact&&cameraView}
     <div className="qr-camera-tools"><button type="button" onClick={toggleCamera} disabled={starting||(!(running)&&disabled)}><BiText value={starting?'カメラ起動中…':running?'カメラを止める':'カメラでQRを読む'}/></button>
-      <select aria-label="カメラ / Kamera" value={camera} disabled={starting||(!compact&&running)||(disabled&&!keepActive)} onChange={e=>setCamera(e.target.value)}><option value="environment">背面カメラ / Kamera belakang</option><option value="user">前面カメラ / Kamera depan</option></select>
+      <select aria-label={singleLanguage ? singleLanguageText('カメラ',lang) : 'カメラ / Kamera'} value={camera} disabled={starting||(!compact&&running)||(disabled&&!keepActive)} onChange={e=>setCamera(e.target.value)}><option value="environment">{singleLanguage ? (lang==='id'?'Kamera belakang':singleLanguageText('背面カメラ',lang)) : '背面カメラ / Kamera belakang'}</option><option value="user">{singleLanguage ? (lang==='id'?'Kamera depan':singleLanguageText('前面カメラ',lang)) : '前面カメラ / Kamera depan'}</option></select>
       {continuous&&<button type="button" className="qr-external-mode" onClick={useExternal}><BiText value={externalOnly?'外付けスキャナー受付中':'外付けスキャナーを使う'}/></button>}
       {!compact&&<button type="button" onClick={()=>input.current&&input.current.focus()} disabled={disabled}><BiText value="ハンディ・手入力"/></button>}</div>
     {!compact&&cameraView}
@@ -669,7 +682,7 @@ function KanbanVerdict({ok,kind}){
     <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
   </div>,document.body);
 }
-function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted,onClose,inline=false,suspended=false,onStateChange}){
+function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,inline=false,suspended=false,onStateChange}){
   const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
@@ -678,7 +691,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onAccepted
   useEffect(()=>{if(initial.current!==signature){setResult(null);setFlash(null);setError('マスターが変更されました。もう一度QRを読んでください。');initial.current=signature;}},[signature]);
   useEffect(()=>{if(!flash)return;const timer=setTimeout(()=>{
     setFlash(null);
-    if(flash.kind==='verify'){onAccepted&&onAccepted({...flash.checked,signature});onClose();}
+    if(flash.kind==='verify')onClose();
   },2000);return()=>clearTimeout(timer);},[flash]);
   useEffect(()=>{if(!remaining&&result&&result.ok&&mode==='count'&&!flash)setResult(null);},[remaining,flash]);
   async function persistBlock(message,code,checked){
@@ -778,8 +791,12 @@ function KanbanEditor({items,onChange,upImg,busy,hinban}){
   </>;
 }
 function KanbanPlanButton({order,master}){
-  const [open,setOpen]=useState(false);if(order.kind==='task')return null;const m=master[order.hinban]||{};
-  return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} disabled={order.status==='done'}><BiText value={order.qrBlocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
+  const [open,setOpen]=useState(false);
+  const localBlock=qrReadLocal(order.id);
+  const blocked=order.qrBlocked||(localBlock&&order.qrUnlockOf!==localBlock.lockId);
+  if(order.kind==='task'||order.status==='done'||(!blocked&&order.status!=='running'))return null;
+  const m=master[order.hinban]||{};
+  return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} ><BiText value={blocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
     {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={order.status==='running'?'count':'verify'} onClose={()=>setOpen(false)}/>}</>;
 }
 function KanbanInfo({m,hinban,allMaster}){
@@ -1340,6 +1357,163 @@ const DICT = {
   '該当なし': 'Tidak ada',
   'QRスキャナー導入後に利用できます': 'Tersedia setelah scanner QR dipasang'
 };
+const PROCESS_LANGUAGES = {ja:'日本語',id:'Bahasa Indonesia','pt-BR':'Português (Brasil)',vi:'Tiếng Việt'};
+const PROCESS_TRANSLATION_FIELDS = [['pt-BR','pt'],['vi','vi']];
+function hasProcessLanguages(id) {
+  return id === 'p1' || id === 'p2';
+}
+const PROCESS_LABELS = {
+  "不良が多かった理由、作業で気づいたことなど": ["Motivo dos defeitos, observações sobre o trabalho etc.", "Nguyên nhân có nhiều lỗi, điều nhận thấy khi làm việc, v.v."],
+  "この品番のQR照合は未設定です。": ["A conferência por QR desta peça ainda não foi configurada.", "Chưa thiết lập đối chiếu mã QR cho sản phẩm này."],
+  "同じQRが複数の品番に一致します。マスターを確認してください。": ["O mesmo QR corresponde a vários códigos de peça. Verifique o cadastro.", "Cùng một mã QR khớp với nhiều mã sản phẩm. Hãy kiểm tra danh mục."],
+  "この箱のQRはすでに完了登録されています。": ["O QR desta caixa já foi registrado.", "Mã QR của thùng này đã được ghi nhận."],
+  "1箱工数を設定してからQRを読み取ってください。": ["Configure o tempo padrão por caixa antes de ler o QR.", "Hãy đặt thời gian chuẩn mỗi thùng trước khi quét mã QR."],
+  "予定箱数に達しました": ["Meta de caixas atingida", "Đã đạt số thùng dự kiến"],
+  "保存しました": ["Salvo", "Đã lưu"],
+  "保存に失敗しました": ["Falha ao salvar", "Lưu thất bại"],
+  "言語": ["Idioma", "Ngôn ngữ"],
+  "製品揃え": ["Preparação de peças", "Chuẩn bị sản phẩm"],
+  "小物掛け": ["Pendurar peças pequenas", "Treo chi tiết nhỏ"],
+  "戻る": ["Voltar", "Quay lại"],
+  "閉じる": ["Fechar", "Đóng"],
+  "ホーム": ["Início", "Trang chủ"],
+  "工程": ["Processo", "Công đoạn"],
+  "工程一覧": ["Lista de processos", "Danh sách công đoạn"],
+  "工程一覧へ": ["Lista de processos", "Về danh sách công đoạn"],
+  "計画表": ["Plano de trabalho", "Kế hoạch làm việc"],
+  "本日の計画": ["Plano de hoje", "Kế hoạch hôm nay"],
+  "作業指示": ["Instruções de trabalho", "Chỉ thị công việc"],
+  "マスター": ["Cadastro", "Danh mục"],
+  "マスター管理": ["Gerenciar cadastro", "Quản lý danh mục"],
+  "スケジュール編集": ["Editar programação", "Chỉnh sửa lịch"],
+  "製品検索": ["Buscar peças", "Tìm sản phẩm"],
+  "製品情報を見る": ["Ver informações da peça", "Xem thông tin sản phẩm"],
+  "品番": ["Código da peça", "Mã sản phẩm"],
+  "品名": ["Nome da peça", "Tên sản phẩm"],
+  "呼称": ["Nome de referência", "Tên gọi"],
+  "数量": ["Quantidade", "Số lượng"],
+  "順番": ["Ordem", "Thứ tự"],
+  "状態": ["Status", "Trạng thái"],
+  "予定": ["Previsto", "Dự kiến"],
+  "実績": ["Realizado", "Thực tế"],
+  "差": ["Diferença", "Chênh lệch"],
+  "予定時間": ["Tempo previsto", "Thời gian dự kiến"],
+  "開始予定": ["Início previsto", "Giờ bắt đầu dự kiến"],
+  "終了予定": ["Término previsto", "Giờ kết thúc dự kiến"],
+  "終業見込み": ["Previsão de fim do turno", "Dự kiến hết ca"],
+  "始業時刻": ["Início do turno", "Giờ vào ca"],
+  "現在時刻": ["Hora atual", "Giờ hiện tại"],
+  "所要時間": ["Duração", "Thời lượng"],
+  "経過": ["Tempo decorrido", "Thời gian đã qua"],
+  "実働": ["Tempo efetivo", "Thời gian làm thực tế"],
+  "標準": ["Padrão", "Tiêu chuẩn"],
+  "進捗": ["Progresso", "Tiến độ"],
+  "先行": ["Adiantado", "Sớm tiến độ"],
+  "遅れ": ["Atrasado", "Chậm tiến độ"],
+  "目標箱数": ["Meta de caixas", "Số thùng mục tiêu"],
+  "完了箱数": ["Caixas concluídas", "Số thùng đã xong"],
+  "収容数": ["Capacidade", "Sức chứa"],
+  "1箱工数": ["Tempo padrão por caixa", "Thời gian chuẩn mỗi thùng"],
+  "1箱": ["1 caixa", "1 thùng"],
+  "箱": ["caixa(s)", "thùng"],
+  "個": ["unidade(s)", "cái"],
+  "分": ["min", "phút"],
+  "担当者": ["Operador", "Người phụ trách"],
+  "担当者なし": ["Sem operador", "Chưa có người phụ trách"],
+  "担当者を選択": ["Selecionar operador", "Chọn người phụ trách"],
+  "今の担当者": ["Operador atual", "Người phụ trách hiện tại"],
+  "担当者QR": ["QR do operador", "Mã QR người phụ trách"],
+  "未着手": ["Não iniciado", "Chưa bắt đầu"],
+  "作業中": ["Em andamento", "Đang làm"],
+  "作業開始": ["Iniciar trabalho", "Bắt đầu làm việc"],
+  "作業に戻る": ["Voltar ao trabalho", "Quay lại công việc"],
+  "作業終了": ["Encerrar trabalho", "Kết thúc công việc"],
+  "作業完了": ["Trabalho concluído", "Đã hoàn thành công việc"],
+  "次の作業": ["Próximo trabalho", "Công việc tiếp theo"],
+  "次の作業へ": ["Ir ao próximo trabalho", "Sang công việc tiếp theo"],
+  "完了": ["Concluído", "Hoàn thành"],
+  "1箱完了": ["Concluir 1 caixa", "Hoàn thành 1 thùng"],
+  "1つ戻す": ["Desfazer 1 caixa", "Hoàn tác 1 thùng"],
+  "休憩": ["Pausa", "Nghỉ giải lao"],
+  "ライン応援": ["Apoio à linha", "Hỗ trợ dây chuyền"],
+  "一時停止": ["Pausar", "Tạm dừng"],
+  "一時停止中": ["Em pausa", "Đang tạm dừng"],
+  "再開": ["Retomar", "Tiếp tục"],
+  "異常": ["Anormalidade", "Bất thường"],
+  "コメント": ["Comentário", "Ghi chú"],
+  "作業者コメント（任意）": ["Comentário do operador (opcional)", "Ghi chú của người thao tác (không bắt buộc)"],
+  "不良数（個）": ["Quantidade de peças com defeito", "Số sản phẩm lỗi (cái)"],
+  "不良数・作業者コメント（異常報告とは別）": ["Peças com defeito e comentário do operador (separado do relato de anormalidade)", "Số sản phẩm lỗi và ghi chú của người thao tác (riêng với báo cáo bất thường)"],
+  "記録を保存": ["Salvar registro", "Lưu bản ghi"],
+  "作業終了時にも一緒に保存されます。": ["Também será salvo ao encerrar o trabalho.", "Thông tin cũng được lưu khi kết thúc công việc."],
+  "✓ 入力完了（キーボードを閉じる）": ["✓ Concluir digitação (fechar teclado)", "✓ Xong (đóng bàn phím)"],
+  "要領書": ["Instruções de trabalho", "Hướng dẫn thao tác"],
+  "作業手順を確認してください": ["Confira as etapas de trabalho", "Hãy kiểm tra các bước thao tác"],
+  "手順を見る": ["Ver etapas", "Xem các bước"],
+  "確認しました": ["Conferi as instruções", "Đã kiểm tra"],
+  "注意事項": ["Cuidados", "Lưu ý"],
+  "要領書が未登録です": ["Instruções de trabalho não cadastradas", "Chưa đăng ký hướng dẫn thao tác"],
+  "未登録": ["Não cadastrado", "Chưa đăng ký"],
+  "全画面": ["Tela cheia", "Toàn màn hình"],
+  "スキップ": ["Pular", "Bỏ qua"],
+  "履歴": ["Histórico", "Lịch sử"],
+  "キャンセル": ["Cancelar", "Hủy"],
+  "OK": ["OK", "OK"],
+  "かんばんQR照合": ["Conferência do QR do kanban", "Đối chiếu mã QR kanban"],
+  "QR照合して1箱完了": ["Conferir o QR para concluir 1 caixa", "Đối chiếu mã QR để hoàn thành 1 thùng"],
+  "管理者解除待ち": ["Aguardando desbloqueio do supervisor", "Đang chờ quản lý mở khóa"],
+  "管理者解除待ち・作業停止": ["Trabalho bloqueado. Aguarde o supervisor.", "Đã khóa công việc. Hãy chờ quản lý mở khóa."],
+  "作業者は解除できません。管理者を呼んでください。": ["Somente o supervisor pode desbloquear. Chame o supervisor.", "Chỉ quản lý mới có thể mở khóa. Hãy gọi quản lý."],
+  "管理者の解除が必要です。": ["O supervisor precisa desbloquear o trabalho.", "Cần quản lý mở khóa."],
+  "管理者の解除用QRを読む": ["Ler o QR de desbloqueio do supervisor", "Quét mã QR mở khóa của quản lý"],
+  "管理者解除QRの読取": ["Leitura do QR de desbloqueio", "Quét mã QR mở khóa"],
+  "管理者の解除用QRを確認してください。": ["Confira o QR de desbloqueio do supervisor.", "Hãy kiểm tra mã QR mở khóa của quản lý."],
+  "解除用QRでは箱数は増えません。解除後にかんばんQRを再照合します。": ["O QR de desbloqueio não conta caixas. Após desbloquear, confira o QR do kanban novamente.", "Mã QR mở khóa không làm tăng số thùng. Sau khi mở khóa, hãy đối chiếu lại mã QR kanban."],
+  "解除完了": ["Desbloqueado", "Đã mở khóa"],
+  "解除不可": ["Não foi possível desbloquear", "Không thể mở khóa"],
+  "一致": ["Corresponde", "Khớp"],
+  "不一致": ["Não corresponde", "Không khớp"],
+  "一致・1箱完了登録済み": ["QR correto. 1 caixa registrada.", "Mã QR khớp. Đã ghi nhận 1 thùng."],
+  "不一致：作業を止めて確認": ["QR incorreto. Pare e confira.", "Mã QR không khớp. Hãy dừng và kiểm tra."],
+  "品番が一致しません。作業を止めて確認してください。": ["O código da peça não corresponde. Pare e confira.", "Mã sản phẩm không khớp. Hãy dừng và kiểm tra."],
+  "作業を止めて管理者を呼んでください。": ["Pare o trabalho e chame o supervisor.", "Hãy dừng công việc và gọi quản lý."],
+  "選択中の品番と一致しました。": ["Corresponde ao código da peça selecionada.", "Khớp với mã sản phẩm đã chọn."],
+  "かんばんQRをもう一度照合してください。": ["Confira novamente o QR do kanban.", "Hãy đối chiếu lại mã QR kanban."],
+  "カメラ映像・QR自動照合": ["Câmera e conferência automática de QR", "Camera và đối chiếu mã QR tự động"],
+  "外付けスキャナー受付中": ["Aguardando leitura pelo scanner externo", "Đang chờ máy quét ngoài"],
+  "外付けスキャナーを使う": ["Usar scanner externo", "Dùng máy quét ngoài"],
+  "カメラでQRを読む": ["Ler QR pela câmera", "Quét mã QR bằng camera"],
+  "カメラを止める": ["Desligar câmera", "Tắt camera"],
+  "カメラ起動中…": ["Iniciando câmera…", "Đang bật camera…"],
+  "カメラ停止中": ["Câmera desligada", "Camera đã tắt"],
+  "カメラ": ["Câmera", "Camera"],
+  "背面カメラ": ["Câmera traseira", "Camera sau"],
+  "前面カメラ": ["Câmera frontal", "Camera trước"],
+  "QRの読取内容": ["Conteúdo do QR", "Nội dung mã QR"],
+  "撮影したQR画像から読む": ["Ler QR de uma foto", "Đọc mã QR từ ảnh"],
+  "この内容で照合": ["Conferir este conteúdo", "Đối chiếu nội dung này"],
+  "ハンディ・手入力": ["Scanner portátil ou digitação", "Máy quét cầm tay hoặc nhập tay"],
+  "画像・手入力で照合": ["Conferir por imagem ou digitação", "Đối chiếu bằng ảnh hoặc nhập tay"],
+  "1箱完了時にQRをかざしてください。自動で照合・登録します。": ["Ao concluir uma caixa, mostre o QR à câmera. A conferência e o registro são automáticos.", "Khi hoàn thành một thùng, đưa mã QR vào camera. Hệ thống sẽ tự đối chiếu và ghi nhận."],
+  "QRをいったん画面から外してください。次の箱を待機します。": ["Retire o QR da frente da câmera. Aguardando a próxima caixa.", "Hãy đưa mã QR ra khỏi khung hình. Đang chờ thùng tiếp theo."],
+  "二度読み防止・照合は継続中": ["Prevenção de leitura duplicada. A conferência continua.", "Chống quét trùng. Hệ thống vẫn đối chiếu."],
+  "待ち時間中も品違いは不一致になります。正しいQRの箱数登録は待ち時間終了後です。": ["Um QR incorreto é rejeitado mesmo durante a espera. Caixas com QR correto são registradas após a espera.", "Mã QR sai vẫn bị báo không khớp trong thời gian chờ. Mã đúng chỉ được tính sau khi hết thời gian chờ."],
+  "設定を確認中…": ["Verificando configurações…", "Đang kiểm tra cài đặt…"],
+  "管理者解除の初期設定が必要です。管理者に確認してください。": ["É preciso configurar o desbloqueio. Consulte o supervisor.", "Cần thiết lập chức năng mở khóa. Hãy báo quản lý."],
+  "作業状態が変わりました。計画表を確認してください。": ["O status do trabalho mudou. Confira o plano.", "Trạng thái công việc đã thay đổi. Hãy kiểm tra kế hoạch."],
+};
+const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
+function singleLanguageText(text, lang) {
+  if (typeof text !== 'string' || lang === 'ja') return text;
+  if (lang === 'id') return knownBi(text) || text;
+  const column = lang === 'pt-BR' ? 0 : 1;
+  const key = text.trim();
+  if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,PROCESS_LABELS[key][column]);
+  // Translate composite labels only when every Japanese fragment is known.
+  let result = text;
+  for (const label of PROCESS_LABEL_PARTS) result = result.split(label).join(PROCESS_LABELS[label][column]);
+  return HAS_JAPANESE.test(result) ? text : result;
+}
 const LangCtx = createContext({
   lang: 'ja'
 });
@@ -1662,7 +1836,7 @@ function NumBadge({
 }
 /* 注意事項ボックス */
 function WarnBox({
-  items
+  items, translations
 }) {
   const {
     b
@@ -1692,13 +1866,13 @@ function WarnBox({
         fontSize: 13,
         color: '#5C4A14',
         lineHeight: 1.75
-      }}>・<BiText value={x} /></div>)} />
+      }}>・<BiText value={x} other={translations?.notes_id?.[i]} translations={{'pt-BR':translations?.notes_pt?.[i],vi:translations?.notes_vi?.[i]}} /></div>)} />
       </div>
     </div>;
 }
 /* 幅に応じて段組みを切り替える共通ナビゲーション */
 function FullscreenButton() {
-  const { lang } = useLang();
+  const { lang, singleLanguage } = useLang();
   const [active, setActive] = useState(() => Boolean(document.fullscreenElement));
 
   useEffect(() => {
@@ -1712,7 +1886,7 @@ function FullscreenButton() {
     && window.matchMedia('(pointer: coarse)').matches;
   if (!active && !canEnter) return null;
 
-  const label = lang === 'id' ? 'Layar penuh' : '全画面';
+  const label = singleLanguage ? singleLanguageText('全画面',lang) : lang === 'id' ? 'Layar penuh' : '全画面';
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement) {
@@ -1739,13 +1913,16 @@ function FullscreenButton() {
   React.createElement('span', { className: 'fullscreen-toggle-label' }, label));
 }
 function LangUser({ user, showFullscreen = false }) {
-  const { lang, setLang } = useLang();
+  const { lang, setLang, singleLanguage } = useLang();
   return <div className="lang-user">
-    <div className="language-switch" role="group" aria-label="言語 / Bahasa">
+    {singleLanguage ? <select className="process-language-switch" aria-label={singleLanguageText('言語', lang)}
+      value={lang} onChange={e=>{setLang(e.target.value);e.currentTarget.blur();}}>
+      {Object.entries(PROCESS_LANGUAGES).map(([code,label])=><option key={code} value={code} lang={code}>{label}</option>)}
+    </select> : <div className="language-switch" role="group" aria-label="言語 / Bahasa">
       <button onClick={() => setLang('ja')} aria-pressed={lang === 'ja'}>JP</button>
       <span aria-hidden="true">⇄</span>
       <button onClick={() => setLang('id')} aria-pressed={lang === 'id'}>ID</button>
-    </div>
+    </div>}
     {showFullscreen && <FullscreenButton />}
     {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
   </div>;
@@ -5112,12 +5289,23 @@ function EditorBody({
             resize: 'vertical',
             marginTop: 6
           }} placeholder="Indonesian（任意）" source="id" counterpart={it.text || ""} paired />
+            {hasProcessLanguages(sheetProc) && PROCESS_TRANSLATION_FIELDS.map(([code,key])=><label key={code} style={{display:'block',marginTop:6}}>
+              <span lang={code}>{PROCESS_LANGUAGES[code]}</span>
+              <AutoTextarea lang={code} value={it['text_'+key] || ''} onChange={e=>set({...it,['text_'+key]:e.target.value})}
+                style={{width:'100%',height:50,resize:'vertical'}} />
+            </label>)}
           </div>
         </Row>} />
       <FLbl><BiText value={"\u6CE8\u610F\u4E8B\u9805\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
       <LinesArea value={sh.notes} onChange={(v) => setSh({
         notes: v
       })} />
+      {hasProcessLanguages(sheetProc) && PROCESS_TRANSLATION_FIELDS.map(([code,key])=><label key={code} style={{display:'block',marginTop:6}}>
+        <span lang={code}>{PROCESS_LANGUAGES[code]} · {singleLanguageText('注意事項',code)}</span>
+        <AutoTextarea lang={code} value={(sh['notes_'+key]||[]).join('\n')}
+          onChange={e=>setSh({['notes_'+key]:e.target.value.split('\n')})}
+          style={{width:'100%',height:70,resize:'vertical'}} />
+      </label>)}
     </>;
   }
   return null;
@@ -6844,9 +7032,7 @@ function SheetSteps({
   lang,
   compact
 }) {
-  const {
-    t
-  } = useLang();
+  const {t, singleLanguage} = useLang();
   const steps = sheet && sheet.steps || [];
   if (!steps.length) return <div style={{
     padding: '30px 16px',
@@ -6882,7 +7068,7 @@ function SheetSteps({
         lineHeight: 1.8,
         color: '#2A3340',
         whiteSpace: 'pre-wrap'
-      }}><BiText value={dv(s, 'text', lang)} /></div>
+      }}><BiText value={dv(s, 'text', lang)} other={singleLanguage ? s.text_id : undefined} translations={{'pt-BR':s.text_pt,vi:s.text_vi}} /></div>
         </div>)} />
     </div>;
 }
@@ -6911,7 +7097,8 @@ function WorkSheetScreen({
   const tgt = Number(order.targetBoxes) || 0;
   const [ack, setAck] = useState(false);
   const [starting, setStarting] = useState(false);
-const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const qrSignature=kanbanSignature(m),needsQr=kanbanRules(m).length>0||order.qrMode==='kanban-v1'||order.qrBlocked;const qrReady=!order.qrBlocked&&!qrReadLocal(order.id)&&(!needsQr||!!(qrAck&&qrAck.orderId===order.id&&qrAck.hinban===hinban&&qrAck.signature===qrSignature));
+  const localBlock = qrReadLocal(order.id);
+  const qrReady = !order.qrBlocked && (!localBlock || order.qrUnlockOf === localBlock.lockId);
   const useWorker = worker || (order.assignedWorkerId ? {
     id: order.assignedWorkerId,
     name: order.assignedWorkerName
@@ -6919,9 +7106,9 @@ const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const q
   async function start(){
     if(starting||!ack||!qrReady)return;setStarting(true);
     try{const payload={status:'running',startAt:Date.now(),kosu,capacity:cap,workerId:useWorker?useWorker.id:null,workerName:useWorker?useWorker.name:''};
-      if(needsQr)await startQrCheckedOrder({order,hinban,procId:proc.id,raw:qrAck.raw,master,payload});else await db.collection('workOrders').doc(order.id).update(payload);
+      await startProductOrder({order,hinban,procId:proc.id,payload});
       onStart(order.id);
-    }catch(e){showBiDialog('alert',e.message);setQrAck(null);setStarting(false);}
+    }catch(e){showBiDialog('alert',e.message);setStarting(false);}
   }
   return <div className="app-screen worksheet-screen" style={{
     height: '100vh',
@@ -6977,7 +7164,7 @@ const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const q
           marginBottom: 10
         }}>📋 <BiText value={b('作業手順を確認してください')} /></div>
           <SheetSteps sheet={sheet} lang={lang} />
-          <WarnBox items={dva(sheet, 'notes', lang)} />
+          <WarnBox items={dva(sheet, 'notes', lang)} translations={hasProcessLanguages(proc.id) ? sheet : undefined} />
         </div>
         <div style={{
         flex: '0 0 360px',
@@ -7084,7 +7271,7 @@ const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const q
           padding: '8px 10px',
           borderRadius: 8
         }}><BiText value={"\u26A0 1\u7BB1\u5DE5\u6570\u304C\u672A\u767B\u9332\u306E\u305F\u3081\u5148\u884C\u30FB\u9045\u308C\u306F\u8868\u793A\u3055\u308C\u307E\u305B\u3093\uFF08\u30DE\u30B9\u30BF\u30FC\u7BA1\u7406 \u2192 \u8981\u9818\u66F8\u30FB\u5DE5\u6570\uFF09"} /></div>} />
-<div className="qr-start-gate"><BiText value={needsQr?(qrReady?'かんばんQR照合済み':'開始前にかんばんQRを照合してください。'):'この品番のQR照合は未設定です。'}/><button type="button" className="kanban-plan-check" onClick={()=>setQrOpen(true)} disabled={starting}><BiText value="かんばんQR照合"/></button></div>
+          {!qrReady && <KanbanPlanButton order={order} master={master} />}
           <label style={{
           display: 'flex',
           alignItems: 'center',
@@ -7118,7 +7305,6 @@ const [qrOpen,setQrOpen]=useState(false),[qrAck,setQrAck]=useState(null);const q
           </button>
         </div>
       </div>
-      {qrOpen&&<KanbanCheckModal key={order.id+hinban} hinban={hinban} m={m} master={master} order={order} onAccepted={check=>setQrAck({...check,orderId:order.id,signature:qrSignature})} onClose={()=>setQrOpen(false)}/>}
 <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
     </div>;
 }
@@ -7497,7 +7683,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             <div style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(0,2fr)',gap:10,alignItems:'start'}}>
               <label style={{fontSize:13,fontWeight:700}}><BiText value="不良数（個）" /><input type="number" inputMode="numeric" min="0" step="1" value={defectDraft} onChange={e=>setDefectDraft(e.target.value)} style={{marginTop:5,fontSize:19}} /></label>
               <div style={{display:'grid',gap:6,minWidth:0}}>
-                <label style={{fontSize:13,fontWeight:700}}><BiText value="作業者コメント（任意）" /><textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder={lang === 'id' ? DICT['不良が多かった理由、作業で気づいたことなど'] : '不良が多かった理由、作業で気づいたことなど'} style={{marginTop:5,fontSize:14}} /></label>
+                <label style={{fontSize:13,fontWeight:700}}><BiText value="作業者コメント（任意）" /><textarea value={workerCommentDraft} onChange={e=>setWorkerCommentDraft(e.target.value)} rows={2} maxLength={2000} placeholder={singleLanguageText('不良が多かった理由、作業で気づいたことなど',lang)} style={{marginTop:5,fontSize:14}} /></label>
                 <button type="button" onClick={e=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();e.currentTarget.blur();}} style={{justifySelf:'end',padding:'10px 20px',background:'#e1edff',color:'#153c80',border:'1px solid #9bb8e8',borderRadius:9,fontSize:15,fontWeight:800,touchAction:'manipulation'}}><BiText value="✓ 入力完了（キーボードを閉じる）" /></button>
               </div>
             </div>
@@ -7567,7 +7753,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             marginBottom: 8
           }}>📋 <BiText value={b('要領書')} /></div>
             <SheetSteps sheet={sheet} lang={lang} compact />
-            <WarnBox items={dva(sheet, 'notes', lang)} />
+            <WarnBox items={dva(sheet, 'notes', lang)} translations={hasProcessLanguages(proc.id) ? sheet : undefined} />
           </>} />
         </QrDialog>}
 <FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
@@ -8801,6 +8987,13 @@ function App() {
       localStorage.setItem('outline-language', lang);
     } catch (e) {}
   }, [lang]);
+  const [processLang, setProcessLang] = useState(() => {
+    try {return localStorage.getItem('outline-process-language');} catch (e) {return null;}
+  });
+  function changeProcessLang(next) {
+    setProcessLang(next);
+    try {localStorage.setItem('outline-process-language', next);} catch (e) {}
+  }
   const [user, setUser] = useState(undefined);
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState(null);
@@ -9040,7 +9233,10 @@ function App() {
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
       {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
   </>;
-  return <LangCtx.Provider value={ctx}>
+  const singleLanguage = hasProcessLanguages(view.proc?.id) && !['master','planner','analytics'].includes(view.name);
+  const screenLang = singleLanguage && Object.hasOwn(PROCESS_LANGUAGES, processLang) ? processLang : lang;
+  const screenContext = singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true} : ctx;
+  return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
       <BiText value={QR_ENABLED && scanHome && <QRScannerModal expectedValue="" label="ガイドQRを読み取ってください" onSuccess={resolveScan} onClose={() => setScanHome(false)} />} />
       <AdminSessionLock locked={adminLocked}>
@@ -9130,15 +9326,21 @@ function requestBi(text) {
   const p = new Promise((resolve) => biQueue.push({ text, resolve }));biPending.set(text, p);pumpBi();return p;
 }
 function useBi(value, other, source) {
-  const { lang = 'ja' } = useLang();
+  const { lang = 'ja', singleLanguage } = useLang();
   React.useSyncExternalStore(subscribeBi, () => biVersion, () => 0);
   const pair = pairBi(value, other, source);
-  useEffect(() => {if (!pair || !pair.ja || pair.id) return;const timer = setTimeout(() => requestBi(pair.ja), 450);return () => clearTimeout(timer);}, [pair && pair.ja, pair && pair.id]);
-  return { lang, pair };
+  useEffect(() => {if ((singleLanguage && lang !== 'id') || !pair || !pair.ja || pair.id) return;const timer = setTimeout(() => requestBi(pair.ja), 450);return () => clearTimeout(timer);}, [pair && pair.ja, pair && pair.id, singleLanguage, lang]);
+  return { lang, pair, singleLanguage };
 }
-function BiText({ value, other, source }) {
-  const { lang, pair } = useBi(value, other, source);
+function BiText({ value, other, source, translations }) {
+  const { lang, pair, singleLanguage } = useBi(value, other, source);
   if (Array.isArray(value)) return value.map((v, i) => React.isValidElement(v) ? v : <BiText key={i} value={v} />);
+  if (singleLanguage && typeof value === 'string') {
+    const ja = pair?.ja || value;
+    const translated = lang === 'id' ? pair?.id : lang === 'ja' ? '' : translations?.[lang];
+    const main = translated || singleLanguageText(ja, lang);
+    return <span className="bi-text" data-bi="true"><span className="bi-main" lang={main === ja ? 'ja' : lang}>{main}</span></span>;
+  }
   if (!pair) return value == null ? null : value;
   const waiting = biFailed.has(pair.ja) ? 'Terjemahan belum tersedia. Periksa koneksi.' : 'Menyiapkan terjemahan…';
   const main = lang === 'id' ? pair.id || waiting : pair.ja || '日本語訳がありません';
@@ -9148,8 +9350,9 @@ function BiText({ value, other, source }) {
 function useBiField(props) {
   const { value, counterpart, source = 'ja', translateValue = false } = props;
   const text = typeof value === 'string' ? value : '';
-  const { lang, pair } = useBi(translateValue ? text : '', counterpart, source);
+  const { lang, pair, singleLanguage } = useBi(translateValue ? text : '', counterpart, source);
   const placeholder = useBi(props.placeholder || '');
+  if (singleLanguage) return {lang, text, placeholder: lang==='id' ? placeholder.pair?.id || props.placeholder : singleLanguageText(props.placeholder, lang)};
   const translated = pair && (source === 'id' ? pair.ja : pair.id);
   const secondary = translated && lang === 'id' !== (source === 'id');
   return { lang, text, translated, secondary, placeholder: placeholder.pair ? lang === 'id' ? placeholder.pair.id || placeholder.pair.ja : placeholder.pair.ja : props.placeholder, placeholderSub: placeholder.pair ? lang === 'id' ? placeholder.pair.ja : placeholder.pair.id : '' };
@@ -9181,7 +9384,8 @@ function LocalizedArea(props) {
   </div>;
 }
 function LocalizedOption({ children, ...props }) {
-  const { lang, pair } = useBi(typeof children === 'string' ? children : '');
+  const { lang, pair, singleLanguage } = useBi(typeof children === 'string' ? children : '');
+  if(singleLanguage) return <option {...props}>{lang==='id' ? pair?.id || children : singleLanguageText(pair?.ja || children, lang)}</option>;
   return <option {...props}>{pair && pair.id ? lang === 'id' ? pair.id + ' / ' + pair.ja : pair.ja + ' / ' + pair.id : children}</option>;
 }
 /* 選択肢も両言語の文字サイズを分ける。保存する option.value は元のまま。 */
