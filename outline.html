@@ -1472,6 +1472,7 @@ const PROCESS_LABELS = {
   "要領書が未登録です": ["Instruções de trabalho não cadastradas", "Chưa đăng ký hướng dẫn thao tác"],
   "未登録": ["Não cadastrado", "Chưa đăng ký"],
   "全画面": ["Tela cheia", "Toàn màn hình"],
+  "全画面を解除": ["Sair da tela cheia", "Thoát toàn màn hình"],
   "スキップ": ["Pular", "Bỏ qua"],
   "履歴": ["Histórico", "Lịch sử"],
   "キャンセル": ["Cancelar", "Hủy"],
@@ -1903,12 +1904,13 @@ function FullscreenButton() {
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
 
-  const canEnter = document.fullscreenEnabled
-    && window.matchMedia('(display-mode: browser)').matches
-    && window.matchMedia('(pointer: coarse)').matches;
+  const canEnter = document.fullscreenEnabled &&
+    typeof document.documentElement.requestFullscreen === 'function';
   if (!active && !canEnter) return null;
 
-  const label = singleLanguage ? singleLanguageText('全画面',lang) : lang === 'id' ? 'Layar penuh' : '全画面';
+  const action = active ? '全画面を解除' : '全画面';
+  const label = singleLanguage ? singleLanguageText(action, lang) :
+    lang === 'id' ? (active ? 'Keluar dari layar penuh' : 'Layar penuh') : action;
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement) {
@@ -1931,7 +1933,7 @@ function FullscreenButton() {
     title: label,
     onClick: toggleFullscreen
   },
-  React.createElement('span', { 'aria-hidden': true }, '⛶'),
+  React.createElement('span', { 'aria-hidden': true }, active ? '↙' : '⛶'),
   React.createElement('span', { className: 'fullscreen-toggle-label' }, label));
 }
 function LangUser({ user, showFullscreen = false }) {
@@ -7614,7 +7616,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} left={<div style={{
+      <TopBar title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} onBack={onExit} left={<div style={{
       color: '#fff',
       fontSize: 14,
       fontWeight: 600,
