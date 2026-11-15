@@ -385,6 +385,8 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 /* Confirm master search without clearing the query or leaving the keyboard open. */
 .master-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;min-width:0}
 .master-search-confirm{min-width:76px;min-height:46px;padding:8px 12px;border-radius:8px;background:#12306B;color:white;font-size:16px;font-weight:700}
+.master-process-filter{grid-column:1/-1;display:flex;align-items:center;gap:8px;color:#12306b;font-size:13px;font-weight:700}
+.master-process-filter>select{flex:1;min-width:0;min-height:44px;padding:6px 8px;border:1px solid #c7cdd6;border-radius:8px;background:#fff;color:#12306b;font:inherit}
 @media(min-width:901px){.master-admin-toolbar{grid-template-columns:minmax(180px,1fr) auto minmax(280px,360px) auto!important;max-width:none!important}}
 @media(max-width:900px){.master-search-form{grid-column:1/-1}}
 
@@ -4052,6 +4054,7 @@ function MasterAdmin({
   onBack
 }) {
   const {
+    lang,
     t,
     b
   } = useLang();
@@ -4059,6 +4062,7 @@ function MasterAdmin({
   const [showWorkers, setShowWorkers] = useState(false);
   const [newH, setNewH] = useState('');
   const [q, setQ] = useState('');
+  const [processFilter,setProcessFilter]=useState('');
   const searchInput = useRef(null), searchComposing = useRef(false);
   function confirmMasterSearch(e) {
     e.preventDefault();
@@ -4085,7 +4089,10 @@ function MasterAdmin({
       el.style.overflow = overflow;
     });
   }, [modalOpen]);
-  const list = Object.keys(master).sort().filter((h) => matchHinban(master, h, q.trim().toLowerCase()));
+  const query=q.trim().toLowerCase();
+  const list=Object.keys(master).sort().filter(h=>
+    (!processFilter||hasProc(master[h],processFilter))&&matchHinban(master,h,query)
+  );
   async function add() {
     const h = newH.trim();
     if (!h) return;
@@ -4151,6 +4158,14 @@ function MasterAdmin({
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) confirmMasterSearch(e);
               }} style={{width:'100%',minWidth:0}} />
             <button type="submit" className="master-search-confirm"><BiText value="確定" other="Selesai" source="ja" /></button>
+            <label className="master-process-filter">
+              <BiText value="工程で絞り込み" other="Filter berdasarkan proses" />
+              <select aria-label={lang==='id'?'Filter berdasarkan proses':'工程で絞り込み'}
+                value={processFilter} onChange={e=>setProcessFilter(e.target.value)}>
+                <option value="">{lang==='id'?'Semua proses':'全工程'}</option>
+                {PROCESSES.map(proc=><option key={proc.id} value={proc.id}>{lang==='id'?proc.id_:proc.ja}</option>)}
+              </select>
+            </label>
           </form>
           <button onClick={() => setShowWorkers(true)} style={{
             minHeight: 46,
@@ -4169,7 +4184,8 @@ function MasterAdmin({
           textAlign: 'center',
           color: '#9AA3AF',
           fontSize: 14
-        }}><BiText value={"\u547C\u79F0\u304C\u767B\u9332\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u3002"} /></div>} />
+        }}><BiText value={query||processFilter?'検索条件に一致する製品がありません。':'呼称が登録されていません。'}
+          other={query||processFilter?'Tidak ada produk yang cocok dengan filter.':undefined} /></div>} />
         <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
