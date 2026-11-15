@@ -1409,6 +1409,26 @@ function hasProcessLanguages(id) {
   return id === 'p1' || id === 'p2';
 }
 const PROCESS_LABELS = {
+  "不明": ["Desconhecido","Không rõ"],
+  "休憩1": ["Pausa 1","Nghỉ giải lao 1"],
+  "休憩2": ["Pausa 2","Nghỉ giải lao 2"],
+  "昼休憩": ["Intervalo para almoço","Nghỉ trưa"],
+  "ロケ番号": ["Código do local de armazenamento","Mã vị trí lưu trữ"],
+  "（最大4種類）": ["(até 4 tipos)","(tối đa 4 loại)"],
+  "製品に付いている識別マークの位置（全体）": ["Localização da marca de identificação na peça (vista geral)","Vị trí dấu nhận dạng trên sản phẩm (ảnh toàn cảnh)"],
+  "識別マークの拡大写真": ["Foto ampliada da marca de identificação","Ảnh phóng to dấu nhận dạng"],
+  "この工程の製品がありません": ["Nenhuma peça cadastrada para este processo","Chưa có sản phẩm cho công đoạn này"],
+  "マスター管理 →「工程名」でこの工程を登録してください。": ["Vincule a peça a este processo no campo Processo do cadastro.","Hãy gán sản phẩm vào công đoạn này trong mục Công đoạn của danh mục."],
+  "製品が未登録です": ["Peça não cadastrada","Sản phẩm chưa được đăng ký"],
+  "上記以外の工程": ["Demais processos","Các công đoạn khác"],
+  "製品QR": ["QR da peça","Mã QR sản phẩm"],
+  "かんばんQR": ["QR do kanban","Mã QR kanban"],
+  "QRスキャナー導入後に利用できます": ["Disponível quando o leitor de QR estiver instalado","Có thể sử dụng sau khi cài đặt máy quét QR"],
+  "かんばん照合": ["Conferência do kanban","Đối chiếu kanban"],
+  "一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。": ["Se o QR corresponder, uma caixa será concluída automaticamente. Em caso de divergência, chame o supervisor para desbloquear o registro.","Nếu mã QR khớp, hệ thống tự ghi nhận hoàn thành một thùng. Nếu mã không khớp, hãy gọi quản lý để mở khóa."],
+  "作業中のカメラ": ["Câmera durante o trabalho","Camera trong lúc làm việc"],
+  "⚠ 1箱工数が未登録のため先行・遅れは表示されません（マスター管理 → 要領書・工数）": ["⚠ Cadastre o tempo por caixa em Cadastro → Instruções e tempos para ver o adiantamento ou atraso.","⚠ Hãy đăng ký thời gian mỗi thùng trong Danh mục → Hướng dẫn và thời gian để xem sớm hoặc chậm tiến độ."],
+  "製品を伴わない作業です。完了したら「作業終了」を押してください。": ["Esta tarefa não envolve peças. Ao concluir, toque em «Encerrar trabalho».","Công việc này không có sản phẩm. Khi hoàn thành, hãy nhấn «Kết thúc công việc»."],
   "不良が多かった理由、作業で気づいたことなど": ["Motivo dos defeitos, observações sobre o trabalho etc.", "Nguyên nhân có nhiều lỗi, điều nhận thấy khi làm việc, v.v."],
   "この品番のQR照合は未設定です。": ["A conferência por QR desta peça ainda não foi configurada.", "Chưa thiết lập đối chiếu mã QR cho sản phẩm này."],
   "同じQRが複数の品番に一致します。マスターを確認してください。": ["O mesmo QR corresponde a vários códigos de peça. Verifique o cadastro.", "Cùng một mã QR khớp với nhiều mã sản phẩm. Hãy kiểm tra danh mục."],
@@ -1726,13 +1746,15 @@ const PHOTO_STEP_LABELS=new Map([
 ].map(text=>[normalizeStepTranslation(text),PROCESS_LABELS[text]]));
 const masterTranslations = new Map();
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
-function singleLanguageText(text, lang) {
+function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
   if (lang === 'id') return knownBi(text) || text;
   const column = lang === 'pt-BR' ? 0 : 1;
   const key = text.trim();
   if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
-  const registered=masterTranslations.get(key)?.[lang];
+  const searchCount=key.match(/^検索結果：(\d+)件$/);
+  if(searchCount)return lang==='pt-BR'?`Resultados: ${searchCount[1]}`:`Kết quả: ${searchCount[1]}`;
+  const registered=useRegistered?masterTranslations.get(key)?.[lang]:undefined;
   if(registered)return text.replace(key,()=>registered);
   const normalized=normalizeStepTranslation(key);
   const knownStep=PHOTO_STEP_LABELS.get(normalized);
@@ -2006,6 +2028,8 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
     if(!HAS_JAPANESE.test(ja)||(!force&&existing?.trim()))return;
     const manual=PROCESS_LABELS[ja]||PHOTO_STEP_LABELS.get(normalizeStepTranslation(ja));
     if(manual){apply(manual[lang==='pt-BR'?0:1]);return;}
+    const registered=records.get(ja)?.[lang];
+    if(!force&&registered?.trim()){apply(registered);return;}
     const key=JSON.stringify([lang,ja]);
     if(!jobs.has(key))jobs.set(key,{lang,ja,apply:[]});
     jobs.get(key).apply.push(apply);
@@ -2033,20 +2057,78 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
   const failed=await translateProductJobs([...jobs.values()].map(job=>({
     ...job,apply:value=>job.apply.forEach(set=>set(value))
   })),onProgress,loadModule);
-  data.displayTranslations=shared.filter(ja=>records.has(ja)).map(ja=>({ja,translations:records.get(ja)}));
+  const displayed=new Set(shared);
+  for(const sheet of sheets){
+    for(const step of sheet.steps||[])displayed.add(String(step.text||'').trim());
+    for(const note of sheet.notes||[])displayed.add(String(note||'').trim());
+  }
+  data.displayTranslations=[...displayed].filter(ja=>records.has(ja)).map(ja=>({ja,translations:records.get(ja)}));
   return failed;
 }
-function missingProductTranslations(product, procId, lang) {
-  if(!product||!hasProcessLanguages(procId)||!hasMultilingualProduct(product)||!['pt-BR','vi'].includes(lang))return [];
-  const key=lang==='pt-BR'?'pt':'vi', sheet=product.sheets?.[procId];
-  const entries=[
-    ...(sheet?.steps||[]).map(step=>[step.text,step['text_'+key]]),
-    ...(sheet?.notes||[]).map((note,i)=>[note,sheet['notes_'+key]?.[i]]),
-    ...sharedTranslationTexts(product).map(text=>[text])
+function sheetTranslationEntries(sheet, key) {
+  const field='text_'+key, notes='notes_'+key;
+  return [
+    ...(sheet?.steps||[]).map(step=>[step.text,step[field]]),
+    ...(sheet?.notes||[]).map((note,i)=>[note,sheet[notes]?.[i]])
   ];
-  const registered=new Set((product.displayTranslations||[]).filter(entry=>entry.translations?.[lang]).map(entry=>entry.ja));
+}
+function missingProductTranslations(product, procId, lang, useRegistered=true) {
+  if(!product||!hasProcessLanguages(procId)||!hasMultilingualProduct(product)||!['pt-BR','vi'].includes(lang))return [];
+  const key=lang==='pt-BR'?'pt':'vi';
+  const entries=[...sheetTranslationEntries(product.sheets?.[procId],key),
+    ...sharedTranslationTexts(product).map(text=>[text])];
+  const registered=new Set((product.displayTranslations||[]).filter(entry=>entry.translations?.[lang]?.trim()).map(entry=>entry.ja));
   return [...new Set(entries.filter(([ja,translated])=>typeof ja==='string'&&HAS_JAPANESE.test(ja)&&
-    !translated?.trim()&&!registered.has(ja.trim())&&singleLanguageText(ja,lang)===ja).map(([ja])=>ja.trim()))];
+    !translated?.trim()&&!registered.has(ja.trim())&&singleLanguageText(ja,lang,useRegistered)===ja).map(([ja])=>ja.trim()))];
+}
+async function savePortugueseProcessTranslations(master, procId, onProgress, loadModule=loadOutlineTranslator) {
+  const lang='pt-BR';
+  const ids=hinbansOf(master,procId);
+  const known=new Map(), missingByProduct=new Map();
+  for(const id of ids){
+    const product=master[id];
+    missingByProduct.set(id,missingProductTranslations(product,procId,lang,false));
+    const saved=(product.displayTranslations||[]).map(entry=>[entry.ja,entry.translations?.[lang]]);
+    for(const [ja,translated] of [...saved,...sheetTranslationEntries(product.sheets?.[procId],'pt')]){
+      if(typeof ja==='string'&&typeof translated==='string'&&translated.trim()&&
+        !HAS_JAPANESE.test(translated)&&!known.has(ja.trim()))known.set(ja.trim(),translated);
+    }
+  }
+  const uniqueMissing=new Set([...missingByProduct.values()].flat());
+  const jobs=[...uniqueMissing].filter(ja=>!known.has(ja)).map(ja=>({
+    lang,ja,apply:value=>known.set(ja,value)
+  }));
+  if(jobs.length)await translateProductJobs(jobs,onProgress,loadModule);
+  const targets=ids.filter(id=>missingByProduct.get(id).some(ja=>known.has(ja)));
+  let saved=0, saveErrors=0;
+  for(const [i,id] of targets.entries()){
+    onProgress({done:i,total:targets.length,saving:true});
+    const ref=db.collection('outlineMaster').doc(id);
+    try{
+      const count=await db.runTransaction(async tx=>{
+        const snapshot=await tx.get(ref);
+        if(!snapshot.exists)return 0;
+        const current=snapshot.data();
+        if(!hasProc(current,procId))return 0;
+        const candidates=new Set(missingByProduct.get(id));
+        const missing=missingProductTranslations(current,procId,lang,false)
+          .filter(ja=>candidates.has(ja)&&known.has(ja));
+        if(!missing.length)return 0;
+        const entries=new Map((current.displayTranslations||[]).map(entry=>[entry.ja,entry]));
+        for(const ja of missing){
+          const entry=entries.get(ja);
+          entries.set(ja,{...entry,ja,translations:{...entry?.translations,[lang]:known.get(ja)}});
+        }
+        tx.update(ref,{displayTranslations:[...entries.values()]});
+        return missing.length;
+      });
+      saved+=count;
+    }catch(error){
+      console.warn('Portuguese translation save:',error.code||error.message);
+      saveErrors++;
+    }
+  }
+  return {products:ids.length,saved,untranslated:[...uniqueMissing].filter(ja=>!known.has(ja)).length,saveErrors};
 }
 const viewedTranslationCache=new Map();
 const viewedTranslationQueue=[];
@@ -3975,7 +4057,7 @@ function PageContent({
             fontSize: 18,
             color: '#5A6472',
             marginBottom: 10
-          }}><BiText value={"\u30ED\u30B1\u756A\u53F7 / Nomor Lokasi"} /></div>
+          }}><BiText value="ロケ番号" other="Nomor Lokasi" /></div>
           <div style={{
             fontSize: 46,
             fontWeight: 800,
@@ -3994,7 +4076,7 @@ function PageContent({
       gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))',
       gap: 14
     }}>
-        <P><H><BiText value={"\u88FD\u54C1QR / QR Produk"} /></H><Body>
+        <P><H><BiText value="製品QR" other="QR Produk" /></H><Body>
           <div style={{
             textAlign: 'center'
           }}>
@@ -4023,7 +4105,7 @@ function PageContent({
             }}>※ <BiText value={t('QRスキャナー導入後に利用できます')} /></div>} />
           </div>
         </Body></P>
-        <P><H><BiText value={"\u304B\u3093\u3070\u3093QR / QR Kanban"} /></H><Body>
+        <P><H><BiText value="かんばんQR" other="QR Kanban" /></H><Body>
           <div style={{
             textAlign: 'center'
           }}>
@@ -4060,6 +4142,7 @@ function PageContent({
 /* ══════════ マスター管理 ══════════ */
 function MasterAdmin({
   master,
+  proc,
   workers,
   user,
   onBack
@@ -4074,6 +4157,27 @@ function MasterAdmin({
   const [newH, setNewH] = useState('');
   const [q, setQ] = useState('');
   const [processFilter,setProcessFilter]=useState('');
+  const [portugueseStatus,setPortugueseStatus]=useState('');
+  const [portugueseBusy,setPortugueseBusy]=useState(false);
+  async function translateMissingPortuguese(){
+    if(portugueseBusy)return;
+    setPortugueseBusy(true);
+    setPortugueseStatus('未翻訳の文章を確認中…');
+    try{
+      const result=await savePortugueseProcessTranslations(master,proc.id,({done,total,downloading,saving})=>{
+        setPortugueseStatus(downloading?'翻訳データを読み込み中…':
+          saving?`保存中 ${done}/${total}品番`:`翻訳中 ${done}/${total}文`);
+      });
+      const detail=result.untranslated?` 未翻訳 ${result.untranslated}文。`:'';
+      const errors=result.saveErrors?` 保存できなかった品番 ${result.saveErrors}件。`:'';
+      setPortugueseStatus(`${result.products}品番を確認し、${result.saved}件の訳を保存しました。${detail}${errors}`);
+    }catch(error){
+      console.warn('Portuguese translation batch:',error.code||error.message);
+      setPortugueseStatus('翻訳を完了できませんでした。画面を更新して再度お試しください。');
+    }finally{
+      setPortugueseBusy(false);
+    }
+  }
   const searchInput = useRef(null), searchComposing = useRef(false);
   function confirmMasterSearch(e) {
     e.preventDefault();
@@ -4190,6 +4294,16 @@ function MasterAdmin({
             whiteSpace: 'normal'
           }}><BiText value={"\uD83D\uDC64 \u62C5\u5F53\u8005\u7BA1\u7406"} /></button>
         </div>
+        {hasProcessLanguages(proc?.id) && <div style={{
+          display:'flex',flexWrap:'wrap',alignItems:'center',gap:10,marginBottom:12
+        }}>
+          <button type="button" disabled={portugueseBusy||!hinbansOf(master,proc.id).length} onClick={translateMissingPortuguese}
+            style={{minHeight:42,padding:'0 12px',border:'1px solid '+LINE,background:'#fff',color:NAVY,borderRadius:8}}>
+            {proc.ja}の未翻訳をブラジルポルトガル語に翻訳
+          </button>
+          {portugueseStatus&&<span role="status" style={{fontSize:13}}>{portugueseStatus}</span>}
+        </div>
+        }
         <BiText value={list.length === 0 && <div style={{
           padding: '40px',
           textAlign: 'center',
@@ -7018,7 +7132,10 @@ function WorkPlanScreen({
         color: '#5A6472',
         fontWeight: 600,
         whiteSpace: 'normal'
-      }}>🕐 <BiText value={stamp} other={stamp_id} /></span>
+      }}>🕐 <BiText value={stamp} other={stamp_id} translations={{
+        'pt-BR':stamp.replace('('+wd+')','('+new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(now)+')'),
+        vi:stamp.replace('('+wd+')','('+new Intl.DateTimeFormat('vi',{weekday:'short'}).format(now)+')')
+      }} /></span>
         </>} right={<div className="plan-actions" style={{
       display: 'flex',
       gap: 8,
@@ -9808,7 +9925,7 @@ function App() {
   })} onChangeProc={(p) => setView({
     ...view,
     proc: p
-  })} />;else if (view.name === 'master') screen = <MasterAdmin master={master} workers={workers} user={user} onBack={() => setView({
+  })} />;else if (view.name === 'master') screen = <MasterAdmin master={master} proc={view.proc} workers={workers} user={user} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;else if (view.name === 'work') screen = <WorkPlanScreen proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
