@@ -585,6 +585,13 @@ async function requireRegisteredWorker(tx, workerId) {
   if(!name)throw new Error(WORKER_REQUIRED);
   return {id:workerId,name};
 }
+function workStartErrorMessage(error) {
+  if (error?.code === 'permission-denied' || error?.code === 'firestore/permission-denied') {
+    return '作業を開始できません。記録へのアクセス権限を管理者に確認してください。';
+  }
+  const message = error?.message;
+  return HAS_JAPANESE.test(message || '') ? message : '作業を開始できませんでした。計画表を確認し、再度お試しください。';
+}
 async function startWorkOrder({order,hinban,procId,payload}){
   const isTask=order.kind==='task';
   const ref=db.collection('workOrders').doc(order.id);
@@ -1413,6 +1420,8 @@ const PROCESS_LABELS = {
   "先行・遅れ": ["Adiantamento ou atraso", "Sớm hoặc chậm tiến độ"],
   "作業状態または担当者が変わりました。画面を確認してください。": ["O estado do trabalho ou o operador mudou. Confira a tela.", "Trạng thái công việc hoặc người phụ trách đã thay đổi. Hãy kiểm tra màn hình."],
   "担当者を選択してください。": ["Selecione um operador.", "Hãy chọn người phụ trách."],
+  "作業を開始できません。記録へのアクセス権限を管理者に確認してください。": ["Não foi possível iniciar o trabalho. Peça ao supervisor para verificar a permissão de acesso aos registros.", "Không thể bắt đầu công việc. Hãy nhờ quản lý kiểm tra quyền truy cập hồ sơ công việc."],
+  "作業を開始できませんでした。計画表を確認し、再度お試しください。": ["Não foi possível iniciar o trabalho. Confira o plano de trabalho e tente novamente.", "Không thể bắt đầu công việc. Hãy kiểm tra kế hoạch làm việc và thử lại."],
   "担当者を確定": ["Confirmar operador", "Xác nhận người phụ trách"],
   "担当者を登録": ["Registrar operador", "Đăng ký người phụ trách"],
   "登録する": ["Registrar", "Đăng ký"],
@@ -1740,6 +1749,8 @@ Object.assign(DICT,{
   'ページを更新しますか？未保存の入力は消えます。':'Muat ulang halaman? Isian yang belum disimpan akan hilang.',
   '担当者を確定':'Konfirmasi petugas','担当者を選択してください。':'Silakan pilih petugas.','担当者を登録':'Daftarkan petugas',
   '登録する':'Daftarkan','選択を解除':'Batalkan pilihan',
+  '作業を開始できません。記録へのアクセス権限を管理者に確認してください。':'Pekerjaan tidak dapat dimulai. Minta pengawas memeriksa izin akses ke catatan pekerjaan.',
+  '作業を開始できませんでした。計画表を確認し、再度お試しください。':'Pekerjaan tidak dapat dimulai. Periksa rencana kerja dan coba lagi.',
   'マスターの担当者管理で担当者を登録してください。':'Daftarkan petugas di menu manajemen petugas.',
   '担当者を変更':'Ganti petugas' ,'交代する担当者':'Petugas pengganti','交代を確定':'Konfirmasi pergantian',
   '現在の担当者':'Petugas saat ini','担当者変更記録':'Riwayat pergantian petugas',
@@ -7711,7 +7722,10 @@ function WorkSheetScreen({
       const payload={status:'running',startAt:Date.now(),workerId:useWorker.id,...(isTask?{}:{kosu,capacity:cap})};
       await startWorkOrder({order,hinban,procId:proc.id,payload});
       onStart(order.id);
-    }catch(e){showBiDialog('alert',e.message);setStarting(false);}
+    } catch (e) {
+      showBiDialog('alert', workStartErrorMessage(e));
+      setStarting(false);
+    }
   }
   return <div className="app-screen worksheet-screen" style={{
     height: '100vh',
