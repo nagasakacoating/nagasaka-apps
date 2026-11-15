@@ -1744,6 +1744,16 @@ const PHOTO_STEP_LABELS=new Map([
   '製品を乗せた台車を作業場に運ぶ。※転倒注意！！',
   'ハンガーの1番下の段の、左側から製品を掛けていく。※手のひらと指で掛け穴を前方に向けながら掛ける事！！'
 ].map(text=>[normalizeStepTranslation(text),PROCESS_LABELS[text]]));
+const PORTUGUESE_PART_NAMES = new Map([
+  ["ステーアッパーRH","Suporte superior (RH)"],
+  ["ステーアッパーLH","Suporte superior (LH)"],
+  ["プレートアンカー","Placa de ancoragem"],
+  ["STAY,LWR RH","Suporte inferior (RH)"],
+  ["STAY,LWR LH","Suporte inferior (LH)"],
+  ["ブラケットRH","Suporte (RH)"],
+  ["ブラケットLH","Suporte (LH)"],
+  ["BRAKET,FR SEAT BACK SET,NO1","Suporte do conjunto do encosto do banco dianteiro, nº 1"],
+]);
 const masterTranslations = new Map();
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
@@ -1751,6 +1761,8 @@ function singleLanguageText(text, lang, useRegistered = true) {
   if (lang === 'id') return knownBi(text) || text;
   const column = lang === 'pt-BR' ? 0 : 1;
   const key = text.trim();
+  const partName=lang==='pt-BR'?PORTUGUESE_PART_NAMES.get(key):undefined;
+  if(partName)return text.replace(key,()=>partName);
   if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
   const searchCount=key.match(/^検索結果：(\d+)件$/);
   if(searchCount)return lang==='pt-BR'?`Resultados: ${searchCount[1]}`:`Kết quả: ${searchCount[1]}`;
