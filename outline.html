@@ -20,6 +20,9 @@
 .workrun-worker-change:focus-visible{outline:3px solid #2665bd;outline-offset:3px}
 .workrun-worker-change:disabled{background:#e4e9f0;color:#49576b;border-color:#aab7c9}
 .workrun-worker-change:disabled .bi-sub{color:inherit}
+.tablet-guide-link{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:48px;padding:7px 14px;border:1px solid #b5c6e3;border-radius:9px;background:#f7f9fd;color:#12306b;text-decoration:none;font-weight:750}
+.tablet-guide-link:focus-visible{outline:3px solid #2072bc;outline-offset:3px}
+.tablet-guide-link small{color:#52627b;font-size:11px;margin-top:2px}
 .process-language-switch{min-height:36px;max-width:150px;border:1px solid #c7d6eb;border-radius:7px;padding:4px 7px;background:white;color:#12306b;font:inherit;font-size:12px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overscroll-behavior:none}
@@ -2723,6 +2726,12 @@ function VideoModal({
 }
 
 /* ══════════ ログイン ══════════ */
+function TabletGuideLink(){
+  return <a className="tablet-guide-link" href="./outline-guide.html">
+    <BiText value="タブレット操作手順" other="Panduan penggunaan tablet" />
+    <small>日本語 · Bahasa Indonesia · Português (Brasil) · Tiếng Việt</small>
+  </a>;
+}
 function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -2830,6 +2839,7 @@ function LoginScreen() {
             <BiText value={loading ? 'ログイン中...' : 'ログイン'} />
           </button>
         </form>
+        <div style={{marginTop:16,textAlign:'center'}}><TabletGuideLink /></div>
       </div>
     </div>;
 }
@@ -2862,6 +2872,7 @@ function ProcessSelect({
         color: '#5A6472',
         marginBottom: 18
       }}><BiText value={b('工程を選択してください')} /></div>
+        <div style={{marginBottom:16}}><TabletGuideLink /></div>
         <div className="responsive-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,300px),1fr))',
