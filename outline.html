@@ -1405,6 +1405,7 @@ const DICT = {
 };
 const PROCESS_LANGUAGES = {ja:'日本語',id:'Bahasa Indonesia','pt-BR':'Português (Brasil)',vi:'Tiếng Việt'};
 const PROCESS_TRANSLATION_FIELDS = [['pt-BR','pt'],['vi','vi']];
+const BATCH_TRANSLATION_NAMES = {'pt-BR':'ブラジルポルトガル語',vi:'ベトナム語'};
 function hasProcessLanguages(id) {
   return id === 'p1' || id === 'p2';
 }
@@ -1744,15 +1745,15 @@ const PHOTO_STEP_LABELS=new Map([
   '製品を乗せた台車を作業場に運ぶ。※転倒注意！！',
   'ハンガーの1番下の段の、左側から製品を掛けていく。※手のひらと指で掛け穴を前方に向けながら掛ける事！！'
 ].map(text=>[normalizeStepTranslation(text),PROCESS_LABELS[text]]));
-const PORTUGUESE_PART_NAMES = new Map([
-  ["ステーアッパーRH","Suporte superior (RH)"],
-  ["ステーアッパーLH","Suporte superior (LH)"],
-  ["プレートアンカー","Placa de ancoragem"],
-  ["STAY,LWR RH","Suporte inferior (RH)"],
-  ["STAY,LWR LH","Suporte inferior (LH)"],
-  ["ブラケットRH","Suporte (RH)"],
-  ["ブラケットLH","Suporte (LH)"],
-  ["BRAKET,FR SEAT BACK SET,NO1","Suporte do conjunto do encosto do banco dianteiro, nº 1"],
+const PART_NAME_TRANSLATIONS = new Map([
+  ["ステーアッパーRH",["Suporte superior (RH)","Giá đỡ trên (RH)"]],
+  ["ステーアッパーLH",["Suporte superior (LH)","Giá đỡ trên (LH)"]],
+  ["プレートアンカー",["Placa de ancoragem","Tấm neo"]],
+  ["STAY,LWR RH",["Suporte inferior (RH)","Giá đỡ dưới (RH)"]],
+  ["STAY,LWR LH",["Suporte inferior (LH)","Giá đỡ dưới (LH)"]],
+  ["ブラケットRH",["Suporte (RH)","Giá đỡ (RH)"]],
+  ["ブラケットLH",["Suporte (LH)","Giá đỡ (LH)"]],
+  ["BRAKET,FR SEAT BACK SET,NO1",["Suporte do conjunto do encosto do banco dianteiro, nº 1","Giá đỡ cụm tựa lưng ghế trước số 1"]],
 ]);
 const masterTranslations = new Map();
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
@@ -1761,7 +1762,7 @@ function singleLanguageText(text, lang, useRegistered = true) {
   if (lang === 'id') return knownBi(text) || text;
   const column = lang === 'pt-BR' ? 0 : 1;
   const key = text.trim();
-  const partName=lang==='pt-BR'?PORTUGUESE_PART_NAMES.get(key):undefined;
+  const partName=PART_NAME_TRANSLATIONS.get(key)?.[column];
   if(partName)return text.replace(key,()=>partName);
   if (Object.hasOwn(PROCESS_LABELS,key)) return text.replace(key,()=>PROCESS_LABELS[key][column]);
   const searchCount=key.match(/^検索結果：(\d+)件$/);
@@ -2093,15 +2094,16 @@ function missingProductTranslations(product, procId, lang, useRegistered=true) {
   return [...new Set(entries.filter(([ja,translated])=>typeof ja==='string'&&HAS_JAPANESE.test(ja)&&
     !translated?.trim()&&!registered.has(ja.trim())&&singleLanguageText(ja,lang,useRegistered)===ja).map(([ja])=>ja.trim()))];
 }
-async function savePortugueseProcessTranslations(master, procId, onProgress, loadModule=loadOutlineTranslator) {
-  const lang='pt-BR';
+async function saveMissingProcessTranslations(master, procId, lang, onProgress, loadModule=loadOutlineTranslator) {
+  const field=PROCESS_TRANSLATION_FIELDS.find(([language])=>language===lang)?.[1];
+  if(!field||!hasProcessLanguages(procId))return {products:0,saved:0,untranslated:0,saveErrors:0};
   const ids=hinbansOf(master,procId);
   const known=new Map(), missingByProduct=new Map();
   for(const id of ids){
     const product=master[id];
     missingByProduct.set(id,missingProductTranslations(product,procId,lang,false));
     const saved=(product.displayTranslations||[]).map(entry=>[entry.ja,entry.translations?.[lang]]);
-    for(const [ja,translated] of [...saved,...sheetTranslationEntries(product.sheets?.[procId],'pt')]){
+    for(const [ja,translated] of [...saved,...sheetTranslationEntries(product.sheets?.[procId],field)]){
       if(typeof ja==='string'&&typeof translated==='string'&&translated.trim()&&
         !HAS_JAPANESE.test(translated)&&!known.has(ja.trim()))known.set(ja.trim(),translated);
     }
@@ -2136,7 +2138,7 @@ async function savePortugueseProcessTranslations(master, procId, onProgress, loa
       });
       saved+=count;
     }catch(error){
-      console.warn('Portuguese translation save:',error.code||error.message);
+      console.warn('Process translation save:',lang,error.code||error.message);
       saveErrors++;
     }
   }
@@ -4169,25 +4171,26 @@ function MasterAdmin({
   const [newH, setNewH] = useState('');
   const [q, setQ] = useState('');
   const [processFilter,setProcessFilter]=useState('');
-  const [portugueseStatus,setPortugueseStatus]=useState('');
-  const [portugueseBusy,setPortugueseBusy]=useState(false);
-  async function translateMissingPortuguese(){
-    if(portugueseBusy)return;
-    setPortugueseBusy(true);
-    setPortugueseStatus('未翻訳の文章を確認中…');
+  const [translationStatus,setTranslationStatus]=useState('');
+  const [translationBusy,setTranslationBusy]=useState(false);
+  async function translateMissing(lang){
+    if(translationBusy)return;
+    const language=BATCH_TRANSLATION_NAMES[lang];
+    setTranslationBusy(true);
+    setTranslationStatus(language+'の未翻訳を確認中…');
     try{
-      const result=await savePortugueseProcessTranslations(master,proc.id,({done,total,downloading,saving})=>{
-        setPortugueseStatus(downloading?'翻訳データを読み込み中…':
-          saving?`保存中 ${done}/${total}品番`:`翻訳中 ${done}/${total}文`);
+      const result=await saveMissingProcessTranslations(master,proc.id,lang,({done,total,downloading,saving})=>{
+        setTranslationStatus(downloading?language+'の翻訳データを読み込み中…':
+          saving?`${language}を保存中 ${done}/${total}品番`:`${language}に翻訳中 ${done}/${total}文`);
       });
       const detail=result.untranslated?` 未翻訳 ${result.untranslated}文。`:'';
       const errors=result.saveErrors?` 保存できなかった品番 ${result.saveErrors}件。`:'';
-      setPortugueseStatus(`${result.products}品番を確認し、${result.saved}件の訳を保存しました。${detail}${errors}`);
+      setTranslationStatus(`${result.products}品番を確認し、${language}の訳を${result.saved}件保存しました。${detail}${errors}`);
     }catch(error){
-      console.warn('Portuguese translation batch:',error.code||error.message);
-      setPortugueseStatus('翻訳を完了できませんでした。画面を更新して再度お試しください。');
+      console.warn('Process translation batch:',lang,error.code||error.message);
+      setTranslationStatus(language+'の翻訳を完了できませんでした。画面を更新して再度お試しください。');
     }finally{
-      setPortugueseBusy(false);
+      setTranslationBusy(false);
     }
   }
   const searchInput = useRef(null), searchComposing = useRef(false);
@@ -4309,11 +4312,12 @@ function MasterAdmin({
         {hasProcessLanguages(proc?.id) && <div style={{
           display:'flex',flexWrap:'wrap',alignItems:'center',gap:10,marginBottom:12
         }}>
-          <button type="button" disabled={portugueseBusy||!hinbansOf(master,proc.id).length} onClick={translateMissingPortuguese}
+          {Object.entries(BATCH_TRANSLATION_NAMES).map(([language,name])=><button key={language}
+            type="button" disabled={translationBusy||!hinbansOf(master,proc.id).length} onClick={()=>translateMissing(language)}
             style={{minHeight:42,padding:'0 12px',border:'1px solid '+LINE,background:'#fff',color:NAVY,borderRadius:8}}>
-            {proc.ja}の未翻訳をブラジルポルトガル語に翻訳
-          </button>
-          {portugueseStatus&&<span role="status" style={{fontSize:13}}>{portugueseStatus}</span>}
+            {proc.ja}の未翻訳を{name}に翻訳
+          </button>)}
+          {translationStatus&&<span role="status" style={{fontSize:13}}>{translationStatus}</span>}
         </div>
         }
         <BiText value={list.length === 0 && <div style={{
