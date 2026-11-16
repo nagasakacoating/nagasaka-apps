@@ -204,6 +204,14 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .workrun-screen{height:100dvh!important;min-height:0!important;overflow:hidden}.workrun-screen .workrun-layout{flex:1 1 0!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(360px,1.15fr);gap:0;overflow:hidden;min-height:0}
 .workrun-screen .workrun-layout>.workrun-observe{min-width:0;min-height:0;overflow:auto!important;padding:12px;background:#f5f6f8;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
 .workrun-screen .workrun-layout>.workrun-controls{min-width:0;min-height:0;overflow:auto!important;flex:auto!important;padding:12px!important;gap:8px!important}
+.workrun-guide-actions{display:flex;flex-wrap:wrap;gap:8px}
+.workrun-guide-actions>button.workrun-steps-toggle{width:auto;flex:1 1 140px}
+.workrun-help-topics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:8px;margin:10px 0}
+.kanban-qr-body .workrun-help-topics button{margin:0;font-size:14px;font-weight:700}
+.kanban-qr-body .workrun-help-topics button[aria-pressed=true]{background:#12306b;color:#fff}
+.workrun-help-steps{padding:12px 14px 12px 32px;background:#f4f7fc;border:1px solid #cdd9eb;border-radius:8px;line-height:1.65}
+.workrun-help-steps li+li{margin-top:8px}
+.workrun-help-link{display:inline-flex;align-items:center;min-height:44px;color:#12306b;text-decoration:underline}
 .workrun-steps-toggle{width:100%;min-height:44px;flex-shrink:0;background:white;color:#12306b;border:1px solid #b9c7dd;border-radius:8px;font-size:14px;font-weight:700;padding:6px 12px;text-align:center}
 .workrun-camera-card{background:white;border:1px solid #b9c7dd;border-radius:10px;padding:10px;min-width:0;line-height:1.4}
 .workrun-camera-card>header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px;margin-bottom:8px;color:#12306b;font-size:13px}.workrun-camera-card>header code{font-size:13px;overflow-wrap:anywhere}
@@ -1413,6 +1421,7 @@ function hasProcessLanguages(id) {
   return id === 'p1' || id === 'p2';
 }
 const PROCESS_LABELS = {
+  "この画面の操作": ["Ajuda desta tela", "Thao tác trên màn hình này"],
   "不明": ["Desconhecido","Không rõ"],
   "休憩1": ["Pausa 1","Nghỉ giải lao 1"],
   "休憩2": ["Pausa 2","Nghỉ giải lao 2"],
@@ -1781,6 +1790,7 @@ function singleLanguageText(text, lang, useRegistered = true) {
   return HAS_JAPANESE.test(result) ? text : result;
 }
 Object.assign(DICT,{
+  'この画面の操作':'Panduan layar ini',
   '翻訳データを読み込み中…':'Memuat data terjemahan…','保存する（未翻訳分を自動翻訳）':'Simpan dan terjemahkan bagian yang belum diterjemahkan',
   'アプリのアドレス':'Alamat aplikasi','URLをコピー':'Salin URL','URLをコピーしました。':'URL telah disalin.',
   'Chromeのアドレス欄に、このURLを貼り付けて開いてください。':'Tempel URL ini di bilah alamat Chrome untuk membuka aplikasi.',
@@ -8057,6 +8067,67 @@ function WorkSheetScreen({
     </div>;
 }
 
+const WORK_OPERATION_HELP = {
+  "ja":{
+    question:"何をしたいですか？",
+    guide:"詳しいタブレット操作手順",
+    topics:[
+      {label:"1箱登録",steps:["箱が1つ完了したら、その箱のかんばんQRを読みます。カメラにかざすか、「外付けスキャナー受付中」を確認して読み取ります。","青○が出たら、完了箱数が1つ増えたことを確認し、かんばんを読み取り位置から外します。","二度読み防止の待ち時間が終わってから、次の完了箱を読みます。"],manualSteps:["箱が1つ完了したら「1箱完了」を1回押します。","完了箱数が1つ増えたことを確認します。"]},
+      {label:"QR不一致",steps:["赤×が出たら、作業を止めて管理者を呼びます。箱・かんばん・画面の品番を確認します。","管理者が解除用QRを読みます。解除で箱数は増えません。","原因確認後に正しいかんばんQRを読み、完了箱数を確認します。"]},
+      {label:"不良数・コメント",steps:["「不良数（個）」に担当中の合計を入れます。不良がなければ0です。","「作業者コメント」は任意です。不良の内容や遅れた理由などを入力します。","その場で残すときは「記録を保存」を押します。作業終了時にも保存されます。異常の報告は「異常」を使います。"]}
+    ]
+  },
+  "id":{
+    question:"Apa yang ingin Anda lakukan?",
+    guide:"Panduan lengkap penggunaan tablet",
+    topics:[
+      {label:"Catat satu kotak",steps:["Saat satu kotak selesai, pindai QR kanban kotak itu dengan kamera atau pastikan pemindai eksternal siap sebelum memindai.","Saat lingkaran biru muncul, pastikan jumlah kotak bertambah satu lalu jauhkan kanban dari area pemindaian.","Pindai kotak berikutnya setelah jeda pencegahan pindai ganda selesai."],manualSteps:["Saat satu kotak selesai, tekan «1 Kotak Selesai» satu kali.","Pastikan jumlah kotak selesai bertambah satu."]},
+      {label:"QR tidak cocok",steps:["Jika muncul tanda silang merah, hentikan pekerjaan dan panggil pengawas. Periksa kotak, kanban, dan kode produk pada layar.","Pengawas memindai QR pembuka kunci. Pembukaan kunci tidak menambah jumlah kotak.","Setelah penyebab diperiksa, pindai kanban yang benar dan periksa jumlah kotak selesai."]},
+      {label:"Jumlah cacat dan komentar",steps:["Masukkan total produk cacat selama giliran Anda dalam satuan buah. Jika tidak ada, masukkan 0.","Komentar operator bersifat opsional. Catat jenis cacat atau alasan keterlambatan bila perlu.","Tekan «Simpan catatan» untuk menyimpan saat itu juga. Data juga disimpan saat pekerjaan selesai. Untuk kejadian abnormal, gunakan menu «Kelainan»."]}
+    ]
+  },
+  "pt-BR":{
+    question:"O que você quer fazer?",
+    guide:"Manual completo do tablet",
+    topics:[
+      {label:"Registrar uma caixa",steps:["Ao concluir uma caixa, leia o QR do kanban da própria caixa pela câmera ou confirme que o scanner externo está pronto para a leitura.","Quando aparecer o círculo azul, confira se o total aumentou em uma caixa e retire o kanban da área de leitura.","Espere o fim da pausa contra leitura duplicada para ler a próxima caixa concluída."],manualSteps:["Ao concluir uma caixa, toque uma vez em «Concluir 1 caixa».","Confira se o total de caixas concluídas aumentou em uma unidade."]},
+      {label:"QR não confere",steps:["Se aparecer um X vermelho, interrompa o trabalho e chame o supervisor. Confira a caixa, o kanban e o código da peça na tela.","O supervisor lê o QR de desbloqueio. Isso não aumenta o total de caixas.","Depois de verificar a causa, leia o QR correto do kanban e confira o total."]},
+      {label:"Defeitos e comentário",steps:["Informe o total de peças com defeito durante seu período na tarefa. Se não houve defeitos, digite 0.","O comentário do operador é opcional. Registre o tipo de defeito ou o motivo de um atraso, se precisar.","Para gravar na hora, toque em «Salvar registro». Os dados também são gravados ao encerrar o trabalho. Para relatar uma ocorrência, use «Anormalidade»."]}
+    ]
+  },
+  "vi":{
+    question:"Bạn muốn làm gì?",
+    guide:"Hướng dẫn đầy đủ về máy tính bảng",
+    topics:[
+      {label:"Ghi nhận một thùng",steps:["Khi hoàn thành một thùng, quét mã QR kanban của chính thùng đó bằng camera hoặc kiểm tra máy quét ngoài đã sẵn sàng rồi quét.","Khi xuất hiện vòng tròn xanh, kiểm tra số thùng đã tăng một rồi đưa kanban ra khỏi vùng quét.","Chờ hết thời gian chống quét trùng rồi quét thùng tiếp theo đã hoàn thành."],manualSteps:["Khi hoàn thành một thùng, nhấn «Hoàn thành 1 thùng» một lần.","Kiểm tra số thùng hoàn thành đã tăng một."]},
+      {label:"Mã QR không khớp",steps:["Nếu xuất hiện dấu X đỏ, dừng công việc và gọi quản lý. Kiểm tra thùng, kanban và mã sản phẩm trên màn hình.","Quản lý quét mã QR mở khóa. Việc mở khóa không làm tăng số thùng.","Sau khi kiểm tra nguyên nhân, quét đúng mã QR kanban và kiểm tra số thùng hoàn thành."]},
+      {label:"Số sản phẩm lỗi và ghi chú",steps:["Nhập tổng số sản phẩm lỗi trong phần việc mình phụ trách. Nếu không có lỗi, nhập 0.","Ghi chú là tùy chọn. Khi cần, ghi loại lỗi hoặc lý do chậm tiến độ.","Để lưu ngay, nhấn «Lưu bản ghi». Dữ liệu cũng được lưu khi kết thúc công việc. Dùng mục «Bất thường» để báo sự cố."]}
+    ]
+  }
+};
+function WorkOperationHelp({needsQr,onClose}) {
+  const {lang}=useLang();
+  const help=WORK_OPERATION_HELP[lang]||WORK_OPERATION_HELP.ja;
+  const [topic,setTopic]=useState(null);
+  const choices=needsQr?[0,1,2]:[0,2];
+  const selected=choices.includes(topic)?help.topics[topic]:null;
+  const steps=!needsQr&&selected?.manualSteps?selected.manualSteps:selected?.steps;
+  return <QrDialog title="この画面の操作" onClose={onClose}>
+    <p style={{fontWeight:750}}>{help.question}</p>
+    <div className="workrun-help-topics">
+      {choices.map(index=><button key={index} type="button" aria-pressed={topic===index} onClick={()=>setTopic(index)}>
+        {help.topics[index].label}
+      </button>)}
+    </div>
+    <div aria-live="polite">
+      {steps&&<ol className="workrun-help-steps">
+        {steps.map(step=><li key={step}>{step}</li>)}
+      </ol>}
+    </div>
+    <a className="workrun-help-link" href="./outline-guide.html" target="_blank" rel="noopener" tabIndex={0}>{help.guide}</a>
+  </QrDialog>;
+}
+
 /* ── 実行画面（作業中） ── */
 function WorkRunScreen({
   proc,
@@ -8126,6 +8197,7 @@ function WorkRunScreen({
     }
   }
 const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({blocked:false,busy:false,flash:false});
+  const [showOperationHelp,setShowOperationHelp]=useState(false);
   const isTask = log.kind === 'task';
   const m = master[log.hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
@@ -8290,7 +8362,13 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       minHeight: 0
     }}>
         {/* 左：要領書 */}
-        <div className="workrun-observe"><button type="button" className="workrun-steps-toggle" aria-expanded={showSteps} onClick={()=>setShowSteps(true)}><BiText value="手順を見る"/></button>{needsQr&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} inline suspended={showSteps||anom||out||!!result||busy||changingWorker} onStateChange={setQrGate}/>}</div>
+        <div className="workrun-observe">
+          <div className="workrun-guide-actions">
+            <button type="button" className="workrun-steps-toggle" aria-expanded={showSteps} onClick={()=>setShowSteps(true)}><BiText value="手順を見る"/></button>
+            {!isTask&&<button type="button" className="workrun-steps-toggle" aria-haspopup="dialog" aria-expanded={showOperationHelp} onClick={()=>setShowOperationHelp(true)}><BiText value="この画面の操作"/></button>}
+          </div>
+          {needsQr&&<KanbanCheckModal key={log.id+log.hinban} hinban={log.hinban} m={m} master={master} mode="count" order={log} procId={proc.id} inline suspended={showSteps||showOperationHelp||anom||out||!!result||busy||changingWorker} onStateChange={setQrGate}/>}
+        </div>
         {/* 右：操作パネル */}
         <div className="workrun-controls" style={{
         flex: '0 0 520px',
@@ -8530,6 +8608,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
             <WarnBox items={dva(sheet, 'notes', lang)} translations={hasProcessLanguages(proc.id) ? sheet : undefined} />
           </>} />
         </QrDialog>}
+        {showOperationHelp&&<WorkOperationHelp needsQr={needsQr} onClose={()=>setShowOperationHelp(false)}/>}
 <FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
       <BiText value={anom && <AnomalyModal onClose={() => setAnom(false)} onSave={async (c) => {
       await addAnom(c);
