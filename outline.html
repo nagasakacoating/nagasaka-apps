@@ -110,6 +110,13 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .footer-clock .bi-text{overflow-wrap:normal;white-space:nowrap}
 .plan-mobile-label{display:none}
 .plan-table{min-width:900px}
+.plan-break-target{display:flex;flex-wrap:wrap;gap:8px;flex:0 1 auto}
+.plan-break-target>div{display:grid;align-content:center;gap:3px;min-width:130px;padding:8px 12px;border:1px solid #adbfda;border-radius:10px;background:#fff;color:#12306b}
+.plan-break-target>div:first-child{background:#fff5d8;border-color:#e7c777;color:#714300}
+.plan-break-target strong{font-size:clamp(25px,3.25vw,42px);line-height:1.12;font-variant-numeric:tabular-nums}
+.plan-break-target small{font-size:14px;font-weight:700}
+.plan-break-target-compact{color:#12306b;font-size:13px;margin-top:4px;display:flex;flex-wrap:wrap;column-gap:8px}
+.plan-break-target-compact strong{font-variant-numeric:tabular-nums}
 .search-screen table,.history-screen table{min-width:760px}
 .planner-screen table{min-width:1100px}
 .responsive-grid>*{min-width:0}
@@ -1810,6 +1817,11 @@ const INDIVIDUAL_LABELS = {
   '指示時間':['Jadwal kerja','Horário da instrução','Giờ làm theo chỉ thị'],
   'あなたの次の休憩':['Istirahat Anda berikutnya','Sua próxima pausa','Giờ nghỉ tiếp theo của bạn'],
   'までの予定':['Target hingga jam tersebut','Previsão até esse horário','Dự kiến đến giờ đó'],
+  '次の休憩':['Istirahat berikutnya','Próxima pausa','Giờ nghỉ tiếp theo'],
+  '休憩中':['Sedang istirahat','Em pausa','Đang nghỉ'],
+  '予定なし':['Tidak dijadwalkan','Sem pausa prevista','Không có lịch nghỉ'],
+  '休憩までの予定箱数':['Target kotak sebelum istirahat','Caixas previstas até a pausa','Số thùng dự kiến trước giờ nghỉ'],
+  '終了までの予定箱数':['Target kotak hingga selesai','Caixas previstas até o fim','Số thùng dự kiến đến khi kết thúc'],
   '編集':['Edit','Editar','Chỉnh sửa']
 };
 for (const [label,[id,pt,vi]] of Object.entries(INDIVIDUAL_LABELS)) {
@@ -6143,6 +6155,33 @@ function instructionForecast(order, now) {
     nextBreak:breaks.find(rest=>hm2min(rest.to)>Math.max(clock,start))
   };
 }
+function plannedBreakTarget(order, settings, now) {
+  if (!order || order.kind==='task' || order.status==='done') return null;
+  const start=order._planStart, end=order._planEnd;
+  if (end<=start) return null;
+
+  const schedule=order.individualPlan ? instructionBreaks(order.individualPlan) : (settings || DEFAULT_SETTINGS).breaks || [];
+  const spans=schedule.map(rest=>({from:hm2min(rest.from),to:hm2min(rest.to)}))
+    .filter(rest=>rest.to>rest.from).sort((a,b)=>a.from-b.from);
+  const rests=[];
+  for (const rest of spans) {
+    const last=rests[rests.length-1];
+    if (last && rest.from<=last.to) last.to=Math.max(last.to,rest.to);
+    else rests.push(rest);
+  }
+  const day=todayKeyFor(now);
+  const clock=day===order.date ? hm2min(fmtHM(now)) : day>order.date ? Infinity : start;
+  const rest=rests.find(entry=>entry.to>Math.max(clock,start) && entry.from<=end);
+  const cutoff=rest ? Math.max(start,rest.from) : end;
+  const periodStart=rests.reduce((latest,entry)=>entry.to<=cutoff ? Math.max(latest,entry.to) : latest,start);
+  const kosu=Number(order.kosu);
+  const target=order.individualPlan && !order.individualPlan.hasQuantity ? Infinity : Math.max(0,Number(order.targetBoxes)||0);
+  const boxesAt=at=>{
+    const paused=rests.reduce((sum,entry)=>sum+Math.max(0,Math.min(at,entry.to)-Math.max(start,entry.from)),0);
+    return Math.min(target,Math.floor(Math.max(0,at-start-paused)/kosu+1e-9));
+  };
+  return {rest,isBreak:!!rest && rest.from<=clock,periodStart,cutoff,boxes:kosu>0 ? boxesAt(cutoff)-boxesAt(periodStart) : null};
+}
 function todayKeyFor(d) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 }
@@ -6875,6 +6914,24 @@ function ShiftSettingsModal({
 }
 
 /* ── 計画表（作業者）：上から順に作業 ── */
+function PlanBreakTarget({target, compact=false}) {
+  if (!target) return null;
+  const {rest,isBreak,periodStart,cutoff,boxes}=target;
+  const label=isBreak?'休憩中':'次の休憩';
+  const value=rest ? min2hm(rest.from)+(isBreak?'〜'+min2hm(rest.to):'') : <BiText value="予定なし"/>;
+  const quantity=boxes===null?'—':<>{boxes} <BiText value="箱"/></>;
+  const quantityLabel=rest?'休憩までの予定箱数':'終了までの予定箱数';
+  if (compact) return <div className="plan-break-target-compact">
+    <span><BiText value={label}/> <strong>{value}</strong></span>
+    <span><BiText value={quantityLabel}/> <strong>{quantity}</strong></span>
+  </div>;
+  return <div className="plan-break-target">
+    <div><small><BiText value={label}/></small><strong>{value}</strong></div>
+    <div><small><BiText value={quantityLabel}/></small><strong>{quantity}</strong>
+      <span>{min2hm(periodStart)}〜{min2hm(cutoff)}</span></div>
+  </div>;
+}
+
 function WorkPlanScreen({
   proc,
   master,
@@ -6946,6 +7003,7 @@ function WorkPlanScreen({
   const rows = buildTimeline(raw, settings);
   const nextRow = rows.filter(o=>['pending','running','paused'].includes(o.status))
     .sort((a,b)=>a._planStart-b._planStart)[0];
+  const showBreakTargets=supportsIndividualPlan(proc.id);
   const doneCnt = rows.filter((o) => o.status === 'done').length;
   const planMin = rows.reduce((a, o) => a + o._planMin, 0);
   const endEta = rows.reduce((latest,o)=>Math.max(latest,o._planEnd),hm2min((settings || DEFAULT_SETTINGS).startTime));
@@ -7085,6 +7143,7 @@ function WorkPlanScreen({
                 </div>
               </div>
             </div>
+            {showBreakTargets&&<PlanBreakTarget target={plannedBreakTarget(nextRow,settings,now)}/>}
             <button onClick={() => openWorkerSelection(nextRow)} style={{
           minHeight: 72,
           padding: '0 36px',
@@ -7195,6 +7254,7 @@ function WorkPlanScreen({
                         <BiText value={isTask ? '（製品なし）' : [(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
                       </div>
                       {individual&&<strong>{o.assignedWorkerName}</strong>}
+                      {showBreakTargets&&individual&&!isNext&&<PlanBreakTarget target={plannedBreakTarget(o,settings,now)} compact/>}
                     </td>
                     <td style={td}><span className="plan-mobile-label"><BiText value={b('数量')} /></span><BiText value={isTask || individual&&!individual.hasQuantity ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
                     <td style={{
