@@ -15,6 +15,16 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <style>
+.individual-card,.individual-notice{border:1px solid #b9cbe4;border-radius:12px;background:#f4f8ff;color:#143361;padding:12px;margin:0 0 12px}
+.individual-editor{display:grid;gap:12px}.individual-header,.individual-periods,.individual-metrics{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px}
+.individual-header{justify-content:space-between}.individual-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:8px}
+.individual-field{display:grid;gap:4px;font-weight:700;align-content:start}.individual-card button{min-height:42px;padding:6px 12px;border:1px solid #a7bddd;border-radius:8px;background:#fff;color:#143361;font-weight:700}
+.individual-card button.individual-primary{background:#15532f;color:white;border-color:#15532f}.individual-card button:disabled{opacity:.5}
+.individual-card fieldset{border:1px solid #c0cfe5;border-radius:8px;background:#fff;padding:8px;min-width:0}
+.individual-card legend{font-weight:700}.individual-card fieldset button{margin-top:8px}
+.individual-metrics>div{display:grid;gap:2px}.individual-metrics strong{font-size:clamp(20px,3vw,29px);line-height:1.15;font-variant-numeric:tabular-nums}
+.individual-periods{font-size:13px}.individual-error{margin:0;color:#972010}.individual-notice{margin:0;border:2px solid #174da0}.individual-notice small{display:block;margin-top:7px}
+
 .workrun-worker-change{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:min(100%,240px);min-height:56px;padding:8px 20px;background:#174da0;color:#fff;border:2px solid #123b7b;border-radius:10px;font-size:19px;font-weight:800;line-height:1.2;touch-action:manipulation}
 .workrun-worker-change .bi-sub{color:#e3edff}
 .workrun-worker-change:focus-visible{outline:3px solid #2665bd;outline-offset:3px}
@@ -616,6 +626,8 @@ async function startWorkOrder({order,hinban,procId,payload}){
     if(current.qrBlocked||(localBlock&&current.qrUnlockOf!==localBlock.lockId))
       throw new Error('管理者の解除が必要です。');
     const worker=await requireRegisteredWorker(tx,payload.workerId);
+    if(current.individualPlan && current.assignedWorkerId!==worker.id)
+      throw new Error('担当者が変わりました。計画表を確認してください。');
     const ms=isTask?null:await tx.get(db.collection('outlineMaster').doc(hinban));
     const usesQr=!isTask&&(current.qrMode==='kanban-v1'||(ms.exists&&kanbanRules(ms.data()).length>0));
     if(usesQr){
@@ -1768,6 +1780,42 @@ const PART_NAME_TRANSLATIONS = new Map([
   ["BRAKET,FR SEAT BACK SET,NO1",["Suporte do conjunto do encosto do banco dianteiro, nº 1","Giá đỡ cụm tựa lưng ghế trước số 1"]],
 ]);
 const masterTranslations = new Map();
+const INDIVIDUAL_LABELS = {
+  '個別作業指示':['Instruksi kerja per petugas','Instrução de trabalho individual','Chỉ thị công việc cá nhân'],
+  '個別指示を追加':['Tambah instruksi per petugas','Adicionar instrução individual','Thêm chỉ thị cá nhân'],
+  '指示方法':['Cara memberi instruksi','Tipo de instrução','Cách giao việc'],
+  '箱数から終了予定を出す':['Perkirakan waktu selesai dari jumlah kotak','Estimar o término pela quantidade de caixas','Dự tính giờ xong theo số thùng'],
+  '開始・終了時刻を指定する':['Tentukan jam mulai dan selesai','Definir horário de início e término','Chỉ định giờ bắt đầu và kết thúc'],
+  '終了時刻':['Jam selesai','Horário de término','Giờ kết thúc'],
+  '残り箱数':['Sisa kotak','Caixas restantes','Số thùng còn lại'],
+  '残り箱数（任意）':['Sisa kotak (opsional)','Caixas restantes (opcional)','Số thùng còn lại (không bắt buộc)'],
+  '1箱工数（分）':['Waktu per kotak (menit)','Tempo por caixa (min)','Thời gian mỗi thùng (phút)'],
+  '本人の休憩開始時刻':['Jam mulai istirahat petugas','Início das pausas do operador','Giờ bắt đầu nghỉ của người làm'],
+  '午前休憩（10分）':['Istirahat pagi (10 menit)','Pausa da manhã (10 min)','Nghỉ buổi sáng (10 phút)'],
+  '昼休憩（60分）':['Istirahat siang (60 menit)','Pausa para almoço (60 min)','Nghỉ trưa (60 phút)'],
+  '午後休憩（10分）':['Istirahat sore (10 menit)','Pausa da tarde (10 min)','Nghỉ buổi chiều (10 phút)'],
+  '終了見込みを設定':['Gunakan perkiraan jam selesai','Usar previsão de término','Dùng giờ dự kiến xong'],
+  '終了見込み':['Perkiraan selesai','Previsão de término','Giờ dự kiến xong'],
+  '指定の時間内に残り箱数を終えられない見込みです。':['Sisa kotak diperkirakan tidak selesai dalam waktu yang ditentukan.','As caixas restantes podem não ficar prontas no prazo indicado.','Dự kiến không hoàn thành số thùng còn lại trong thời gian đã định.'],
+  '製品を選択してください。':['Silakan pilih produk.','Selecione um produto.','Vui lòng chọn sản phẩm.'],
+  '作業の開始・終了時刻を確認してください。':['Periksa jam mulai dan selesai kerja.','Confira o horário de início e término.','Hãy kiểm tra giờ bắt đầu và kết thúc.'],
+  '残り箱数を確認してください。':['Periksa jumlah kotak yang tersisa.','Confira a quantidade de caixas restantes.','Hãy kiểm tra số thùng còn lại.'],
+  '1箱工数を入力してください。':['Masukkan waktu per kotak.','Informe o tempo por caixa.','Hãy nhập thời gian mỗi thùng.'],
+  '休憩の順番と時刻を確認してください。':['Periksa urutan dan jam istirahat.','Confira a ordem e o horário das pausas.','Hãy kiểm tra thứ tự và giờ nghỉ.'],
+  '指示が更新されました。開き直してください。':['Instruksi telah diperbarui. Buka kembali.','A instrução foi atualizada. Abra-a novamente.','Chỉ thị đã thay đổi. Hãy mở lại.'],
+  '作業開始後は担当者・製品・工数を変更できません。':['Petugas, produk dan waktu kerja tidak dapat diubah setelah mulai.','O operador, o produto e o tempo por caixa ficam fixos após o início.','Không thể đổi người làm, sản phẩm hoặc định mức sau khi bắt đầu.'],
+  '個別作業指示の担当者は変更できません。':['Petugas untuk instruksi individual ini tidak dapat diganti.','O operador desta instrução individual não pode ser trocado.','Không thể đổi người làm của chỉ thị cá nhân này.'],
+  '担当者が変わりました。計画表を確認してください。':['Petugas telah berubah. Periksa jadwal.','O operador mudou. Confira o planejamento.','Người làm đã thay đổi. Hãy kiểm tra kế hoạch.'],
+  '作業指示を確定':['Konfirmasi instruksi kerja','Confirmar instrução de trabalho','Xác nhận chỉ thị công việc'],
+  '指示時間':['Jadwal kerja','Horário da instrução','Giờ làm theo chỉ thị'],
+  'あなたの次の休憩':['Istirahat Anda berikutnya','Sua próxima pausa','Giờ nghỉ tiếp theo của bạn'],
+  'までの予定':['Target hingga jam tersebut','Previsão até esse horário','Dự kiến đến giờ đó'],
+  '編集':['Edit','Editar','Chỉnh sửa']
+};
+for (const [label,[id,pt,vi]] of Object.entries(INDIVIDUAL_LABELS)) {
+  DICT[label]=id;
+  PROCESS_LABELS[label]=[pt,vi];
+}
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
@@ -5961,8 +6009,7 @@ function fmtDur(ms) {
   return (h ? h + 'h ' : '') + m % 60 + 'm';
 }
 function todayKey() {
-  const d = new Date();
-  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  return todayKeyFor(new Date());
 }
 function daysAgoKey(n) {
   const d = new Date();
@@ -6029,6 +6076,11 @@ function buildTimeline(rows, settings) {
   const st = settings || DEFAULT_SETTINGS;
   let cur = hm2min(st.startTime || '08:00');
   return rows.map((o) => {
+    if (o.individualPlan) {
+      const plan=instructionForecast(o);
+      const end=o.individualPlan.mode==='time' ? plan.end : plan.finish ?? plan.start;
+      return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks)};
+    }
     const dur = rowPlanMin(o);
     const a = addWork(cur, 0, st.breaks); /* 休憩中なら明けへ */
     const e = addWork(a, dur, st.breaks);
@@ -6039,6 +6091,84 @@ function buildTimeline(rows, settings) {
       _planStart: a,
       _planEnd: e
     };
+  });
+}
+
+const INDIVIDUAL_BREAK_MINS = [10, 60, 10];
+const INDIVIDUAL_BREAK_STARTS = ['', '', ''];
+function supportsIndividualPlan(procId) {
+  return procId === 'p1' || procId === 'p2';
+}
+function instructionMinute(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '') ? hm2min(value) : null;
+}
+function instructionBreaks(plan) {
+  return INDIVIDUAL_BREAK_MINS.flatMap((duration, i) => {
+    const from = instructionMinute(plan.breakStarts?.[i]);
+    return from === null ? [] : [{from:min2hm(from),to:min2hm(from+duration)}];
+  });
+}
+function instructionWorkMins(start, end, breaks) {
+  return Math.max(0, end-start) - breaks.reduce((total, rest) =>
+    total+Math.max(0, Math.min(end,hm2min(rest.to))-Math.max(start,hm2min(rest.from))), 0);
+}
+function instructionForecast(order, now) {
+  const plan = order.individualPlan;
+  const start = instructionMinute(plan.from) ?? 0;
+  const end = plan.mode === 'time' ? instructionMinute(plan.to) ?? start : 1440;
+  const day = now && todayKeyFor(now);
+  const clock = day === order.date ? hm2min(fmtHM(now)) : day && day > order.date ? 1440 : start;
+  const status = now ? order.status : 'pending';
+  const done = now ? Number(order.doneBoxes) || 0 : 0;
+  const remaining = plan.hasQuantity ? Math.max(0, (Number(order.targetBoxes)||0)-done) : null;
+  const breaks = instructionBreaks(plan);
+  const from = Math.min(end,Math.max(start, now ? clock : start));
+  const minutes = Number(order.kosu) || 0;
+  const boxesAt = at => minutes > 0 ? Math.floor(Math.max(0,instructionWorkMins(from,at,breaks))/minutes + 1e-9) : 0;
+  const completedMinute=order.endAt&&todayKeyFor(new Date(order.endAt))===order.date ? hm2min(fmtHM(new Date(order.endAt))) : from;
+  const rawFinish = remaining === 0 ? completedMinute : minutes > 0 && remaining !== null ? addWork(from,remaining*minutes,breaks) : null;
+  const finish = rawFinish !== null && rawFinish <= end ? Math.ceil(rawFinish) : null;
+  const limit = finish ?? end;
+  const checkpoints = [...breaks.map(rest=>hm2min(rest.from)).filter(at=>at>from&&at<limit),limit].sort((a,b)=>a-b);
+  let previous = 0, periodStart = addWork(from,0,breaks);
+  const periods = status === 'done' ? [] : checkpoints.flatMap(at=>{
+    const count = Math.min(remaining ?? Infinity,boxesAt(at));
+    const period = {from:periodStart,to:at,boxes:Math.max(0,count-previous)};
+    previous=count;
+    periodStart=addWork(at,0,breaks);
+    return period.to>period.from ? [period] : [];
+  });
+  return {
+    start,end,finish,done,remaining,periods,breaks,hasShortfall:status!=='done'&&remaining>0&&finish===null,
+    nextBreak:breaks.find(rest=>hm2min(rest.to)>Math.max(clock,start))
+  };
+}
+function todayKeyFor(d) {
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+async function saveIndividualPlan({existing, data, remaining, replaceQuantity}) {
+  const col=db.collection('workOrders');
+  if (!existing) {
+    await col.add({...data,targetBoxes:remaining??0,revision:1,status:'pending',
+      workerId:null,workerName:'',startAt:null,endAt:null,doneBoxes:0,fraction:0,pauses:[],anomalies:[]});
+    return;
+  }
+  const ref=col.doc(existing.id);
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    const current=snap.exists&&snap.data();
+    if (!current?.individualPlan || current.status==='done' || current.revision!==existing.revision)
+      throw new Error('指示が更新されました。開き直してください。');
+    if (current.status!=='pending' && (data.assignedWorkerId!==current.assignedWorkerId || data.hinban!==current.hinban || data.kosu!==current.kosu))
+      throw new Error('作業開始後は担当者・製品・工数を変更できません。');
+    const target = replaceQuantity ? remaining === null ? 0 : remaining+(Number(current.doneBoxes)||0) : current.targetBoxes;
+    if (!Number.isSafeInteger(target)) throw new Error('残り箱数を確認してください。');
+    tx.update(ref,{
+      hinban:data.hinban,hinbanName:data.hinbanName,partNo:data.partNo,assignedWorkerId:data.assignedWorkerId,
+      assignedWorkerName:data.assignedWorkerName,kosu:data.kosu,capacity:current.status==='pending'?data.capacity:current.capacity,
+      individualPlan:{...data.individualPlan,hasQuantity:replaceQuantity?remaining!==null:current.individualPlan.hasQuantity},
+      targetBoxes:target,revision:current.revision+1
+    });
   });
 }
 
@@ -6189,6 +6319,7 @@ function changeWorkOrderWorker(order, nextWorker, notes, user) {
   return updateWorkRun(order,async (current,tx)=>{
     const worker=await requireRegisteredWorker(tx,nextWorker.id);
     if(hasWorkOrderWorker(current)&&current.workerId===worker.id)throw new Error('別の担当者を選択してください。');
+    if(current.individualPlan) throw new Error('個別作業指示の担当者は変更できません。');
     return workerHandoffPatch(current,worker,notes,user,workerHandoffTime(current));
   },{allowMissingWorker:true});
 }
@@ -6197,6 +6328,7 @@ function continueWorkOrder(order, workerId, user) {
     const worker=await requireRegisteredWorker(tx,workerId);
     const at=workerHandoffTime(current);
     const changesWorker=!hasWorkOrderWorker(current)||current.workerId!==worker.id;
+    if(current.individualPlan && worker.id!==current.assignedWorkerId) throw new Error('個別作業指示の担当者は変更できません。');
     const patch=changesWorker?workerHandoffPatch(current,worker,{},user,at):{workerName:worker.name};
     if(current.status!=='paused')return patch;
     const pauses=[...(current.pauses||[])];
@@ -6772,6 +6904,13 @@ function WorkPlanScreen({
   const [workerError,setWorkerError]=useState('');
   const confirmingWorker=useRef(false);
   function openWorkerSelection(order) {
+    if (order.individualPlan) {
+      const assigned = workers[order.assignedWorkerId];
+      if (!assigned?.name?.trim()) { showBiDialog('alert',WORKER_REQUIRED); return; }
+      if (order.status==='pending') onOpenSheet(order,assigned);
+      else onResume(order);
+      return;
+    }
     setWorkerId('');
     setWorkerError('');
     setStartOrder(order);
@@ -6805,10 +6944,11 @@ function WorkPlanScreen({
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
   const raw = Object.values(orders || {}).filter((o) => o.procId === proc.id && o.date === date).sort((a, b) => (a.order || 0) - (b.order || 0));
   const rows = buildTimeline(raw, settings);
-  const nextRow = rows.find((o) => o.status === 'pending' || o.status === 'running' || o.status === 'paused');
+  const nextRow = rows.filter(o=>['pending','running','paused'].includes(o.status))
+    .sort((a,b)=>a._planStart-b._planStart)[0];
   const doneCnt = rows.filter((o) => o.status === 'done').length;
   const planMin = rows.reduce((a, o) => a + o._planMin, 0);
-  const endEta = rows.length ? rows[rows.length - 1]._planEnd : hm2min((settings || DEFAULT_SETTINGS).startTime);
+  const endEta = rows.reduce((latest,o)=>Math.max(latest,o._planEnd),hm2min((settings || DEFAULT_SETTINGS).startTime));
   const diffSum = rows.filter((o) => o.status === 'done').reduce((a, o) => a + effDiff(o), 0);
   function resolveWorker(text) {
     const v = (text || '').trim();
@@ -6932,8 +7072,9 @@ function WorkPlanScreen({
               fontSize: 14,
               color: '#3A4552'
             }}>
-                  <BiText value={nextRow.kind === 'task' ? `${nextRow.durMin} ${t('分')}` : `${dv(master[nextRow.hinban] || {}, 'name', lang) || nextRow.hinbanName || ''}　/　${nextRow.targetBoxes} ${t('箱')}`} />
+                  <BiText value={nextRow.kind === 'task' ? `${nextRow.durMin} ${t('分')}` : `${dv(master[nextRow.hinban] || {}, 'name', lang) || nextRow.hinbanName || ''}　/　${nextRow.individualPlan && !nextRow.individualPlan.hasQuantity ? '—' : nextRow.targetBoxes+' '+t('箱')}`} />
                 </div>
+                {nextRow.individualPlan&&<strong>{nextRow.assignedWorkerName}</strong>}
                 <div style={{
               fontSize: 13,
               color: NAVY,
@@ -7021,6 +7162,7 @@ function WorkPlanScreen({
                 whiteSpace: 'normal'
               };
               const isNext = nextRow && o.id === nextRow.id;
+              const individual = o.individualPlan;
               const d = o.diffMin || 0;
               const isTask = o.kind === 'task';
               const done = Number(o.doneBoxes) || 0,
@@ -7052,8 +7194,9 @@ function WorkPlanScreen({
                   }}>
                         <BiText value={isTask ? '（製品なし）' : [(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
                       </div>
+                      {individual&&<strong>{o.assignedWorkerName}</strong>}
                     </td>
-                    <td style={td}><span className="plan-mobile-label"><BiText value={b('数量')} /></span><BiText value={isTask ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
+                    <td style={td}><span className="plan-mobile-label"><BiText value={b('数量')} /></span><BiText value={isTask || individual&&!individual.hasQuantity ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
                     <td style={{
                   ...td,
                   color: '#5A6472'
@@ -7116,7 +7259,7 @@ function WorkPlanScreen({
                       minWidth: 40,
                       textAlign: 'right'
                     }}>
-                          <BiText value={isTask ? o.status === 'done' ? '完了' : '—' : `${done}/${tgt}`} />
+                          <BiText value={isTask ? o.status === 'done' ? '完了' : '—' : `${done}${individual&&!individual.hasQuantity?'':'/'+tgt}`} />
                         </span>
                       </div>
                     </td>
@@ -7209,6 +7352,139 @@ function WorkPlanScreen({
 }
 
 /* ── スケジュール編集（管理者） ── */
+function IndividualField({label, children}) {
+  return <label className="individual-field"><BiText value={label}/>{children}</label>;
+}
+function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose}) {
+  const {lang} = useLang();
+  const current = orders[existing?.id] || existing;
+  const assigned = current?.status && current.status !== 'pending';
+  const saved = existing?.individualPlan;
+  const [mode,setMode] = useState(saved?.mode || 'quantity');
+  const [hinban,setHinban] = useState(existing?.hinban || '');
+  const [workerId,setWorkerId] = useState(existing?.assignedWorkerId || '');
+  const [from,setFrom] = useState(saved?.from || settings?.startTime || DEFAULT_SETTINGS.startTime);
+  const [to,setTo] = useState(saved?.to || '');
+  const [kosu,setKosu] = useState(existing?.kosu || '');
+  const [breakStarts,setBreakStarts] = useState(saved?.breakStarts || INDIVIDUAL_BREAK_STARTS);
+  const [remaining,setRemaining] = useState('');
+  const [quantityChanged,setQuantityChanged] = useState(false);
+  const [error,setError] = useState('');
+  const [busy,setBusy] = useState(false);
+  const pending = useRef(false);
+  const savedRemaining = current?.individualPlan?.hasQuantity ? Math.max(0, current.targetBoxes-(Number(current.doneBoxes)||0)) : '';
+  const boxes = quantityChanged ? remaining : savedRemaining;
+  const actualRemaining = boxes==='' ? null : Number(boxes);
+  const done = Number(current?.doneBoxes)||0;
+  const item = master[hinban] || {};
+  const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null};
+  const draft = {date,procId:proc.id,procName:proc.ja,order:existing?.order ?? nextOrder,
+    hinban,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
+    kosu:Number(kosu),capacity:capacityOf(item,proc.id),individualPlan:plan};
+  const people = Object.values(workers).filter(w=>w.name?.trim()).sort((a,b)=>(a.order||0)-(b.order||0));
+  const start = instructionMinute(from),end = instructionMinute(to);
+  const breaks = instructionBreaks(plan);
+  const timesValid = start!==null&&(mode==='quantity'||end!==null&&end>start);
+  const breaksValid = breaks.every((rest,i)=>hm2min(rest.to)<=1440&&(!i||hm2min(rest.from)>=hm2min(breaks[i-1].to)));
+  const validQuantity = actualRemaining===null || Number.isSafeInteger(actualRemaining)&&actualRemaining>=0&&Number.isSafeInteger(actualRemaining+done);
+  const validCost = Number.isFinite(draft.kosu)&&draft.kosu>0;
+  const showPreview = timesValid&&breaksValid&&validQuantity&&validCost&&(mode==='time'||actualRemaining!==null);
+  const live = todayKeyFor(new Date())===date ? new Date() : undefined;
+  const preview = showPreview ? instructionForecast({...draft,status:current?.status||'pending',doneBoxes:done,targetBoxes:(actualRemaining??0)+done},live) : null;
+  async function publish() {
+    if (pending.current) return;
+    if (!hinban || !master[hinban]) return setError('製品を選択してください。');
+    if (!workers[workerId]?.name?.trim()) return setError(WORKER_REQUIRED);
+    if (!timesValid) return setError('作業の開始・終了時刻を確認してください。');
+    if (!validQuantity || mode==='quantity'&&(actualRemaining===null || !existing && actualRemaining===0)) return setError('残り箱数を確認してください。');
+    if (!validCost) return setError('1箱工数を入力してください。');
+    if (!breaksValid) return setError('休憩の順番と時刻を確認してください。');
+    pending.current=true;
+    setBusy(true);
+    setError('');
+    try {
+      await saveIndividualPlan({existing,data:{...draft,createdBy:user?.email||''},remaining:actualRemaining,replaceQuantity:quantityChanged});
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      pending.current=false;
+      setBusy(false);
+    }
+  }
+  const editRest = (i,value) => setBreakStarts(values=>values.map((time,j)=>j===i?value:time));
+  function canStartRestAtFinish(i, duration) {
+    if (preview?.finish == null || preview.finish+duration>1440 || preview.finish===1440) return false;
+    const earlier=breakStarts.slice(0,i).map((value,j)=>instructionMinute(value)===null ? 0 : hm2min(value)+INDIVIDUAL_BREAK_MINS[j]);
+    const later=breakStarts.slice(i+1).map(instructionMinute).filter(value=>value!==null);
+    return preview.finish>=Math.max(0,...earlier) && preview.finish+duration<=Math.min(1440,...later);
+  }
+  return <section className="individual-card individual-editor" aria-label={singleLanguageText('個別作業指示',lang)}>
+    <div className="individual-header"><strong><BiText value="個別作業指示"/></strong><button type="button" onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></div>
+    {assigned?<strong>{hinban}　{item.partNo}</strong>:<InlineHinbanSearch master={master} procId={proc.id} value={hinban} onPick={value=>{
+      setHinban(value);
+      setKosu(Number(master[value]?.sheets?.[proc.id]?.kosu)||'');
+    }}/>}
+    <div className="individual-grid">
+      <IndividualField label="担当者"><LocalizedSelect value={workerId} disabled={assigned} onChange={e=>setWorkerId(e.target.value)}>
+        <LocalizedOption value="">担当者を選択</LocalizedOption>
+        {people.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
+      </LocalizedSelect></IndividualField>
+      <IndividualField label="指示方法"><LocalizedSelect value={mode} onChange={e=>setMode(e.target.value)}>
+        <LocalizedOption value="quantity">箱数から終了予定を出す</LocalizedOption>
+        <LocalizedOption value="time">開始・終了時刻を指定する</LocalizedOption>
+      </LocalizedSelect></IndividualField>
+      <IndividualField label="開始予定"><LocalizedInput type="time" value={from} onChange={e=>setFrom(e.target.value)}/></IndividualField>
+      {mode==='time'&&<IndividualField label="終了時刻"><LocalizedInput type="time" value={to} onChange={e=>setTo(e.target.value)}/></IndividualField>}
+      <IndividualField label={mode==='time'?'残り箱数（任意）':'残り箱数'}><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
+        setRemaining(e.target.value);setQuantityChanged(true);
+      }}/></IndividualField>
+      <IndividualField label="1箱工数（分）"><LocalizedInput type="number" min="0.01" step="any" disabled={assigned} value={kosu} onChange={e=>setKosu(e.target.value)}/></IndividualField>
+    </div>
+    <fieldset>
+      <legend><BiText value="本人の休憩開始時刻"/></legend>
+      <div className="individual-grid">
+        {INDIVIDUAL_BREAK_MINS.map((duration,i)=><IndividualField key={i} label={['午前休憩（10分）','昼休憩（60分）','午後休憩（10分）'][i]}>
+          <LocalizedInput type="time" value={breakStarts[i]} onChange={e=>editRest(i,e.target.value)}/>
+          {breakStarts[i]&&<small>{breakStarts[i]}〜{min2hm(hm2min(breakStarts[i])+duration)}</small>}
+          {canStartRestAtFinish(i,duration)&&<button type="button" onClick={()=>editRest(i,min2hm(preview.finish))}>
+            <BiText value="終了見込みを設定"/>　{min2hm(preview.finish)}
+          </button>}
+        </IndividualField>)}
+      </div>
+    </fieldset>
+    {preview&&<IndividualPeriods forecast={preview}/>}
+    {error&&<p role="alert" className="individual-error"><BiText value={error}/></p>}
+    <button type="button" className="individual-primary" onClick={publish} disabled={busy}><BiText value={busy?'保存中…':'作業指示を確定'}/></button>
+  </section>;
+}
+function IndividualPeriods({forecast}) {
+  const {t} = useLang();
+  return <>
+    {forecast.finish!==null&&<strong><BiText value="終了見込み"/>　{min2hm(forecast.finish)}</strong>}
+    {forecast.hasShortfall&&<small><BiText value="指定の時間内に残り箱数を終えられない見込みです。"/></small>}
+    <div className="individual-periods">
+      {forecast.periods.map(p=><span key={p.to}>{min2hm(p.from)}〜{min2hm(p.to)}　<BiText value="予定"/> {p.boxes} <BiText value={t('箱')}/></span>)}
+    </div>
+  </>;
+}
+function IndividualInstructionNotice({order, now}) {
+  const {t}=useLang();
+  const forecast=instructionForecast(order,now);
+  const {start,end,finish,remaining,done,nextBreak,periods}=forecast;
+  const timeMode=order.individualPlan.mode==='time';
+  const endLabel=timeMode?min2hm(end):finish!==null?min2hm(finish):'—';
+  const checkpoint=periods[0];
+  return <section className="individual-notice" aria-label={t('作業指示')}>
+    <div className="individual-metrics">
+      <div><BiText value="指示時間"/><strong>{min2hm(start)}〜{endLabel}</strong></div>
+      <div><BiText value={remaining===null?'完了箱数':'残り箱数'}/><strong>{remaining??done} <BiText value={t('箱')}/></strong></div>
+      {nextBreak&&<div><BiText value="あなたの次の休憩"/><strong>{nextBreak.from}〜{nextBreak.to}</strong></div>}
+    </div>
+    {checkpoint&&<small>{min2hm(checkpoint.to)} <BiText value="までの予定"/>　{checkpoint.boxes} <BiText value={t('箱')}/></small>}
+  </section>;
+}
+
 function SchedulePlanner({
   proc,
   master,
@@ -7233,6 +7509,8 @@ function SchedulePlanner({
   const [addTask, setAddTask] = useState('');
   const [addDur, setAddDur] = useState('');
   const [shiftOpen, setShiftOpen] = useState(false);
+  const [individualEditor, setIndividualEditor] = useState(null);
+  const plannerNow = useNow();
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
   const raw = Object.values(orders || {}).filter((o) => o.procId === proc.id && o.date === date).sort((a, b) => (a.order || 0) - (b.order || 0));
   const rows = buildTimeline(raw, settings);
@@ -7322,8 +7600,9 @@ function SchedulePlanner({
     setAddDur('');
   }
   async function move(i, dir) {
-    const j = i + dir;
-    if (j < 0 || j >= rows.length) return;
+    let j=i+dir;
+    while (rows[j]?.individualPlan) j+=dir;
+    if (!rows[j] || rows[i].individualPlan) return;
     const a = rows[i],
       bb = rows[j];
     await run(async () => {
@@ -7336,6 +7615,16 @@ function SchedulePlanner({
     });
   }
   async function del(o) {
+    if (o.individualPlan) {
+      if (o.status!=='pending' || !(await showBiDialog('confirm',`${o.hinban} の行を削除しますか？`))) return;
+      const ref=col.doc(o.id);
+      await run(()=>db.runTransaction(async tx=>{
+        const latest=await tx.get(ref);
+        if (!latest.exists || latest.data().status!=='pending') throw new Error('作業状態が変わりました。計画表を確認してください。');
+        tx.delete(ref);
+      }));
+      return;
+    }
     if (o.status !== 'pending' && !(await showBiDialog("confirm", '開始済みの行です。削除すると実績も消えます。よろしいですか？'))) return;
     if (o.status === 'pending' && !(await showBiDialog("confirm", `${o.hinban} の行を削除しますか？`))) return;
     await run(() => col.doc(o.id).delete());
@@ -7378,6 +7667,7 @@ function SchedulePlanner({
           hinbanName: o.hinbanName || '',
           partNo: o.partNo || '',
           targetBoxes: o.targetBoxes,
+          ...(o.individualPlan?{individualPlan:o.individualPlan,revision:1}:{}),
           kosu: o.kosu || 0,
           capacity: o.capacity || 0,
           assignedWorkerId: o.assignedWorkerId || null,
@@ -7453,7 +7743,7 @@ function SchedulePlanner({
             color: '#4A5460',
             marginBottom: 5
           }}><BiText value={b('日付')} /></div>
-            <LocalizedInput type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{
+            <LocalizedInput type="date" value={date} disabled={!!individualEditor} onChange={(e) => setDate(e.target.value)} style={{
             width: 172,
             fontSize: 15
           }} /></div>
@@ -7550,7 +7840,11 @@ function SchedulePlanner({
           fontWeight: 700,
           whiteSpace: 'normal'
         }}>＋ <BiText value={t('行を追加')} /></button>} />
-          <button onClick={copyFrom} disabled={busy} style={{
+          {supportsIndividualPlan(proc.id)&&<button type="button" onClick={()=>setIndividualEditor({})} disabled={busy||!!individualEditor}
+            style={{minHeight:46,padding:'0 16px',borderRadius:8,background:'#15532f',color:'#fff',fontWeight:700}}>
+            <BiText value="個別指示を追加"/>
+          </button>}
+          <button onClick={copyFrom} disabled={busy||!!individualEditor} style={{
           minHeight: 46,
           padding: '0 16px',
           borderRadius: 8,
@@ -7573,6 +7867,9 @@ function SchedulePlanner({
           whiteSpace: 'normal'
         }}>⏰ <BiText value={t('始業・休憩設定')} /></button>
         </div>
+        {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
+          date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
+          nextOrder={(rows.length?Math.max(...rows.map(r=>r.order||0)):0)+10} onClose={()=>setIndividualEditor(null)}/>}
         <div style={{
         fontSize: 13,
         color: '#5A6472',
@@ -7586,7 +7883,7 @@ function SchedulePlanner({
         }}><BiText value={(settings || DEFAULT_SETTINGS).startTime} /></b>
           <BiText value={rows.length > 0 && <>　/　<BiText value={b('終業見込み')} /> <b style={{
             color: NAVY
-          }}><BiText value={min2hm(rows[rows.length - 1]._planEnd)} /></b></>} />
+          }}><BiText value={min2hm(Math.max(...rows.map(row=>row._planEnd)))} /></b></>} />
           <div style={{
           fontSize: 11.5,
           color: '#8A93A0',
@@ -7645,6 +7942,8 @@ function SchedulePlanner({
               <BiText value={rows.map((o, i) => {
               const m = master[o.hinban] || {};
               const locked = o.status !== 'pending';
+              const individual = o.individualPlan;
+              const forecast = individual&&instructionForecast(o,new Date(plannerNow));
               const isTask = o.kind === 'task';
               return <tr key={o.id} style={{
                 background: i % 2 ? '#F7F9FC' : '#fff'
@@ -7669,7 +7968,7 @@ function SchedulePlanner({
                   }}><BiText value={isTask ? '（製品なし）' : [m.partNo || o.partNo, dv(m, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} /></div>
                     </td>
                     <td style={td}>
-                      <BiText value={isTask ? '—' : locked ? `${o.targetBoxes} ${t('箱')}` : <LocalizedInput type="number" min="1" defaultValue={o.targetBoxes} onBlur={(e) => setQty(o, e.target.value)} style={{
+                      <BiText value={isTask ? '—' : individual ? forecast.remaining===null?'—':`${forecast.remaining} ${t('箱')}` : locked ? `${o.targetBoxes} ${t('箱')}` : <LocalizedInput type="number" min="1" defaultValue={o.targetBoxes} onBlur={(e) => setQty(o, e.target.value)} style={{
                     width: 84,
                     fontSize: 14,
                     padding: '6px 8px'
@@ -7696,9 +7995,11 @@ function SchedulePlanner({
                     fontSize: 11.5,
                     color: '#6B7480'
                   }}>→ <BiText value={min2hm(o._planEnd)} /></div>
+                      {forecast&&o.status!=='done'&&forecast.finish!==null&&<small><BiText value="終了見込み"/>　{min2hm(forecast.finish)}</small>}
+                      {forecast&&<small><BiText value="休憩"/>　{forecast.breaks.map(rest=>rest.from+'〜'+rest.to).join('　')||'—'}</small>}
                     </td>
                     <td style={td}>
-                      <BiText value={locked ? o.workerName || o.assignedWorkerName || t('未割当') : <LocalizedSelect value={o.assignedWorkerId || ''} onChange={(e) => setAssign(o, e.target.value)} style={{
+                      <BiText value={locked || individual ? o.workerName || o.assignedWorkerName || t('未割当') : <LocalizedSelect value={o.assignedWorkerId || ''} onChange={(e) => setAssign(o, e.target.value)} style={{
                     width: 140,
                     fontSize: 13,
                     padding: '6px 8px'
@@ -7728,7 +8029,9 @@ function SchedulePlanner({
                     gap: 5,
                     justifyContent: 'center'
                   }}>
-                        <button onClick={() => move(i, -1)} disabled={busy || i === 0} style={{
+                        {individual&&<button type="button" onClick={()=>setIndividualEditor(o)} disabled={busy||!!individualEditor||o.status==='done'}
+                          style={{padding:'5px 8px',borderRadius:6,background:'#EAF2FF',color:NAVY,fontWeight:700}}><BiText value="編集"/></button>}
+                        {!individual&&<button onClick={() => move(i, -1)} disabled={busy || !rows.slice(0,i).some(row=>!row.individualPlan)} style={{
                       width: 30,
                       height: 32,
                       borderRadius: 6,
@@ -7737,8 +8040,8 @@ function SchedulePlanner({
                       color: i === 0 ? '#C7CDD6' : NAVY,
                       fontSize: 13,
                       fontWeight: 700
-                    }}>↑</button>
-                        <button onClick={() => move(i, 1)} disabled={busy || i === rows.length - 1} style={{
+                    }}>↑</button>}
+                        {!individual&&<button onClick={() => move(i, 1)} disabled={busy || !rows.slice(i+1).some(row=>!row.individualPlan)} style={{
                       width: 30,
                       height: 32,
                       borderRadius: 6,
@@ -7747,8 +8050,8 @@ function SchedulePlanner({
                       color: i === rows.length - 1 ? '#C7CDD6' : NAVY,
                       fontSize: 13,
                       fontWeight: 700
-                    }}>↓</button>
-                        <button onClick={() => del(o)} disabled={busy} style={{
+                    }}>↓</button>}
+                        <button onClick={() => del(o)} disabled={busy||!!individual&&locked||!!individualEditor} style={{
                       width: 30,
                       height: 32,
                       borderRadius: 6,
@@ -7866,8 +8169,10 @@ function WorkSheetScreen({
   const [starting, setStarting] = useState(false);
   const localBlock = qrReadLocal(order.id);
   const qrReady = !order.qrBlocked && (!localBlock || order.qrUnlockOf === localBlock.lockId);
+  const individual=order.individualPlan;
+  const noticeNow=useNow();
   const [workerId,setWorkerId]=useState(worker?.id || order.assignedWorkerId || '');
-  const useWorker=workers?.[workerId];
+  const useWorker=workers?.[individual?order.assignedWorkerId:workerId];
   const canStart=!!(useWorker?.name?.trim() && qrReady && (isTask || ack));
   async function start(){
     if(starting||!canStart)return;
@@ -7950,11 +8255,11 @@ function WorkSheetScreen({
         overflowY: 'auto'
       }}>
           <div style={{padding:12,background:'#F2F6FD',borderRadius:10}}>
-            <WorkOrderWorkerPicker workers={workers} value={useWorker?workerId:''} onChange={setWorkerId} disabled={starting}/>
+            {individual?<strong><BiText value="担当者"/>　{useWorker?.name||order.assignedWorkerName}</strong>:<WorkOrderWorkerPicker workers={workers} value={useWorker?workerId:''} onChange={setWorkerId} disabled={starting}/>}
           </div>
           {!useWorker&&<p role="status" style={{color:'#9a3412',margin:0}}><BiText value={WORKER_REQUIRED}/></p>}
           {!isTask&&<>
-          <div style={{
+          {individual?<IndividualInstructionNotice order={order} now={new Date(noticeNow)}/>:<div style={{
           padding: '16px',
           background: '#F2F6FD',
           borderRadius: 10,
@@ -7973,7 +8278,7 @@ function WorkSheetScreen({
               fontSize: 18,
               marginLeft: 4
             }}><BiText value={t('箱')} /></span></div>
-          </div>
+          </div>}
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -8016,7 +8321,7 @@ function WorkSheetScreen({
               }}><BiText value={"\u500B"} /></span></div>
             </div>
           </div>
-          <BiText value={kosu > 0 && tgt > 0 && <div style={{
+          <BiText value={!individual && kosu > 0 && tgt > 0 && <div style={{
           fontSize: 12.5,
           color: '#5A6472',
           textAlign: 'center'
@@ -8204,6 +8509,9 @@ const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({bloc
 const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)||qrGate.blocked),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
 
   const c = calcLog(log, now);
+  const individual=log.individualPlan;
+  const forecast=individual&&instructionForecast(log,new Date(now));
+  const planEta=individual?(forecast.finish===null?'—':min2hm(forecast.finish)):c.hasKosu?fmtHM(c.eta):'—';
   const taskPlanMin = Number(log.durMin) || 0;
   const taskDiff = taskPlanMin - c.active / 60000;
   /* 今日・同一工程の完了分の累計（リザルトに表示） */
@@ -8267,7 +8575,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           title: isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || ''),
           isTask,
           doneBoxes: current.doneBoxes || 0,
-          targetBoxes: log.targetBoxes || 0,
+          targetBoxes: log.individualPlan&&!log.individualPlan.hasQuantity ? null : current.targetBoxes || 0,
           fraction: Number(fraction) || 0,
           stdMin: payload.stdMin,
           actMin: payload.actMin,
@@ -8317,11 +8625,11 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
       <div style={{display:'flex',alignItems:'center',gap:10,padding:'5px 12px',flexWrap:'wrap'}}>
-        <button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
+        {!individual&&<button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
           className="workrun-worker-change">
           <span aria-hidden="true">👤 ⇄</span><BiText value={workerMissing ? "担当者を登録" : "担当者を変更"}/>
-        </button>
+        </button>}
         {workerUnavailable&&<span role="status" style={{color:'#9a3412',fontWeight:700}}><BiText value={WORKER_REQUIRED}/></span>}
         <WorkerChangeHistory order={log}/>
       </div>
@@ -8380,12 +8688,13 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         gap: 10,
         overflowY: 'auto'
       }}>
+          {individual&&<IndividualInstructionNotice order={log} now={new Date(now)}/>}
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: 8
         }}>
-            <BiText value={[[b('現在時刻'), fmtHMS(new Date(now)), NAVY], [b('終了予定'), c.hasKosu ? fmtHM(c.eta) : '—', NAVY], [b('経過') + ' / ' + b('実働'), fmtDur(c.elapsed) + ' / ' + fmtDur(c.active), '#3A4552']].map(([k, v, col], i) => <div key={i} style={{
+            <BiText value={[[b('現在時刻'), fmtHMS(new Date(now)), NAVY], [b('終了予定'), planEta, NAVY], [b('経過') + ' / ' + b('実働'), fmtDur(c.elapsed) + ' / ' + fmtDur(c.active), '#3A4552']].map(([k, v, col], i) => <div key={i} style={{
             padding: '8px 10px',
             background: '#F7F9FC',
             borderRadius: 8,
@@ -8449,8 +8758,8 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
               }}><BiText value={done} /><span style={{
                   fontSize: 16,
                   color: '#6B7480'
-                }}> / <BiText value={target} /> <BiText value={t('箱')} /></span></div>
-                <div style={{
+                }}>{(!individual||individual.hasQuantity)&&<> / <BiText value={target} /></>} <BiText value={t('箱')} /></span></div>
+                {(!individual||individual.hasQuantity)&&<><div style={{
                 height: 10,
                 background: '#E8EAEE',
                 borderRadius: 5,
@@ -8467,7 +8776,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
                 color: '#6B7480',
                 marginTop: 4,
                 textAlign: 'right'
-              }}><BiText value={pct} />%</div>
+              }}><BiText value={pct} />%</div></>}
               </>} />
             </div>
             <div style={{
@@ -8759,7 +9068,7 @@ function OutModal({
           gap: 10,
           marginBottom: 14
         }}>
-            <BiText value={[[b('完了箱数'), `${log.doneBoxes || 0} / ${log.targetBoxes || 0}`], [b('実働'), fmtDur(preview.active)], [b('標準'), Math.round(preview.stdMin) + ' ' + t('分')], [b('先行') + '/' + b('遅れ'), preview.hasKosu ? (preview.diffMin >= 0 ? '+' : '−') + Math.abs(Math.round(preview.diffMin)) + ' ' + t('分') : '—']].map(([k, v], i) => <div key={i} style={{
+            <BiText value={[[b('完了箱数'), `${log.doneBoxes || 0}${log.individualPlan&&!log.individualPlan.hasQuantity?'':' / '+(log.targetBoxes||0)}`], [b('実働'), fmtDur(preview.active)], [b('標準'), Math.round(preview.stdMin) + ' ' + t('分')], [b('先行') + '/' + b('遅れ'), preview.hasKosu ? (preview.diffMin >= 0 ? '+' : '−') + Math.abs(Math.round(preview.diffMin)) + ' ' + t('分') : '—']].map(([k, v], i) => <div key={i} style={{
             padding: '10px 12px',
             background: '#F7F9FC',
             borderRadius: 8
@@ -8913,7 +9222,7 @@ function AnalyticsScreen({
   const personnelRows=(rows||[]).filter(o=>allProc||o.procId===proc.id).flatMap(workerEvaluationRows);
   const workerNames=[...new Set(personnelRows.map(o=>o.workerName).filter(Boolean))].sort();
   const done=selectedWorker?personnelRows.filter(o=>o.workerName===selectedWorker):completedOrders;
-  const rateOf = arr => {const v=summarize(arr);const fraction=arr.reduce((sum,o)=>sum+(o.workerSegment&&Number(o.capacity)>0?(Number(o.fraction)||0)/Number(o.capacity):0),0);return v.target?Math.round((v.boxes+fraction)/v.target*1000)/10:0;};
+  const rateOf = rows => {const arr=rows.filter(o=>!o.individualPlan||o.individualPlan.hasQuantity);const v=summarize(arr);const fraction=arr.reduce((sum,o)=>sum+(o.workerSegment&&Number(o.capacity)>0?(Number(o.fraction)||0)/Number(o.capacity):0),0);return v.target?Math.round((v.boxes+fraction)/v.target*1000)/10:0;};
   const defectOf = arr => arr.reduce((n,o)=>n+(o.workerSegment?(Number(o.defectCount)||0):orderDefectTotal(o)),0);
   const trend = buckets.map(bk=>{const arr=done.filter(o=>bucketOf(o,bucketMode)===bk.key);return {...bk,rate:rateOf(arr),defects:defectOf(arr),count:arr.length};});
   const sum = summarize(done);
@@ -9528,7 +9837,7 @@ function ResultModal({
         <div style={{
         padding: '14px 22px 4px'
       }}>
-          <BiText value={!r.isTask && row(b('完了箱数'), `${r.doneBoxes} / ${r.targetBoxes} ${t('箱')}` + (r.fraction ? `（+${r.fraction}個）` : ''), true)} />
+          <BiText value={!r.isTask && row(b('完了箱数'), `${r.doneBoxes}${r.targetBoxes===null?'':' / '+r.targetBoxes} ${t('箱')}` + (r.fraction ? `（+${r.fraction}個）` : ''), true)} />
           <BiText value={row(b('予定時間'), Math.round(r.stdMin * 10) / 10 + ' ' + t('分'))} />
           <BiText value={row(b('実働'), Math.round(r.actMin * 10) / 10 + ' ' + t('分'))} />
           <BiText value={row(b('開始') + ' → ' + b('終了'), `${fmtHM(new Date(r.startAt))} → ${fmtHM(new Date(r.endAt))}`)} />
@@ -9734,7 +10043,7 @@ function WorkHistory({
                   fontWeight: 700
                 }}>{l.hinban}</td>
                     <td style={td}><BiText value={l.startAt ? fmtHM(new Date(l.startAt)) : ''} /> → <BiText value={l.endAt ? fmtHM(new Date(l.endAt)) : ''} /></td>
-                    <td style={td}><BiText value={l.doneBoxes || 0} /> / <BiText value={l.targetBoxes || 0} /><BiText value={l.fraction ? `（+${l.fraction}個）` : ''} /></td>
+                    <td style={td}><BiText value={l.doneBoxes || 0} />{(!l.individualPlan||l.individualPlan.hasQuantity)&&<> / <BiText value={l.targetBoxes || 0} /></>}<BiText value={l.fraction ? `（+${l.fraction}個）` : ''} /></td>
                     <td style={td}><BiText value={Math.round(l.actMin || 0)} /> <BiText value={t('分')} /></td>
                     <td style={td}><BiText value={Math.round(l.pausedMin || 0)} /> <BiText value={t('分')} /></td>
                     <td style={{
