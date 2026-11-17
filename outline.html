@@ -23,6 +23,14 @@
 .individual-card fieldset{border:1px solid #c0cfe5;border-radius:8px;background:#fff;padding:8px;min-width:0}
 .individual-card legend{font-weight:700}.individual-card fieldset button{margin-top:8px}
 .individual-metrics>div{display:grid;gap:2px}.individual-metrics strong{font-size:clamp(20px,3vw,29px);line-height:1.15;font-variant-numeric:tabular-nums}
+.workrun-break-progress{flex:none;display:grid;gap:8px;padding:10px 12px;border:2px solid #174da0;border-radius:12px;background:#f2f7ff;color:#143361}
+.workrun-break-heading{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;font-weight:800}
+.workrun-break-heading strong{font-size:clamp(24px,3vw,36px);line-height:1.08;font-variant-numeric:tabular-nums}
+.workrun-break-heading small{color:#465b76;font-size:13px;font-weight:600}
+.workrun-break-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
+.workrun-break-values>div{display:grid;align-content:start;gap:3px;padding:6px 4px;border-radius:8px;background:#fff}
+.workrun-break-values>div:nth-child(2){color:#15532f;background:#e6f5ec}.workrun-break-values>div:last-child{color:#734500;background:#fff2d3}
+.workrun-break-values small{font-size:14px;font-weight:800;overflow-wrap:anywhere}.workrun-break-values strong{font-size:clamp(24px,3vw,38px);line-height:1.12;font-variant-numeric:tabular-nums}.workrun-break-values strong small{font-size:14px}
 .individual-periods{font-size:13px}.individual-error{margin:0;color:#972010}.individual-notice{margin:0;border:2px solid #174da0}.individual-notice small{display:block;margin-top:7px}
 
 .workrun-worker-change{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:min(100%,240px);min-height:56px;padding:8px 20px;background:#174da0;color:#fff;border:2px solid #123b7b;border-radius:10px;font-size:19px;font-weight:800;line-height:1.2;touch-action:manipulation}
@@ -1822,6 +1830,9 @@ const INDIVIDUAL_LABELS = {
   '予定なし':['Tidak dijadwalkan','Sem pausa prevista','Không có lịch nghỉ'],
   '休憩までの予定箱数':['Target kotak sebelum istirahat','Caixas previstas até a pausa','Số thùng dự kiến trước giờ nghỉ'],
   '終了までの予定箱数':['Target kotak hingga selesai','Caixas previstas até o fim','Số thùng dự kiến đến khi kết thúc'],
+  'あと':['Sisa','Restam','Còn'],
+  '作業全体の進捗':['Progres seluruh pekerjaan','Progresso geral do trabalho','Tiến độ toàn bộ công việc'],
+  'この時間帯の完了箱数を確定できません。':['Jumlah kotak selesai pada periode ini belum dapat dipastikan.','Não é possível confirmar quantas caixas foram concluídas neste período.','Chưa xác định được số thùng đã hoàn thành trong khoảng thời gian này.'],
   '編集':['Edit','Editar','Chỉnh sửa']
 };
 for (const [label,[id,pt,vi]] of Object.entries(INDIVIDUAL_LABELS)) {
@@ -6106,6 +6117,12 @@ function buildTimeline(rows, settings) {
   });
 }
 
+function workPlanTimeline(orders, procId, date, settings) {
+  const rows=Object.values(orders || {}).filter(o=>o.procId===procId && o.date===date)
+    .sort((a,b)=>(a.order || 0)-(b.order || 0));
+  return buildTimeline(rows,settings);
+}
+
 const INDIVIDUAL_BREAK_MINS = [10, 60, 10];
 const INDIVIDUAL_BREAK_STARTS = ['', '', ''];
 function supportsIndividualPlan(procId) {
@@ -6181,6 +6198,23 @@ function plannedBreakTarget(order, settings, now) {
     return Math.min(target,Math.floor(Math.max(0,at-start-paused)/kosu+1e-9));
   };
   return {rest,isBreak:!!rest && rest.from<=clock,periodStart,cutoff,boxes:kosu>0 ? boxesAt(cutoff)-boxesAt(periodStart) : null};
+}
+function completedBoxesInPeriod(order, plannedStart, periodStart) {
+  const total=Number(order.doneBoxes) || 0;
+  if (!total || periodStart===plannedStart) return total;
+  const from=new Date(order.date+'T00:00:00').setMinutes(periodStart);
+  if (order.startAt>=from) return total;
+
+  // The completion immediately before or after the boundary identifies the starting count.
+  let before=0, first=total+1;
+  for (const events of [order.qrCountEvents,order.manualBoxEvents]) {
+    for (const event of events || []) {
+      if (!Number.isFinite(event.at) || !(event.doneAfter>0 && event.doneAfter<=total)) continue;
+      if (event.at<from) before=Math.max(before,event.doneAfter);
+      else first=Math.min(first,event.doneAfter);
+    }
+  }
+  return first===before+1 ? total-before : null;
 }
 function todayKeyFor(d) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
@@ -6320,6 +6354,16 @@ function orderDefectTotal(order) {
 function workerBoxBaseline(order) {
   const changes=order.workerChanges || [];
   return changes[changes.length-1]?.boxTotal || 0;
+}
+function manualBoxPatch(order, delta, at) {
+  const total=Number(order.doneBoxes) || 0;
+  if (delta<0 && total<=workerBoxBaseline(order)) return null;
+  const doneBoxes=total+delta;
+  if (!supportsIndividualPlan(order.procId)) return {doneBoxes};
+
+  const events=(order.manualBoxEvents || []).filter(event=>event.doneAfter<Math.max(total,doneBoxes));
+  if (delta>0) events.push({at,doneAfter:doneBoxes});
+  return {doneBoxes,manualBoxEvents:events};
 }
 async function updateWorkRun(order, buildPatch, {allowMissingWorker=false}={}) {
   const ref=db.collection('workOrders').doc(order.id);
@@ -6999,8 +7043,7 @@ function WorkPlanScreen({
   const stamp = `${now.getFullYear()}/${pad2(now.getMonth() + 1)}/${pad2(now.getDate())} (${wd}) ${fmtHM(now)}`;
   const stamp_id = stamp.replace('(' + wd + ')', '(' + ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][now.getDay()] + ')');
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const raw = Object.values(orders || {}).filter((o) => o.procId === proc.id && o.date === date).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const rows = buildTimeline(raw, settings);
+  const rows=workPlanTimeline(orders,proc.id,date,settings);
   const nextRow = rows.filter(o=>['pending','running','paused'].includes(o.status))
     .sort((a,b)=>a._planStart-b._planStart)[0];
   const showBreakTargets=supportsIndividualPlan(proc.id);
@@ -7528,7 +7571,7 @@ function IndividualPeriods({forecast}) {
     </div>
   </>;
 }
-function IndividualInstructionNotice({order, now}) {
+function IndividualInstructionNotice({order, now, showCheckpoint=true, showNextBreak=true}) {
   const {t}=useLang();
   const forecast=instructionForecast(order,now);
   const {start,end,finish,remaining,done,nextBreak,periods}=forecast;
@@ -7539,9 +7582,9 @@ function IndividualInstructionNotice({order, now}) {
     <div className="individual-metrics">
       <div><BiText value="指示時間"/><strong>{min2hm(start)}〜{endLabel}</strong></div>
       <div><BiText value={remaining===null?'完了箱数':'残り箱数'}/><strong>{remaining??done} <BiText value={t('箱')}/></strong></div>
-      {nextBreak&&<div><BiText value="あなたの次の休憩"/><strong>{nextBreak.from}〜{nextBreak.to}</strong></div>}
+      {showNextBreak&&nextBreak&&<div><BiText value="あなたの次の休憩"/><strong>{nextBreak.from}〜{nextBreak.to}</strong></div>}
     </div>
-    {checkpoint&&<small>{min2hm(checkpoint.to)} <BiText value="までの予定"/>　{checkpoint.boxes} <BiText value={t('箱')}/></small>}
+    {showCheckpoint&&checkpoint&&<small>{min2hm(checkpoint.to)} <BiText value="までの予定"/>　{checkpoint.boxes} <BiText value={t('箱')}/></small>}
   </section>;
 }
 
@@ -8493,6 +8536,27 @@ function WorkOperationHelp({needsQr,onClose}) {
   </QrDialog>;
 }
 
+function WorkRunBreakProgress({order, plannedStart, target}) {
+  const {lang}=useLang();
+  const {rest,isBreak,periodStart,cutoff,boxes}=target;
+  const completed=completedBoxesInPeriod(order,plannedStart,periodStart);
+  const remaining=boxes===null || completed===null ? null : Math.max(0,boxes-completed);
+  const label=rest ? isBreak ? '休憩中' : '次の休憩' : '終了予定';
+  const deadline=rest && isBreak ? min2hm(rest.from)+'〜'+min2hm(rest.to) : min2hm(cutoff);
+  return <section className="workrun-break-progress" aria-label={singleLanguageText(rest?'休憩までの予定箱数':'終了までの予定箱数',lang)}>
+    <div className="workrun-break-heading">
+      <BiText value={label}/> <strong>{deadline}</strong> <small>{min2hm(periodStart)}〜{min2hm(cutoff)}</small>
+    </div>
+    <div className="workrun-break-values" aria-live="polite">
+      {[['予定',boxes],['完了',completed],['あと',remaining]].map(([name,value])=><div key={name}>
+        <small><BiText value={name}/></small>
+        <strong>{value ?? '—'}{value!==null&&<> <small><BiText value="箱"/></small></>}</strong>
+      </div>)}
+    </div>
+    {completed===null&&<small><BiText value="この時間帯の完了箱数を確定できません。"/></small>}
+  </section>;
+}
+
 /* ── 実行画面（作業中） ── */
 function WorkRunScreen({
   proc,
@@ -8500,6 +8564,7 @@ function WorkRunScreen({
   log,
   master,
   orders,
+  settings,
   user,
   onExit,
   onInfo,
@@ -8511,6 +8576,12 @@ function WorkRunScreen({
     b
   } = useLang();
   const now = useNow();
+  const plannedOrder=React.useMemo(()=>{
+    if (!supportsIndividualPlan(proc.id) || log.kind==='task') return null;
+    if (log.individualPlan) return buildTimeline([log],settings)[0];
+    return workPlanTimeline(orders,proc.id,log.date,settings).find(o=>o.id===log.id) || buildTimeline([log],settings)[0];
+  },[log,orders,proc.id,settings]);
+  const breakProgress=plannedBreakTarget(plannedOrder,settings,new Date(now));
   const [anom, setAnom] = useState(false);
   const [out, setOut] = useState(false);
   const [result, setResult] = useState(null);
@@ -8588,10 +8659,13 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       setBusy(false);
     }
   }
-  const addBox = () => needsQr ? document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'}) :
-    w(()=>updateWorkRun(log,current=>({doneBoxes:(Number(current.doneBoxes)||0)+1})));
+  function addBox() {
+    if (needsQr) return document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+    const at=Date.now();
+    return w(()=>updateWorkRun(log,current=>manualBoxPatch(current,1,at)));
+  }
   const undoBox = () => needsQr ? w(()=>undoVerifiedKanban(log.id,log.workerChanges?.length||0)) :
-    w(()=>updateWorkRun(log,current=>(Number(current.doneBoxes)||0)>workerBoxBaseline(current)?{doneBoxes:current.doneBoxes-1}:null));
+    w(()=>updateWorkRun(log,current=>manualBoxPatch(current,-1)));
   const pause = (type) => w(()=>updateWorkRun(log,current=>({
     status:'paused',pauses:[...(current.pauses||[]),{type,from:Date.now()}]
   })));
@@ -8748,7 +8822,8 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         gap: 10,
         overflowY: 'auto'
       }}>
-          {individual&&<IndividualInstructionNotice order={log} now={new Date(now)}/>}
+          {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
+          {individual&&<IndividualInstructionNotice order={log} now={new Date(now)} showCheckpoint={!breakProgress} showNextBreak={!breakProgress?.rest}/>}
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
@@ -8784,7 +8859,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
               <div style={{
               fontSize: 11,
               color: '#6B7480'
-            }}><BiText value={b('進捗')} /></div>
+            }}><BiText value={b(breakProgress?'作業全体の進捗':'進捗')} /></div>
               <BiText value={isTask ? <>
                 <div style={{
                 fontSize: 30,
@@ -10440,7 +10515,7 @@ function App() {
     })} /> : <LoadingScreen />;
   } else if (view.name === 'workrun') {
     const log = orders[view.logId];
-    screen = log ? <WorkRunScreen key={log.id} proc={view.proc} workers={workers} log={log} master={master} orders={orders} user={user} onExit={() => setView({
+    screen = log ? <WorkRunScreen key={log.id} proc={view.proc} workers={workers} log={log} master={master} orders={orders} settings={procSettings[view.proc.id]} user={user} onExit={() => setView({
       name: 'work',
       proc: view.proc
     })} onInfo={(h) => setView({
