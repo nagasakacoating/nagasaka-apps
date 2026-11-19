@@ -476,6 +476,17 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .history-event:last-child{border-bottom:0}.history-event:nth-child(even){background:#f7f9fc}.history-event time{font-size:14px;font-variant-numeric:tabular-nums;color:#334155}
 .history-event-alert{border-left:4px solid #b3261e}.history-event-alert strong{color:#b3261e}.history-event-content>span+span{margin-left:10px}
 @media(max-width:680px){.history-event{grid-template-columns:minmax(0,1fr);gap:4px}.history-detail-identity strong{font-size:21px}.history-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.history-event-worker{display:inline;margin-left:12px}}
+
+.evaluation-screen{height:100vh;display:flex;flex-direction:column}.evaluation-main{flex:1;overflow:auto;padding:16px 22px;color:#17253b;font-size:16px}
+.evaluation-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.evaluation-toolbar label{display:grid;gap:4px;font-size:14px;font-weight:700}.evaluation-toolbar input,.evaluation-toolbar select{min-height:44px;padding:6px 10px;border:1px solid #b9cbe4;border-radius:8px;max-width:220px}
+.evaluation-screen button{min-height:44px;border:1px solid #b9cbe4;border-radius:8px;padding:8px 12px;font-size:14px;background:#edf3fc;color:#12306b;font-weight:700}.evaluation-screen button[aria-pressed=true]{background:#12306b;color:#fff}.evaluation-screen button:disabled{opacity:.55;cursor:default}
+.evaluation-periods,.evaluation-breadcrumb{display:flex;gap:6px;flex-wrap:wrap}.evaluation-breadcrumb{margin:12px 0}.evaluation-breadcrumb button{background:white}.evaluation-settings{font-size:14px;width:100%}.evaluation-settings summary{cursor:pointer}
+.evaluation-summary,.evaluation-detail-section{background:#fff;border:1px solid #d3deed;border-radius:12px;padding:14px;margin:12px 0}.evaluation-summary h3,.evaluation-detail-section h3{font-size:18px;color:#12306b;margin:0 0 12px}.evaluation-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px}.evaluation-metrics>div{display:grid;gap:4px;padding:10px;background:#f3f7fc;border-radius:8px;font-size:14px}.evaluation-metrics strong{font-size:24px;font-variant-numeric:tabular-nums}
+.evaluation-auto{padding:12px 14px;background:#edf5ff;border-left:4px solid #12306b;border-radius:6px;margin-top:12px;line-height:1.7}.evaluation-auto p{margin:5px 0}.evaluation-note{font-size:14px;color:#475569;line-height:1.6;margin:8px 0}
+.evaluation-chart{display:flex;gap:8px;overflow-x:auto;padding:12px 0;align-items:stretch}.evaluation-chart>button{display:grid;grid-template-rows:auto 140px auto;flex:1;min-width:100px;max-width:180px;gap:6px;background:#fff}.evaluation-chart strong{font-size:18px}.evaluation-bar-area{height:140px;position:relative;display:flex;align-items:end;justify-content:center;border-bottom:1px solid #94a3b8}.evaluation-bar{width:36px;display:block;border-radius:5px 5px 0 0}.evaluation-standard-line{position:absolute;left:0;right:0;border-top:1px dashed #64748b}
+.evaluation-table-wrap{overflow:auto}.evaluation-table{width:100%;border-collapse:collapse;font-size:14px}.evaluation-table th{background:#12306b;color:white;padding:10px;white-space:nowrap;text-align:left}.evaluation-table td{padding:10px;border-bottom:1px solid #d3deed;min-width:55px;vertical-align:top}.evaluation-table td:last-child{min-width:250px;max-width:450px;line-height:1.6}.evaluation-table tr:nth-child(even){background:#f7f9fc}.evaluation-table time{white-space:nowrap}
+.evaluation-event{display:grid;grid-template-columns:65px 150px 100px minmax(0,1fr);gap:10px;border-bottom:1px solid #d3deed;padding:10px 0;font-size:14px}.evaluation-bottom-total{margin-top:22px}.evaluation-detail-section>button{margin:4px 8px 4px 0}
+@media(max-width:700px){.evaluation-main{padding:10px}.evaluation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.evaluation-event{grid-template-columns:60px minmax(0,1fr)}.evaluation-event>div{grid-column:1/-1}.evaluation-toolbar label{max-width:100%}.evaluation-summary,.evaluation-detail-section{padding:10px}.evaluation-metrics strong{font-size:22px}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -9370,389 +9381,274 @@ function ReportStartEditor({report}){
   </div>;
 }
 
-/* ── 評価（日／月／年） ── */
-function AnalyticsScreen({
-  proc,
-  master,
-  workers,
-  user,
-  onBack
-}) {
-  const {
-    lang,
-    t,
-    b
-  } = useLang();
-  const reportStart=useReportStart();
-  const [mode, setMode] = useState('week');
-  const [selectedWorker,setSelectedWorker]=useState('');
-  const [allProc, setAllProc] = useState(false);
-  const [rows, setRows] = useState(null);
-  const [err, setErr] = useState('');
-  const today = new Date();
-  const fmtDate = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-  const fromDate = new Date(today.getFullYear(),today.getMonth(),today.getDate());
-  if(mode==='week')fromDate.setDate(fromDate.getDate()-7);
-  else if(mode==='month')fromDate.setMonth(fromDate.getMonth()-1);
-  else if(mode==='year')fromDate.setFullYear(fromDate.getFullYear()-1);
-  else fromDate.setFullYear(fromDate.getFullYear()-Number(mode));
-  const from = reportStart.start&&reportStart.start>fmtDate(fromDate)?reportStart.start:fmtDate(fromDate),to=fmtDate(today);
-  const spanYears = ['3','5','10'].includes(mode);
-  const bucketMode = spanYears?'year':mode==='year'?'month':'day';
-  const buckets = buildBuckets(bucketMode).filter(bk=>{
-    const k=bucketMode==='year'?bk.key+'-01-01':bucketMode==='month'?bk.key+'-01':bk.key;
-    return k<=to && (bucketMode==='year'?bk.key>=from.slice(0,4):bucketMode==='month'?bk.key>=from.slice(0,7):bk.key>=from);
-  });
-  if(spanYears){buckets.length=0;for(let y=Number(from.slice(0,4));y<=today.getFullYear();y++)buckets.push({key:String(y),label:String(y)});}
-  if(mode==='year'){buckets.length=0;for(let i=12;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const k=fmtDate(d).slice(0,7);buckets.push({key:k,label:k.slice(2)});}}
-  if(mode==='month'){buckets.length=0;for(let i=30;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
-  if(mode==='week'){buckets.length=0;for(let i=7;i>=0;i--){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-i);const k=fmtDate(d);buckets.push({key:k,label:k.slice(5)});}}
-  useEffect(() => {
-    let dead = false;
-    setRows(null);
-    setErr('');
-    (async () => {
-      try {
-        const snap = await db.collection('workOrders').where('date', '>=', from).where('date', '<=', to).get();
-        const list = [];
-        (snap.docs || []).forEach((d) => list.push({
-          id: d.id,
-          ...d.data()
-        }));
-        if (!dead) setRows(list);
-      } catch (e) {
-        if (!dead) setErr(e.message);
-      }
-    })();
-    return () => {
-      dead = true;
-    };
-  }, [from, to]);
-  const completedOrders=(rows||[]).filter(o=>o.status==='done'&&(allProc||o.procId===proc.id));
-  const personnelRows=(rows||[]).filter(o=>allProc||o.procId===proc.id).flatMap(workerEvaluationRows);
-  const workerNames=[...new Set(personnelRows.map(o=>o.workerName).filter(Boolean))].sort();
-  const done=selectedWorker?personnelRows.filter(o=>o.workerName===selectedWorker):completedOrders;
-  const rateOf = rows => {const arr=rows.filter(o=>!o.individualPlan||o.individualPlan.hasQuantity);const v=summarize(arr);const fraction=arr.reduce((sum,o)=>sum+(o.workerSegment&&Number(o.capacity)>0?(Number(o.fraction)||0)/Number(o.capacity):0),0);return v.target?Math.round((v.boxes+fraction)/v.target*1000)/10:0;};
-  const defectOf = arr => arr.reduce((n,o)=>n+(o.workerSegment?(Number(o.defectCount)||0):orderDefectTotal(o)),0);
-  const trend = buckets.map(bk=>{const arr=done.filter(o=>bucketOf(o,bucketMode)===bk.key);return {...bk,rate:rateOf(arr),defects:defectOf(arr),count:arr.length};});
-  const sum = summarize(done);
-  const values = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).diff);
-  const boxesPer = buckets.map((bk) => summarize(done.filter((o) => bucketOf(o, bucketMode) === bk.key)).boxes);
-  const rate = selectedWorker ? Math.round(rateOf(done)) : sum.target ? Math.round(sum.boxes/sum.target*100) : 0;
-  function groupBy(keyFn, labelFn, source = done) {
-    const m = {};
-    source.forEach((o) => {
-      const k = keyFn(o) || '—';
-      (m[k] = m[k] || []).push(o);
-    });
-    return Object.entries(m).map(([k, v]) => ({
-      key: k,
-      label: labelFn ? labelFn(k, v) : k,
-      ...summarize(v),defects:defectOf(v),rate:rateOf(v)
-    })).sort((a, b) => b.boxes - a.boxes);
-  }
-  // 「全員」表示時は担当者ごとに固有色を割り当て、達成率と不良数を同じ色で比較する。
-  const workerPalette = ['#2563EB','#D97706','#059669','#9333EA','#DC2626','#0891B2','#BE185D','#4F46E5','#65A30D','#B45309','#0F766E','#7C3AED'];
-  const workerCompare = workerNames.map((name,i)=>{
-    const records=personnelRows.filter(o=>o.workerName===name);
-    return {name,color:workerPalette[i%workerPalette.length],rate:rateOf(records),defects:defectOf(records),count:records.length};
-  });
-  const maxWorkerRate=Math.max(100,...workerCompare.map(x=>x.rate));
-  const maxWorkerDefects=Math.max(1,...workerCompare.map(x=>x.defects));
-  const byWorker = groupBy(o=>o.workerName||t('担当者なし'),null,selectedWorker?done:personnelRows);
-  const byItem = groupBy((o) => o.kind === 'task' ? '🔧 ' + (o.taskName || '作業') : o.hinban);
-  const card = (k, v, col) => <div key={k} style={{
-    padding: '12px 14px',
-    background: '#fff',
-    border: '1px solid ' + LINE,
-    borderRadius: 10
-  }}>
-      <div style={{
-      fontSize: 11,
-      color: '#6B7480'
-    }}><BiText value={k} /></div>
-      <div style={{
-      fontSize: 24,
-      fontWeight: 800,
-      color: col || NAVY
-    }}><BiText value={v} /></div>
-    </div>;
-  const th = {
-    padding: '9px 12px',
-    fontSize: 12.5,
-    fontWeight: 700,
-    color: '#fff',
-    textAlign: 'left',
-    whiteSpace: 'normal'
-  };
-  const td = {
-    padding: '9px 12px',
-    fontSize: 13.5,
-    borderBottom: '1px solid ' + LINE,
-    whiteSpace: 'normal'
-  };
-  const tbl = (title, list) => <div style={{
-    flex: '1 1 360px',
-    minWidth: 320
-  }}>
-      <div style={{
-      fontSize: 13,
-      fontWeight: 700,
-      color: BLUE,
-      marginBottom: 6
-    }}><BiText value={title} /></div>
-      <div style={{
-      border: '1px solid ' + LINE,
-      borderRadius: 10,
-      overflowX: 'auto',
-      background: '#fff'
-    }}>
-        <table style={{
-        width: '100%',
-        borderCollapse: 'collapse'
-      }}>
-          <thead><tr style={{
-            background: NAVY
-          }}>
-            <th style={th}>　</th><th style={{
-              ...th,
-              width: 70
-            }}><BiText value={b('件')} /></th><th style={{
-              ...th,
-              width: 90
-            }}><BiText value={b('箱')} /></th>
-            <th style={th}>達成率</th><th style={th}><BiText value="不良数"/></th>
-            <th style={{
-              ...th,
-              width: 100
-            }}><BiText value={b('先行')} />/<BiText value={b('遅れ')} /></th><th style={{
-              ...th,
-              width: 70
-            }}>⚠</th>
-          </tr></thead>
-          <tbody>
-            <BiText value={list.map((r, i) => <tr key={r.key} style={{
-            background: i % 2 ? '#F7F9FC' : '#fff'
-          }}>
-                <td style={{
-              ...td,
-              fontWeight: 700
-            }}><BiText value={r.label} /></td>
-                <td style={td}><BiText value={r.n} /></td>
-                <td style={td}><BiText value={r.boxes} /></td>
-                <td style={{...td,fontWeight:800,color:r.rate>=100?'#1B5E20':NAVY}}>{r.rate}%</td><td style={td}>{r.defects}</td>
-                <td style={{
-              ...td,
-              fontWeight: 800,
-              color: r.diff >= 0 ? '#1B5E20' : '#B71C1C'
-            }}><BiText value={(r.diff >= 0 ? '+' : '−') + Math.abs(Math.round(r.diff))} /></td>
-                <td style={{
-              ...td,
-              color: r.anom ? '#B71C1C' : '#C7CDD6'
-            }}><BiText value={r.anom || '—'} /></td>
-              </tr>)} />
-            <BiText value={list.length === 0 && <tr><td colSpan={7} style={{
-              ...td,
-              textAlign: 'center',
-              color: '#9AA3AF',
-              padding: '24px'
-            }}><BiText value={t('データがありません')} /></td></tr>} />
-          </tbody>
-        </table>
-      </div>
-    </div>;
-  return <div className="app-screen analytics-screen" style={{
-    height: '100vh',
-    display: 'flex',
-    flexDirection: 'column'
-  }}>
-      <TopBar title={b('評価')} onBack={onBack} user={user} left={<div style={{
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: 600,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'normal'
-    }}>🏭 <BiText value={proc.ja} /></div>} />
-      <div style={{
-      flex: 1,
-      overflowY: 'auto',
-      padding: '16px 24px'
-    }}>
-        <ReportStartEditor report={reportStart} />
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        marginBottom: 14
-      }}>
-          <div style={{
-          display: 'flex',
-          borderRadius: 8,
-          overflow: 'hidden',
-          border: '1px solid ' + LINE
-        }}>
-            <BiText value={[['week','週'], ['month','月'], ['year','年'], ['3','3年'], ['5','5年'], ['10','10年']].map(([k, lb]) => <button key={k} onClick={() => setMode(k)} style={{
-            minHeight: 44,
-            padding: '0 20px',
-            fontSize: 14,
-            fontWeight: 700,
-            background: mode === k ? NAVY : '#fff',
-            color: mode === k ? '#fff' : '#4A5460',
-            whiteSpace: 'normal'
-          }}><BiText value={lb} /></button>)} />
-          </div>
-          <button onClick={() => setAllProc((a) => !a)} style={{
-          minHeight: 44,
-          padding: '0 16px',
-          borderRadius: 8,
-          border: '1px solid ' + (allProc ? NAVY : LINE),
-          background: allProc ? NAVY : '#fff',
-          color: allProc ? '#fff' : '#4A5460',
-          fontSize: 13.5,
-          fontWeight: 700,
-          whiteSpace: 'normal'
-        }}>
-            <BiText value={allProc ? '✓ ' : ''} /><BiText value={t('全工程')} />
-          </button>
-          <label style={{fontSize:13,fontWeight:700}}>担当者 <select value={selectedWorker} onChange={e=>setSelectedWorker(e.target.value)} style={{minHeight:44,minWidth:150}}><option value="">全員</option>{workerNames.map(w=><option key={w} value={w}>{w}</option>)}</select></label>
-          <div style={{
-          fontSize: 12.5,
-          color: '#6B7480'
-        }}><BiText value={from} /> 〜 <BiText value={to} /></div>
-        </div>
-
-        <BiText value={err && <div style={{
-        padding: '12px 16px',
-        background: '#FDECEA',
-        color: '#B71C1C',
-        borderRadius: 10,
-        fontSize: 13,
-        marginBottom: 14
-      }}><BiText value={err} /></div>} />
-        <BiText value={rows === null && !err && <div style={{
-        padding: '40px',
-        textAlign: 'center',
-        color: '#9AA3AF'
-      }}><BiText value={t('読込中...')} /></div>} />
-
-        <BiText value={rows !== null && <>
-          <div className="responsive-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(135px,1fr))',
-          gap: 10,
-          marginBottom: 16
-        }}>
-            <BiText value={card(b('完了') + ' ' + b('件'), sum.n)} />
-            <BiText value={card(b('完了箱数'), sum.boxes + ' / ' + sum.target)} />
-            <BiText value={card(b('達成率'), rate + '%', rate >= 100 ? '#1B5E20' : NAVY)} />
-            <BiText value={card('不良数', defectOf(done) + '個', '#B45309')} />
-            <BiText value={card(b('標準'), Math.round(sum.std) + t('分'), '#3A4552')} />
-            <BiText value={card(b('実働'), Math.round(sum.act) + t('分'), '#3A4552')} />
-            <BiText value={card(b('先行') + '/' + b('遅れ'), (sum.diff >= 0 ? '+' : '−') + Math.abs(Math.round(sum.diff)) + t('分'), sum.diff >= 0 ? '#1B5E20' : '#B71C1C')} />
-            <BiText value={card(b('異常'), sum.anom, sum.anom ? '#B71C1C' : '#C7CDD6')} />
-          </div>
-
-          {!selectedWorker && <div className="panel" style={{marginBottom:16}}>
-            <div className="panel-h">👥 全担当者の比較（担当者ごとに色分け）</div>
-            <div style={{padding:14}}>
-              {workerCompare.length===0 ? <div style={{color:'#64748B'}}>対象期間に担当者の作業記録がありません。</div> : <>
-                <div style={{fontSize:12,color:'#64748B',marginBottom:12}}>同じ担当者は達成率・不良数とも同じ色です。棒の右側に実数値を表示します。</div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,330px),1fr))',gap:20}}>
-                  {[{title:'達成率（%）',field:'rate',max:maxWorkerRate,suffix:'%'},{title:'不良数（個）',field:'defects',max:maxWorkerDefects,suffix:'個'}].map(metric=><div key={metric.field}>
-                    <div style={{fontSize:14,fontWeight:800,marginBottom:10,color:NAVY}}>{metric.title}</div>
-                    {workerCompare.map(w=><div key={w.name} style={{display:'grid',gridTemplateColumns:'90px minmax(80px,1fr) 60px',gap:8,alignItems:'center',marginBottom:9,fontSize:12}}>
-                      <div title={w.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:700}}>{w.name}</div>
-                      <div style={{height:20,background:'#EDF1F5',borderRadius:4,overflow:'hidden'}}><div title={w.name+'：'+w[metric.field]+metric.suffix} style={{height:'100%',width:(w[metric.field]/metric.max*100)+'%',background:w.color,borderRadius:4}} /></div>
-                      <div style={{fontWeight:800,textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{w[metric.field]}{metric.suffix}</div>
-                    </div>)}
-                  </div>)}
-                </div>
-                <div style={{fontSize:11,color:'#64748B',marginTop:10}}>※ 記録開始日・期間・工程の絞り込みを反映しています。色は表示中の担当者一覧に基づき割り当てます。</div>
-              </>}
-            </div>
-          </div>}
-          <div className="panel" style={{marginBottom:16}}>
-            <div className="panel-h">📈 達成率・不良数の推移（{selectedWorker||'全員合計'}）</div>
-            <div style={{padding:14,overflowX:'auto'}}>
-              <div style={{display:'flex',gap:8,alignItems:'flex-end',minHeight:205,minWidth:Math.max(360,trend.length*54)}}>
-                {trend.map(v=><div key={v.key} style={{minWidth:45,flex:1,textAlign:'center',fontSize:11}}>
-                  <div style={{color:NAVY,fontWeight:700}}>{v.count?v.rate+'%':'—'}</div>
-                  <div style={{height:110,display:'flex',alignItems:'flex-end',justifyContent:'center',gap:3,borderBottom:'1px solid #CBD5E1'}}>
-                    <div title={'達成率 '+v.rate+'%'} style={{width:16,height:v.count?Math.max(2,Math.min(110,v.rate/120*110)):0,background:'#2563EB',borderRadius:'3px 3px 0 0'}} />
-                    <div title={'不良数 '+v.defects+'個'} style={{width:16,height:v.defects?Math.max(3,Math.min(110,v.defects/Math.max(1,...trend.map(x=>x.defects))*110)):0,background:'#E69B30',borderRadius:'3px 3px 0 0'}} />
-                  </div>
-                  <div style={{color:'#9A5700',fontWeight:700}}>{v.count?v.defects+'個':'—'}</div>
-                  <div style={{color:'#64748B',marginTop:3}}>{v.label}</div>
-                </div>)}
-              </div>
-              <div style={{fontSize:12,color:'#475569',marginTop:10}}>■ 青：達成率（100%基準）　■ 橙：不良数（期間内最大数を基準）　※左右の棒は単位・目盛が異なります。</div>
-              <div style={{fontSize:12,color:'#64748B',marginTop:4}}>達成率＝完了箱数÷予定箱数×100。過去のデータが保存されている期間のみ表示します。</div>
-            </div>
-          </div>
-          <div className="panel" style={{
-          marginBottom: 16
-        }}>
-            <div className="panel-h">📊 <BiText value={b('先行')} />/<BiText value={b('遅れ')} /> <BiText value={b('推移')} />（<BiText value={t('分')} />）</div>
-            <div style={{
-            padding: 14
-          }}><DiffBarChart buckets={buckets} values={values} unit={t('分')} /></div>
-          </div>
-          <div className="panel" style={{
-          marginBottom: 16
-        }}>
-            <div className="panel-h">📦 <BiText value={b('完了箱数')} /> <BiText value={b('推移')} /></div>
-            <div style={{
-            padding: 14,
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: 6,
-            overflowX: 'auto',
-            minHeight: 140
-          }}>
-              <BiText value={buckets.map((bk, i) => {
-              const mx = Math.max(1, ...boxesPer);
-              return <div key={bk.key} style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                minWidth: 48
-              }}>
-                    <div style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: NAVY
-                }}><BiText value={boxesPer[i] || ''} /></div>
-                    <div style={{
-                  width: 26,
-                  height: Math.round((boxesPer[i] || 0) / mx * 90),
-                  background: NAVY,
-                  borderRadius: '4px 4px 0 0',
-                  minHeight: boxesPer[i] ? 2 : 0
-                }} />
-                    <div style={{
-                  fontSize: 11,
-                  color: '#6B7480'
-                }}><BiText value={bk.label} /></div>
-                  </div>;
-            })} />
-            </div>
-          </div>
-          <div style={{
-          display: 'flex',
-          gap: 16,
-          flexWrap: 'wrap'
-        }}>
-            <BiText value={tbl('👤 ' + b('担当者別'), byWorker)} />
-            <BiText value={tbl('📦 ' + b('製品別'), byItem)} />
-          </div>
-        </>} />
-      </div>
-      <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} />
-    </div>;
+/* 評価は標準時間÷実働時間。箱の完了時刻を基準に時間帯へ配賦する。 */
+const EVALUATION_TEXTS={
+ '当日':['Hari','Dia','Ngày'], '対象日':['Tanggal acuan','Data de referência','Ngày xem'],
+ '期間合計':['Total periode','Total do período','Tổng kỳ'], 'この範囲の評価':['Evaluasi rentang ini','Avaliação deste intervalo','Đánh giá khoảng này'],
+ 'アプリの自動評価':['Evaluasi otomatis aplikasi','Avaliação automática do aplicativo','Đánh giá tự động của ứng dụng'],
+ '詳しく見る':['Lihat rincian','Ver detalhes','Xem chi tiết'], '時間帯別':['Per jam','Por hora','Theo giờ'],
+ '10分ごと':['Per 10 menit','A cada 10 minutos','Mỗi 10 phút'], '1箱ごと':['Per kotak','Por caixa','Theo từng thùng'],
+ 'この時間帯の実働は0分です。達成率は表示していません。':['Waktu kerja aktif pada rentang ini 0 menit. Capaian tidak ditampilkan.','O tempo ativo neste intervalo é 0 min. A taxa não é exibida.','Thời gian làm thực tế ở khoảng này là 0 phút. Không hiển thị tỷ lệ.'],
+ '評価できません':['Tidak dapat dinilai','Não avaliável','Không thể đánh giá'], '記録不足':['Catatan tidak cukup','Registros insuficientes','Thiếu bản ghi'],
+ '実際の作業時間':['Waktu kerja aktual','Tempo real de trabalho','Thời gian làm thực tế'],
+ '合計の評価に戻る':['Kembali ke evaluasi total','Voltar à avaliação total','Về đánh giá tổng'],
+ 'グラフや行を押すと、さらに詳しく見られます。':['Ketuk grafik atau baris untuk melihat rincian.','Toque no gráfico ou na linha para ver mais detalhes.','Nhấn biểu đồ hoặc dòng để xem chi tiết hơn.'],
+ '達成率＝標準時間÷実働時間×100。100％が標準です。':['Capaian = waktu standar ÷ waktu kerja aktual × 100. 100% adalah standar.','Taxa de cumprimento = tempo padrão ÷ tempo real × 100. 100% é o padrão.','Tỷ lệ = thời gian tiêu chuẩn ÷ thời gian làm thực tế × 100. 100% là tiêu chuẩn.'],
+ '休憩・ライン応援を除いた時間で評価します。':['Penilaian tidak mencakup istirahat dan Bantu Line.','A avaliação exclui pausas e apoio à linha.','Đánh giá không tính thời gian nghỉ và hỗ trợ dây chuyền.'],
+ '時間帯ごとの評価です。それ以前の先行・遅れは持ち越しません。':['Setiap rentang dinilai sendiri. Selisih rentang sebelumnya tidak dibawa.','Cada intervalo é avaliado separadamente, sem carregar diferenças anteriores.','Mỗi khoảng được đánh giá riêng, không cộng dồn nhanh/chậm trước đó.'],
+ '箱は完了時刻の区間に計上します。作業途中の箱があるため、短い区間の数値は上下します。':['Kotak dihitung pada rentang waktu selesainya. Kotak yang masih dikerjakan dapat membuat nilai rentang pendek naik turun.','As caixas são contadas no intervalo de conclusão. Caixas em andamento podem causar oscilações em intervalos curtos.','Thùng được tính vào khoảng thời gian hoàn thành. Thùng đang làm có thể khiến số liệu khoảng ngắn dao động.'],
+ '管理者の調整時間は、全期間合計の先行・遅れに反映します。':['Penyesuaian pengelola diterapkan pada selisih total periode.','Os ajustes do administrador entram na diferença total do período.','Thời gian điều chỉnh của quản lý được tính vào chênh lệch tổng kỳ.'],
+ 'この期間に完了した作業はありません。':['Tidak ada pekerjaan selesai dalam periode ini.','Não há trabalhos concluídos neste período.','Không có công việc hoàn thành trong kỳ này.'],
+ '標準時間または実働時間が不足しているため、達成率を判定できません。':['Waktu standar atau waktu kerja aktual tidak cukup untuk menghitung capaian.','Faltam dados de tempo padrão ou real para calcular a taxa.','Thiếu thời gian tiêu chuẩn hoặc thực tế nên không thể tính tỷ lệ.'],
+ '完了時刻の記録が不足しているため、この時間帯の早い・遅いは判定できません。合計の評価をご確認ください。':['Catatan waktu selesai tidak cukup untuk menilai rentang ini. Lihat evaluasi total.','Faltam horários de conclusão para avaliar este intervalo. Consulte a avaliação total.','Thiếu thời điểm hoàn thành nên không thể đánh giá nhanh/chậm ở khoảng này. Hãy xem đánh giá tổng.'],
+ '標準より{minutes}分早く進みました。達成率は{rate}％です。':['Pekerjaan {minutes} menit lebih cepat dari standar. Capaian {rate}%.','O trabalho avançou {minutes} min mais rápido que o padrão. Taxa de {rate}%.','Công việc nhanh hơn tiêu chuẩn {minutes} phút. Tỷ lệ {rate}%.'],
+ '標準より{minutes}分遅くなりました。達成率は{rate}％です。':['Pekerjaan {minutes} menit lebih lambat dari standar. Capaian {rate}%.','O trabalho levou {minutes} min a mais que o padrão. Taxa de {rate}%.','Công việc chậm hơn tiêu chuẩn {minutes} phút. Tỷ lệ {rate}%.'],
+ 'ほぼ標準どおりに進みました。達成率は{rate}％です。':['Pekerjaan berjalan hampir sesuai standar. Capaian {rate}%.','O trabalho avançou próximo ao padrão. Taxa de {rate}%.','Công việc tiến triển gần đúng tiêu chuẩn. Tỷ lệ {rate}%.'],
+ 'この範囲の異常報告は{count}件です。内容は下の記録で確認できます。':['Ada {count} laporan kelainan dalam rentang ini. Lihat isinya pada catatan di bawah.','Há {count} relatos de anormalidades neste intervalo. Veja o conteúdo nos registros abaixo.','Có {count} báo cáo bất thường trong khoảng này. Xem nội dung ở bản ghi bên dưới.'],
+ '午後は午前より達成率が{points}ポイント上がっています。':['Capaian sore naik {points} poin dibanding pagi.','A taxa da tarde subiu {points} pontos em relação à manhã.','Tỷ lệ buổi chiều tăng {points} điểm so với buổi sáng.'],
+ '午後は午前より達成率が{points}ポイント下がっています。':['Capaian sore turun {points} poin dibanding pagi.','A taxa da tarde caiu {points} pontos em relação à manhã.','Tỷ lệ buổi chiều giảm {points} điểm so với buổi sáng.'],
+ '期間の後半は前半より達成率が{points}ポイント上がっています。':['Capaian paruh akhir naik {points} poin dari paruh awal.','A taxa da segunda metade subiu {points} pontos em relação à primeira.','Tỷ lệ nửa sau của kỳ tăng {points} điểm so với nửa đầu.'],
+ '期間の後半は前半より達成率が{points}ポイント下がっています。':['Capaian paruh akhir turun {points} poin dari paruh awal.','A taxa da segunda metade caiu {points} pontos em relação à primeira.','Tỷ lệ nửa sau của kỳ giảm {points} điểm so với nửa đầu.'],
+ '記録不足の時間帯を含むため、前後の比較は行っていません。':['Perbandingan tidak dilakukan karena ada rentang dengan catatan tidak cukup.','Não foi feita comparação porque há intervalos com registros insuficientes.','Không so sánh trước/sau vì có khoảng thiếu bản ghi.'],
+ '保存されている操作の記録':['Riwayat operasi tersimpan','Registros de operações salvos','Bản ghi thao tác đã lưu'],
+ '保存時刻が不明な不良数・コメントは、作業の詳細で確認できます。':['Jumlah cacat dan komentar tanpa waktu tersimpan dapat dilihat pada rincian pekerjaan.','Defeitos e comentários sem horário de salvamento podem ser vistos nos detalhes do trabalho.','Số lỗi và ghi chú không rõ thời điểm lưu có thể xem trong chi tiết công việc.'],
+ 'この日の作業':['Pekerjaan pada hari ini','Trabalhos deste dia','Công việc trong ngày'],
+ '開始・完了':['Mulai dan selesai','Início e conclusão','Bắt đầu và hoàn thành'],
+ '端数':['Sisa','Quantidade parcial','Số lẻ'], '時刻不明':['Waktu tidak diketahui','Horário desconhecido','Không rõ thời gian']
+};
+function evaluationText(text,lang,values={}) {
+  const column=lang==='id'?0:lang==='pt-BR'?1:lang==='vi'?2:-1;
+  const template=column<0?text:EVALUATION_TEXTS[text]?.[column]||singleLanguageText(text,lang);
+  return String(template).replace(/\{(\w+)\}/g,(_,key)=>String(values[key]??''));
 }
+function EvaluationText({text,values={}}) {
+  return <BiText value={evaluationText(text,'ja',values)} other={evaluationText(text,'id',values)}
+    translations={{'pt-BR':evaluationText(text,'pt-BR',values),vi:evaluationText(text,'vi',values)}} source="ja"/>;
+}
+const evaluationNumber=n=>Math.round((Number(n)||0)*10)/10;
+const evaluationDay=at=>new Date(at+9*3600000).toISOString().slice(0,10);
+const evaluationMidnight=date=>Date.parse(date+'T00:00:00+09:00');
+const evaluationClock=(at,seconds=false)=>new Date(at+9*3600000).toISOString().slice(11,seconds?19:16);
+function evaluationRange(mode,date) {
+  const start=evaluationMidnight(date),year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
+  if(mode==='day')return {kind:'day',from:start,to:start+86400000,label:date};
+  if(mode==='week')return {kind:'days',from:start-6*86400000,to:start+86400000,label:evaluationDay(start-6*86400000)+' ～ '+date};
+  if(mode==='month')return {kind:'month',from:Date.UTC(year,month-1,1)-32400000,to:Date.UTC(year,month,1)-32400000,label:date.slice(0,7)};
+  const years=mode==='year'?1:Number(mode);
+  return {kind:years===1?'year':'years',from:Date.UTC(year-years+1,0,1)-32400000,to:Date.UTC(year+1,0,1)-32400000,label:years===1?String(year):`${year-years+1} ～ ${year}`};
+}
+function evaluationActiveMs(order,from,to) {
+  let stopped=0,last=from;
+  const pauses=(order.pauses||[]).map(p=>({from:Math.max(from,qrStamp(p.from)),to:Math.min(to,qrStamp(p.to)||to)}))
+    .filter(p=>p.to>p.from).sort((a,b)=>a.from-b.from);
+  for(const pause of pauses){stopped+=Math.max(0,pause.to-Math.max(last,pause.from));last=Math.max(last,pause.to);}
+  return Math.max(0,to-from-stopped);
+}
+function evaluationWorkerKey(worker){return worker.workerId||worker.workerName||'';}
+function evaluationBoxCycles(order) {
+  const retained=new Map();
+  for(const event of workHistoryTimeline(order)){
+    if(event.type==='box_done'){
+      for(const n of retained.keys())if(n>=event.doneAfter)retained.delete(n);
+      retained.set(event.doneAfter,event);
+    }else if(event.type==='box_undo')for(const n of retained.keys())if(n>event.doneAfter)retained.delete(n);
+  }
+  const total=Number(order.doneBoxes)||0,cycles=[];
+  for(const [n,event] of [...retained.entries()].sort((a,b)=>a[0]-b[0])){
+    if(n<1||n>total)continue;
+    const from=n===1?qrStamp(order.startAt):qrStamp(retained.get(n-1)?.at),to=qrStamp(event.at);
+    const active=from>0&&to>=from?evaluationActiveMs(order,from,to)/60000:null;
+    cycles.push({n,from,to,active,std:Number(order.kosu)>0?Number(order.kosu):null,qty:1,source:event.source});
+  }
+  if(Number(order.fraction)>0&&Number(order.capacity)>0){
+    const from=total?qrStamp(retained.get(total)?.at):qrStamp(order.startAt),to=qrStamp(order.endAt);
+    const qty=Number(order.fraction)/Number(order.capacity);
+    cycles.push({n:total+1,from,to,active:from>0&&to>=from?evaluationActiveMs(order,from,to)/60000:null,
+      std:Number(order.kosu)>0?Number(order.kosu)*qty:null,qty,fraction:Number(order.fraction)});
+  }
+  return cycles;
+}
+function evaluationPrepare(orders) {
+  return orders.filter(order=>order.status==='done').map(order=>{
+    const changes=order.workerChanges||[];let cycleCache;const getCycles=()=>cycleCache||(cycleCache=evaluationBoxCycles(order));
+    const source=changes.length?[...changes.map(c=>c.segment),currentWorkerSegment(order,order.endAt,{},Number(order.fraction)||0)]:[order];
+    let baseline=0;
+    const segments=source.map((row,i)=>{
+      const from=qrStamp(row.startAt),to=qrStamp(row.endAt),boxes=Number(row.doneBoxes)||0;
+      const boxBase=baseline;let ownCycles;
+      baseline+=boxes;
+      const kosu=Number(row.kosu)||Number(order.kosu)||0;
+      const knownStandard=kosu>0||Number(row.stdMin)>0||order.kind==='task'&&!changes.length&&Number(order.durMin)>0;
+      const std=row.stdMin!==undefined?Number(row.stdMin):order.kind==='task'?Number(order.durMin)||0:kosu*(boxes+(Number(row.fraction)||0)/(Number(order.capacity)||1));
+      return {order,row,key:evaluationWorkerKey(row),name:row.workerName||'',from,to,boxes,
+        std,knownStandard,active:to>from&&from>0?evaluationActiveMs(order,from,to)/60000:Number(row.actMin)||0,
+        get cycles(){return ownCycles||(ownCycles=getCycles().filter(c=>c.n>boxBase&&c.n<=boxBase+boxes+(Number(row.fraction)>0?1:0)));},
+        get timed(){return order.kind!=='task'&&this.cycles.filter(c=>!c.fraction).length===boxes&&this.cycles.every(c=>c.std!==null);},
+        adjust:changes.length?0:Number(order.adjustMin)||0};
+    });
+    return {order,segments,get cycles(){return getCycles();}};
+  });
+}
+function evaluationMetric(prepared,scope,worker='') {
+  const result={active:0,std:0,boxes:0,defects:0,anomalies:0,adjust:0,count:0,missing:false,unregistered:false,eligibleActive:0,eligibleStd:0};
+  for(const entry of prepared){
+    const order=entry.order;
+    if(order.kind==='task'&&order.workerChanges?.length&&!worker&&qrStamp(order.startAt)>=scope.from&&qrStamp(order.endAt)<=scope.to){
+      const active=evaluationActiveMs(order,qrStamp(order.startAt),qrStamp(order.endAt))/60000;
+      const std=Number(order.stdMin)||Number(order.durMin)||0;
+      result.count++;result.active+=active;result.std+=std;result.adjust+=Number(order.adjustMin)||0;
+      if(std>0){result.eligibleStd+=std;result.eligibleActive+=active;}else if(active>0)result.unregistered=true;
+      result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=scope.from&&e.at<scope.to).length;
+      continue;
+    }
+    let included=false;
+    for(const segment of entry.segments){
+      if(worker&&segment.key!==worker)continue;
+      const hasTimes=segment.from>0&&segment.to>=segment.from;
+      const from=Math.max(scope.from,segment.from),to=Math.min(scope.to,segment.to);
+      const dated=evaluationMidnight(order.date);
+      if(hasTimes?to<=from:!(dated>=scope.from&&dated<scope.to))continue;
+      included=true;
+      const whole=hasTimes?segment.from>=scope.from&&segment.to<=scope.to:scope.to-scope.from>=86400000;
+      const active=whole?segment.active:evaluationActiveMs(order,from,to)/60000;
+      const events=whole?[]:segment.cycles.filter(c=>c.to>scope.from&&c.to<=scope.to);
+      const boxes=whole?segment.boxes:events.filter(c=>!c.fraction).length;
+      const std=whole?segment.std:events.reduce((sum,c)=>sum+(c.std||0),0);
+      result.active+=active;result.std+=std;result.boxes+=boxes;
+      if(whole){if(result.defects!==null)result.defects+=Number(segment.row.defectCount)||0;result.adjust+=segment.adjust;}else result.defects=null;
+      if(!whole&&active>0&&(!hasTimes||!segment.timed))result.missing=true;
+      if(active>0&&!segment.knownStandard)result.unregistered=true;
+      if(segment.knownStandard){result.eligibleActive+=active;result.eligibleStd+=std;}
+    }
+    if(included){result.count++;result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=scope.from&&e.at<scope.to&&
+      (!worker||entry.segments.some(s=>s.key===worker&&e.at>=s.from&&e.at<=s.to))).length;}
+  }
+  result.rate=!result.missing&&!result.unregistered&&result.eligibleActive>0?evaluationNumber(result.eligibleStd/result.eligibleActive*100):null;
+  result.diff=result.eligibleStd-result.eligibleActive;
+  return result;
+}
+function evaluationChildren(scope) {
+  const children=[],kind=scope.kind==='years'?'year':scope.kind==='year'?'month':['month','days'].includes(scope.kind)?'day':scope.kind==='day'?'hour':scope.kind==='hour'?'ten':'box';
+  if(kind==='box')return children;
+  for(let from=scope.from;from<scope.to;){
+    const date=evaluationDay(from),year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
+    let to,label;
+    if(kind==='year'){to=Date.UTC(year+1,0,1)-32400000;label=String(year);}
+    else if(kind==='month'){to=Date.UTC(year,month,1)-32400000;label=date.slice(0,7);}
+    else {to=from+(kind==='day'?86400000:kind==='hour'?3600000:600000);label=kind==='day'?date:evaluationClock(from)+' ～ '+evaluationClock(to);}
+    to=Math.min(to,scope.to);children.push({kind,from,to,label});from=to;
+  }
+  return children;
+}
+function evaluationComment(metric) {
+  if(!metric.count)return {text:'この期間に完了した作業はありません。'};
+  if(metric.missing)return {text:'完了時刻の記録が不足しているため、この時間帯の早い・遅いは判定できません。合計の評価をご確認ください。'};
+  if(metric.active===0&&!metric.missing)return {text:'この時間帯の実働は0分です。達成率は表示していません。'};
+  if(metric.rate===null)return {text:'標準時間または実働時間が不足しているため、達成率を判定できません。'};
+  const values={minutes:evaluationNumber(Math.abs(metric.diff)),rate:metric.rate};
+  return {text:Math.abs(metric.diff)<0.1?'ほぼ標準どおりに進みました。達成率は{rate}％です。':metric.diff>0?'標準より{minutes}分早く進みました。達成率は{rate}％です。':'標準より{minutes}分遅くなりました。達成率は{rate}％です。',values};
+}
+function evaluationTrendComment(children,scope) {
+  const active=children.filter(c=>c.metric.active>0);
+  if(active.some(c=>c.metric.missing||c.metric.unregistered))return {text:'記録不足の時間帯を含むため、前後の比較は行っていません。'};
+  const midpoint=scope.kind==='day'?scope.from+12*3600000:(scope.from+scope.to)/2;
+  const rate=list=>{const act=list.reduce((s,c)=>s+c.metric.eligibleActive,0);return act>0?list.reduce((s,c)=>s+c.metric.eligibleStd,0)/act*100:null;};
+  const first=rate(active.filter(c=>c.from<midpoint)),last=rate(active.filter(c=>c.from>=midpoint));
+  if(first===null||last===null||Math.abs(last-first)<5)return null;
+  const points=evaluationNumber(Math.abs(last-first));
+  const text=scope.kind==='day'?(last>first?'午後は午前より達成率が{points}ポイント上がっています。':'午後は午前より達成率が{points}ポイント下がっています。'):
+    (last>first?'期間の後半は前半より達成率が{points}ポイント上がっています。':'期間の後半は前半より達成率が{points}ポイント下がっています。');
+  return {text,values:{points}};
+}
+function AnalyticsScreen({proc,master,workers,user,onBack}) {
+  const {lang,b,t}=useLang(),report=useReportStart();
+  const today=evaluationDay(Date.now());
+  const [mode,setMode]=useState('day'),[date,setDate]=useState(today),[path,setPath]=useState([]),[worker,setWorker]=useState(''),[all,setAll]=useState(false);
+  const [rows,setRows]=useState(null),[error,setError]=useState(''),[detail,setDetail]=useState(null);
+  const range=evaluationRange(mode,date),start=report.start&&report.start>evaluationDay(range.from)?report.start:evaluationDay(range.from),end=evaluationDay(range.to-1);
+  useEffect(()=>{let active=true;setRows(null);setError('');
+    if(start>end){setRows([]);return;}
+    db.collection('workOrders').where('date','>=',start).where('date','<=',end).get().then(snap=>{
+      if(active)setRows(snap.docs.map(d=>({id:d.id,...d.data()})));
+    }).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};
+  },[start,end]);
+  const orders=React.useMemo(()=>(rows||[]).filter(o=>o.status==='done'&&(all||o.procId===proc.id)),[rows,all,proc.id]);
+  const prepared=React.useMemo(()=>evaluationPrepare(orders),[orders]);
+  const workerOptions=[...new Map([...Object.values(workers||{}).map(w=>[w.id,w.name]),...prepared.flatMap(e=>e.segments).map(s=>[s.key,s.name])]).entries()].filter(([key])=>key);
+  const root={...range,from:Math.max(range.from,evaluationMidnight(start))};
+  const scope=path.at(-1)||root,total=evaluationMetric(prepared,root,worker),metric=evaluationMetric(prepared,scope,worker);
+  const children=evaluationChildren(scope).map(child=>({...child,metric:evaluationMetric(prepared,child,worker)}));
+  const visible=scope.kind==='day'?children.filter(c=>c.metric.count):children;
+  const trend=evaluationTrendComment(children,scope),maxRate=Math.max(120,...visible.map(c=>c.metric.rate||0));
+  const rateText=m=>m.rate===null?'—':m.rate+'%',diffText=m=>m.missing?'—':(m.diff>=0?'+':'')+evaluationNumber(m.diff);
+  const color=m=>m.rate===null?'#64748b':m.rate>=100?'#18733c':'#b3261e';
+  function reset(){setPath([]);}
+  const text=(key,values)=><EvaluationText text={key} values={values}/>;
+  const auto=m=><EvaluationText {...evaluationComment(m)}/>;
+  function summary(m,title,adjust=false){return <section className="evaluation-summary">
+    <h3>{text(title)}</h3><div className="evaluation-metrics">
+      {[[text('達成率'),rateText(m)],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
+        [text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
+        .map(([label,value],i)=><div key={i}><span>{label}</span><strong style={i===0?{color:color(m)}:undefined}>{value}</strong></div>)}
+    </div><div className="evaluation-auto"><strong>{text('アプリの自動評価')}</strong><p>{auto(m)}</p>
+      {title!=='期間合計'&&trend&&<p><EvaluationText {...trend}/></p>}
+      {m.anomalies>0&&<p>{text('この範囲の異常報告は{count}件です。内容は下の記録で確認できます。',{count:m.anomalies})}</p>}
+    </div></section>;}
+  const boxRows=(scope.kind==='ten'?prepared.flatMap(entry=>entry.segments.filter(s=>(!worker||s.key===worker)&&s.to>scope.from&&s.from<scope.to).flatMap(segment=>segment.cycles.filter(c=>c.to>scope.from&&c.to<=scope.to).map(c=>({entry,segment,...c})))):[]).sort((a,b)=>a.to-b.to);
+  const events=['hour','ten'].includes(scope.kind)?prepared.filter(entry=>entry.segments.some(s=>s.to>scope.from&&s.from<scope.to)).flatMap(entry=>workHistoryTimeline(entry.order)
+    .filter(e=>e.type!=='box_done'&&e.at>=scope.from&&e.at<scope.to)
+    .filter(e=>!worker||entry.segments.some(s=>s.key===worker&&e.at>=s.from&&e.at<=s.to))
+    .map(e=>({...e,order:entry.order}))).sort((a,b)=>a.at-b.at):[];
+  const dayOrders=['day','hour','ten'].includes(scope.kind)?prepared.filter(e=>e.segments.some(s=>(!worker||s.key===worker)&&s.to>scope.from&&s.from<scope.to)):[];
+  return <div className="app-screen analytics-screen evaluation-screen">
+    <TopBar title={b('評価')} onBack={onBack} user={user}/>
+    <main className="evaluation-main"><div className="evaluation-toolbar">
+      <div className="evaluation-periods">{[['day','当日'],['week','週'],['month','月'],['year','年'],['3','3年'],['5','5年'],['10','10年']].map(([value,label])=><button key={value} aria-pressed={mode===value} onClick={()=>{setMode(value);reset();}}>{text(label)}</button>)}</div>
+      <label>{text('対象日')}<input type="date" max={today} value={date} onChange={e=>{if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){setDate(e.target.value);reset();}}}/></label>
+      <label><BiText value="担当者"/><select value={worker} onChange={e=>setWorker(e.target.value)}><option value="">{t('全員')}</option>{workerOptions.map(([key,name])=><option key={key} value={key}>{name||t('担当者なし')}</option>)}</select></label>
+      <button aria-pressed={all} onClick={()=>setAll(!all)}><BiText value={all?'全工程':proc.ja}/></button>
+      <details className="evaluation-settings"><summary><BiText value="記録開始日（本運用開始日）"/></summary><ReportStartEditor report={report}/></details>
+    </div><p className="evaluation-note">{text('達成率＝標準時間÷実働時間×100。100％が標準です。')} {text('休憩・ライン応援を除いた時間で評価します。')}</p>
+    {error&&<p role="alert">{error}</p>}{rows===null&&!error?<p><BiText value="読込中…"/></p>:rows!==null&&<>
+      <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('期間合計')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
+      {path.length>0&&<button onClick={reset}>{text('合計の評価に戻る')}</button>}
+      {summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}
+      {path.length===0&&trend&&<div className="evaluation-auto"><EvaluationText {...trend}/></div>}
+      {!!total.adjust&&<p className="evaluation-note">{text('管理者の調整時間は、全期間合計の先行・遅れに反映します。')}</p>}
+      {scope.kind!=='ten'&&<section className="evaluation-detail-section"><h3>{text(scope.kind==='day'?'時間帯別':scope.kind==='hour'?'10分ごと':'推移')}</h3>
+        <p className="evaluation-note">{text('グラフや行を押すと、さらに詳しく見られます。')}</p>
+        {['day','hour'].includes(scope.kind)&&<p className="evaluation-note">{text('時間帯ごとの評価です。それ以前の先行・遅れは持ち越しません。')} {text('箱は完了時刻の区間に計上します。作業途中の箱があるため、短い区間の数値は上下します。')}</p>}
+        <div className="evaluation-chart">{visible.map((child,i)=><button key={i} disabled={!child.metric.count} onClick={()=>setPath([...path,child])}>
+          <strong style={{color:color(child.metric)}}>{rateText(child.metric)}</strong><div className="evaluation-bar-area"><span className="evaluation-standard-line" style={{bottom:100/maxRate*100+'%'}}/><span className="evaluation-bar" style={{height:(child.metric.rate||0)/maxRate*100+'%',background:color(child.metric)}}/></div><span>{child.label}</span>
+        </button>)}</div>
+        <div className="evaluation-table-wrap"><table className="evaluation-table"><thead><tr>{['対象日','達成率','完了箱数','標準','実働','先行・遅れ','アプリの自動評価'].map(label=><th key={label}>{text(label)}</th>)}</tr></thead>
+          <tbody>{visible.map((child,i)=><tr key={i}><td><button disabled={!child.metric.count} onClick={()=>setPath([...path,child])}>{child.label}</button></td><td style={{color:color(child.metric)}}>{rateText(child.metric)}</td><td>{child.metric.boxes}</td><td>{child.metric.missing?'—':evaluationNumber(child.metric.std)}</td><td>{evaluationNumber(child.metric.active)}</td><td>{diffText(child.metric)}</td><td>{auto(child.metric)}</td></tr>)}</tbody></table></div>
+      </section>}
+      {scope.kind==='ten'&&<section className="evaluation-detail-section"><h3>{scope.label}　{text('1箱ごと')}</h3>
+        <p className="evaluation-note">{text('箱は完了時刻の区間に計上します。作業途中の箱があるため、短い区間の数値は上下します。')}</p>
+        <div className="evaluation-table-wrap"><table className="evaluation-table"><thead><tr>{['呼称','担当者','完了箱数','開始・完了','標準','実働','達成率','アプリの自動評価'].map(label=><th key={label}>{text(label)}</th>)}</tr></thead><tbody>
+          {boxRows.map((cycle,i)=>{const m={count:1,missing:cycle.active===null||cycle.from<cycle.segment.from,active:cycle.active||0,eligibleActive:cycle.active||0,std:cycle.std||0,diff:(cycle.std||0)-(cycle.active||0),rate:cycle.from>=cycle.segment.from&&cycle.std!==null&&cycle.active>0?evaluationNumber(cycle.std/cycle.active*100):null};return <tr key={i}><td>{cycle.entry.order.hinban}</td><td>{cycle.segment.name}</td><td>{cycle.fraction?text('端数'):cycle.n}{cycle.fraction?' '+cycle.fraction+' '+t('個'):''}</td><td>{cycle.from?evaluationClock(cycle.from,true):text('時刻不明')} ～ {evaluationClock(cycle.to,true)}</td><td>{cycle.std===null?'—':evaluationNumber(cycle.std)}</td><td>{cycle.active===null?'—':evaluationNumber(cycle.active)}</td><td style={{color:color(m)}}>{rateText(m)}</td><td>{auto(m)}</td></tr>;})}
+        </tbody></table></div>
+        {!boxRows.length&&<p>{auto(metric)}</p>}
+      </section>}
+      {['hour','ten'].includes(scope.kind)&&<section className="evaluation-detail-section"><h3>{text('保存されている操作の記録')}</h3>
+        {events.map((event,i)=><div key={i} className="evaluation-event"><time>{evaluationClock(event.at)}</time><strong><BiText value={HISTORY_EVENT_LABELS[event.type]||event.type}/></strong><span>{event.workerName}</span>
+          <div className="history-comment">{event.type==='box_undo'?<><BiText value="完了箱数"/>：{event.previous} → {event.doneAfter}</>:event.type==='worker_change'?<>{event.workerName} → {event.nextWorkerName}</>:event.type==='notes_saved'?<><BiText value="不良数"/>：{event.defectCount} {t('個')}　<BiText value="作業者コメント"/>：{event.workerComment||'—'}</>:event.comment||event.reason||''}</div></div>)}
+        {!events.length&&<p><BiText value="該当する操作記録はありません。"/></p>}
+        <p className="evaluation-note">{text('保存時刻が不明な不良数・コメントは、作業の詳細で確認できます。')}</p>
+      </section>}
+      {!worker&&path.length===0&&workerOptions.length>1&&<details className="evaluation-detail-section"><summary><BiText value="担当者別"/></summary>
+        <div className="evaluation-table-wrap"><table className="evaluation-table"><thead><tr>{['担当者','達成率','標準','実働','不良数','アプリの自動評価'].map(label=><th key={label}>{text(label)}</th>)}</tr></thead><tbody>
+          {workerOptions.map(([key,name])=>{const wm=evaluationMetric(prepared,root,key);return <tr key={key}><td><button onClick={()=>setWorker(key)}>{name}</button></td><td style={{color:color(wm)}}>{rateText(wm)}</td><td>{evaluationNumber(wm.std)}</td><td>{evaluationNumber(wm.active)}</td><td>{wm.defects??'—'}</td><td>{auto(wm)}</td></tr>;})}
+        </tbody></table></div></details>}
+      {dayOrders.length>0&&<section className="evaluation-detail-section"><h3>{text('この日の作業')}</h3>{dayOrders.map(entry=><button key={entry.order.id} onClick={()=>setDetail(entry.order)}>{entry.order.hinban||entry.order.taskName}　<BiText value="詳細"/></button>)}</section>}
+      {path.length>0&&<div className="evaluation-bottom-total">{summary(total,'期間合計',true)}</div>}
+    </>}
+    </main><FooterBar left={<FBtn onClick={onBack}>‹ <BiText value="計画表"/></FBtn>}/>
+    {detail&&<WorkHistoryDetail order={detail} onClose={()=>setDetail(null)}/>}
+  </div>;
+}
+
 
 /* ── 評価の調整（管理者） ── */
 function AdjustModal({
