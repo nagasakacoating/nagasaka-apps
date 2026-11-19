@@ -850,7 +850,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
   const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete&&!workerMissing))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete&&!workerMissing}/>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
-    {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0} / {Number(order&&order.targetBoxes)||'—'}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
+    {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0}{(!order?.individualPlan||order.individualPlan.hasQuantity)&&' / '+(Number(order?.targetBoxes)||'—')}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
     {guard!==true&&<div className="qr-error" role="alert"><BiText value={guard===null?'設定を確認中…':'管理者解除の初期設定が必要です。管理者に確認してください。'}/></div>}
     {blocked&&<div className="qr-result qr-ng"><strong><BiText value="管理者解除待ち・作業停止"/></strong><BiText value="作業者は解除できません。管理者を呼んでください。"/>
       {!managerMode&&<button type="button" onClick={()=>{setManagerMode(true);setResult(null);setError('');}} disabled={busy||guard!==true}><BiText value="管理者の解除用QRを読む"/></button>}
@@ -1834,7 +1834,11 @@ const INDIVIDUAL_LABELS = {
   '個別作業指示':['Instruksi kerja per petugas','Instrução de trabalho individual','Chỉ thị công việc cá nhân'],
   '日付を選択してください。':['Silakan pilih tanggal.','Selecione a data.','Vui lòng chọn ngày.'],
   '作業開始後は日付を変更できません。':['Tanggal tidak dapat diubah setelah pekerjaan dimulai.','A data não pode ser alterada após o início do trabalho.','Không thể đổi ngày sau khi bắt đầu công việc.'],
-  '個別指示を追加':['Tambah instruksi per petugas','Adicionar instrução individual','Thêm chỉ thị cá nhân'],
+  '数量指定':['Target jumlah kotak','Meta de caixas','Chỉ định số thùng'],
+   '終了時刻指定':['Batas waktu selesai','Horário de término','Chỉ định giờ kết thúc'],
+   '終了まであと':['Waktu tersisa','Tempo restante','Thời gian còn lại'],
+   '終了予定時刻になりました。':['Waktu selesai yang dijadwalkan telah tiba.','Chegou o horário previsto de término.','Đã đến giờ kết thúc dự kiến.'],
+   '個別指示を追加':['Tambah instruksi per petugas','Adicionar instrução individual','Thêm chỉ thị cá nhân'],
   '指示方法':['Cara memberi instruksi','Tipo de instrução','Cách giao việc'],
   '箱数から終了予定を出す':['Perkirakan waktu selesai dari jumlah kotak','Estimar o término pela quantidade de caixas','Dự tính giờ xong theo số thùng'],
   '開始・終了時刻を指定する':['Tentukan jam mulai dan selesai','Definir horário de início e término','Chỉ định giờ bắt đầu và kết thúc'],
@@ -7277,7 +7281,7 @@ function WorkPlanScreen({
                 </div>
               </div>
             </div>
-            {showBreakTargets&&<PlanBreakTarget target={plannedBreakTarget(nextRow,settings,now)}/>}
+            {(showBreakTargets||nextRow.individualPlan)&&<PlanBreakTarget target={plannedBreakTarget(nextRow,settings,now)}/>}
             <button onClick={() => openWorkerSelection(nextRow)} style={{
           minHeight: 72,
           padding: '0 36px',
@@ -7388,7 +7392,7 @@ function WorkPlanScreen({
                         <BiText value={isTask ? '（製品なし）' : [(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
                       </div>
                       {individual&&<strong>{o.assignedWorkerName}</strong>}
-                      {showBreakTargets&&individual&&!isNext&&<PlanBreakTarget target={plannedBreakTarget(o,settings,now)} compact/>}
+                      {individual&&!isNext&&<PlanBreakTarget target={plannedBreakTarget(o,settings,now)} compact/>}
                     </td>
                     <td style={td}><span className="plan-mobile-label"><BiText value={b('数量')} /></span><BiText value={isTask || individual&&!individual.hasQuantity ? '—' : `${o.targetBoxes} ${t('箱')}`} /></td>
                     <td style={{
@@ -7568,7 +7572,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const [busy,setBusy] = useState(false);
   const pending = useRef(false);
   const savedRemaining = current?.individualPlan?.hasQuantity ? Math.max(0, current.targetBoxes-(Number(current.doneBoxes)||0)) : '';
-  const boxes = quantityChanged ? remaining : savedRemaining;
+  const boxes = mode==='time' ? '' : quantityChanged ? remaining : savedRemaining;
   const actualRemaining = boxes==='' ? null : Number(boxes);
   const done = Number(current?.doneBoxes)||0;
   const item = master[hinban] || {};
@@ -7594,14 +7598,14 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
     if (!hinban || !master[hinban]) return setError('製品を選択してください。');
     if (!workers[workerId]?.name?.trim()) return setError(WORKER_REQUIRED);
     if (!timesValid) return setError('作業の開始・終了時刻を確認してください。');
-    if (!validQuantity || mode==='quantity'&&(actualRemaining===null || !existing && actualRemaining===0)) return setError('残り箱数を確認してください。');
+    if (!validQuantity || mode==='quantity'&&(actualRemaining===null || !assigned && actualRemaining===0)) return setError('残り箱数を確認してください。');
     if (!validCost) return setError('1箱工数を入力してください。');
     if (!breaksValid) return setError('休憩の順番と時刻を確認してください。');
     pending.current=true;
     setBusy(true);
     setError('');
     try {
-      await saveIndividualPlan({existing,data:{...draft,createdBy:user?.email||''},remaining:actualRemaining,replaceQuantity:quantityChanged});
+      await saveIndividualPlan({existing,data:{...draft,createdBy:user?.email||''},remaining:actualRemaining,replaceQuantity:quantityChanged||mode==='time'});
       if(onSaved)onSaved(instructionDate);else onClose();
     } catch (e) {
       setError(e.message);
@@ -7623,6 +7627,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
       setHinban(value);
       setKosu(Number(master[value]?.sheets?.[proc.id]?.kosu)||'');
     }}/>}
+    {!assigned&&hinban&&item.partNo&&<strong><BiText value="品番"/>　{item.partNo}</strong>}
     <div className="individual-grid">
       <IndividualField label="日付"><LocalizedInput type="date" value={instructionDate} disabled={assigned||busy} onChange={e=>setInstructionDate(e.target.value)}/>
         {assigned&&<small><BiText value="作業開始後は日付を変更できません。"/></small>}
@@ -7632,14 +7637,14 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
         {people.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
       </LocalizedSelect></IndividualField>
       <IndividualField label="指示方法"><LocalizedSelect value={mode} onChange={e=>setMode(e.target.value)}>
-        <LocalizedOption value="quantity">箱数から終了予定を出す</LocalizedOption>
-        <LocalizedOption value="time">開始・終了時刻を指定する</LocalizedOption>
+        <LocalizedOption value="quantity">数量指定</LocalizedOption>
+        <LocalizedOption value="time">終了時刻指定</LocalizedOption>
       </LocalizedSelect></IndividualField>
       <IndividualField label="開始予定"><LocalizedInput type="time" value={from} onChange={e=>setFrom(e.target.value)}/></IndividualField>
       {mode==='time'&&<IndividualField label="終了時刻"><LocalizedInput type="time" value={to} onChange={e=>setTo(e.target.value)}/></IndividualField>}
-      <IndividualField label={mode==='time'?'残り箱数（任意）':'残り箱数'}><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
+      {mode==='quantity'&&<IndividualField label="残り箱数"><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
         setRemaining(e.target.value);setQuantityChanged(true);
-      }}/></IndividualField>
+      }}/></IndividualField>}
       <IndividualField label="1箱工数（分）"><LocalizedInput type="number" min="0.01" step="any" disabled={assigned} value={kosu} onChange={e=>setKosu(e.target.value)}/></IndividualField>
     </div>
     <fieldset>
@@ -7676,12 +7681,17 @@ function IndividualInstructionNotice({order, now, showCheckpoint=true, showNextB
   const timeMode=order.individualPlan.mode==='time';
   const endLabel=timeMode?min2hm(end):finish!==null?min2hm(finish):'—';
   const checkpoint=periods[0];
+  const deadline=timeMode ? new Date(order.date+'T'+order.individualPlan.to+':00').getTime() : NaN;
+  const minutesLeft=timeMode && now ? Math.ceil((deadline-now.getTime())/60000) : NaN;
+  const showDeadline=order.status!=='done'&&Number.isFinite(minutesLeft);
   return <section className="individual-notice" aria-label={t('作業指示')}>
     <div className="individual-metrics">
-      <div><BiText value="指示時間"/><strong>{min2hm(start)}〜{endLabel}</strong></div>
+      <div><BiText value={timeMode?'終了予定':'指示時間'}/><strong>{timeMode?endLabel:min2hm(start)+'〜'+endLabel}</strong></div>
+      {showDeadline&&minutesLeft>0&&<div><BiText value="終了まであと"/><strong>{minutesLeft} <BiText value="分"/></strong></div>}
       <div><BiText value={remaining===null?'完了箱数':'残り箱数'}/><strong>{remaining??done} <BiText value={t('箱')}/></strong></div>
       {showNextBreak&&nextBreak&&<div><BiText value="あなたの次の休憩"/><strong>{nextBreak.from}〜{nextBreak.to}</strong></div>}
     </div>
+    {showDeadline&&minutesLeft<=0&&<strong role="status"><BiText value="終了予定時刻になりました。"/></strong>}
     {showCheckpoint&&checkpoint&&<small>{min2hm(checkpoint.to)} <BiText value="までの予定"/>　{checkpoint.boxes} <BiText value={t('箱')}/></small>}
   </section>;
 }
@@ -8041,10 +8051,10 @@ function SchedulePlanner({
           fontWeight: 700,
           whiteSpace: 'normal'
         }}>＋ <BiText value={t('行を追加')} /></button>} />
-          {supportsIndividualPlan(proc.id)&&<button type="button" onClick={()=>setIndividualEditor({})} disabled={busy||!!individualEditor}
+          <button type="button" onClick={()=>setIndividualEditor({})} disabled={busy||!!individualEditor}
             style={{minHeight:46,padding:'0 16px',borderRadius:8,background:'#15532f',color:'#fff',fontWeight:700}}>
             <BiText value="個別指示を追加"/>
-          </button>}
+          </button>
           <button onClick={copyFrom} disabled={busy||!!individualEditor} style={{
           minHeight: 46,
           padding: '0 16px',
@@ -8676,7 +8686,7 @@ function WorkRunScreen({
   } = useLang();
   const now = useNow();
   const plannedOrder=React.useMemo(()=>{
-    if (!supportsIndividualPlan(proc.id) || log.kind==='task') return null;
+    if ((!log.individualPlan&&!supportsIndividualPlan(proc.id)) || log.kind==='task') return null;
     if (log.individualPlan) return buildTimeline([log],settings)[0];
     return workPlanTimeline(orders,proc.id,log.date,settings).find(o=>o.id===log.id) || buildTimeline([log],settings)[0];
   },[log,orders,proc.id,settings]);
