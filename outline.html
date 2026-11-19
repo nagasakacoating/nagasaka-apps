@@ -1832,6 +1832,8 @@ const PART_NAME_TRANSLATIONS = new Map([
 const masterTranslations = new Map();
 const INDIVIDUAL_LABELS = {
   '個別作業指示':['Instruksi kerja per petugas','Instrução de trabalho individual','Chỉ thị công việc cá nhân'],
+  '日付を選択してください。':['Silakan pilih tanggal.','Selecione a data.','Vui lòng chọn ngày.'],
+  '作業開始後は日付を変更できません。':['Tanggal tidak dapat diubah setelah pekerjaan dimulai.','A data não pode ser alterada após o início do trabalho.','Không thể đổi ngày sau khi bắt đầu công việc.'],
   '個別指示を追加':['Tambah instruksi per petugas','Adicionar instrução individual','Thêm chỉ thị cá nhân'],
   '指示方法':['Cara memberi instruksi','Tipo de instrução','Cách giao việc'],
   '箱数から終了予定を出す':['Perkirakan waktu selesai dari jumlah kotak','Estimar o término pela quantidade de caixas','Dự tính giờ xong theo số thùng'],
@@ -6293,11 +6295,14 @@ async function saveIndividualPlan({existing, data, remaining, replaceQuantity}) 
     const current=snap.exists&&snap.data();
     if (!current?.individualPlan || current.status==='done' || current.revision!==existing.revision)
       throw new Error('指示が更新されました。開き直してください。');
+    if (current.status!=='pending' && data.date!==current.date)
+      throw new Error('作業開始後は日付を変更できません。');
     if (current.status!=='pending' && (data.assignedWorkerId!==current.assignedWorkerId || data.hinban!==current.hinban || data.kosu!==current.kosu))
       throw new Error('作業開始後は担当者・製品・工数を変更できません。');
     const target = replaceQuantity ? remaining === null ? 0 : remaining+(Number(current.doneBoxes)||0) : current.targetBoxes;
     if (!Number.isSafeInteger(target)) throw new Error('残り箱数を確認してください。');
     tx.update(ref,{
+      date:data.date,order:data.order,
       hinban:data.hinban,hinbanName:data.hinbanName,partNo:data.partNo,assignedWorkerId:data.assignedWorkerId,
       assignedWorkerName:data.assignedWorkerName,kosu:data.kosu,capacity:current.status==='pending'?data.capacity:current.capacity,
       individualPlan:{...data.individualPlan,hasQuantity:replaceQuantity?remaining!==null:current.individualPlan.hasQuantity},
@@ -7544,11 +7549,12 @@ function WorkPlanScreen({
 function IndividualField({label, children}) {
   return <label className="individual-field"><BiText value={label}/>{children}</label>;
 }
-function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose}) {
+function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose, onSaved}) {
   const {lang} = useLang();
   const current = orders[existing?.id] || existing;
   const assigned = current?.status && current.status !== 'pending';
   const saved = existing?.individualPlan;
+  const [instructionDate,setInstructionDate] = useState(existing?.date || date);
   const [mode,setMode] = useState(saved?.mode || 'quantity');
   const [hinban,setHinban] = useState(existing?.hinban || '');
   const [workerId,setWorkerId] = useState(existing?.assignedWorkerId || '');
@@ -7567,7 +7573,9 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const done = Number(current?.doneBoxes)||0;
   const item = master[hinban] || {};
   const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null};
-  const draft = {date,procId:proc.id,procName:proc.ja,order:existing?.order ?? nextOrder,
+  const dateRows=Object.values(orders).filter(o=>o.date===instructionDate&&o.procId===proc.id&&o.id!==existing?.id);
+  const destinationOrder=(dateRows.length?Math.max(...dateRows.map(o=>Number(o.order)||0)):0)+10;
+  const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?nextOrder:destinationOrder,
     hinban,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
     kosu:Number(kosu),capacity:capacityOf(item,proc.id),individualPlan:plan};
   const people = Object.values(workers).filter(w=>w.name?.trim()).sort((a,b)=>(a.order||0)-(b.order||0));
@@ -7578,10 +7586,11 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const validQuantity = actualRemaining===null || Number.isSafeInteger(actualRemaining)&&actualRemaining>=0&&Number.isSafeInteger(actualRemaining+done);
   const validCost = Number.isFinite(draft.kosu)&&draft.kosu>0;
   const showPreview = timesValid&&breaksValid&&validQuantity&&validCost&&(mode==='time'||actualRemaining!==null);
-  const live = todayKeyFor(new Date())===date ? new Date() : undefined;
+  const live = todayKeyFor(new Date())===instructionDate ? new Date() : undefined;
   const preview = showPreview ? instructionForecast({...draft,status:current?.status||'pending',doneBoxes:done,targetBoxes:(actualRemaining??0)+done},live) : null;
   async function publish() {
     if (pending.current) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(instructionDate)||todayKeyFor(new Date(instructionDate+'T00:00:00'))!==instructionDate) return setError('日付を選択してください。');
     if (!hinban || !master[hinban]) return setError('製品を選択してください。');
     if (!workers[workerId]?.name?.trim()) return setError(WORKER_REQUIRED);
     if (!timesValid) return setError('作業の開始・終了時刻を確認してください。');
@@ -7593,7 +7602,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
     setError('');
     try {
       await saveIndividualPlan({existing,data:{...draft,createdBy:user?.email||''},remaining:actualRemaining,replaceQuantity:quantityChanged});
-      onClose();
+      if(onSaved)onSaved(instructionDate);else onClose();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -7615,6 +7624,9 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
       setKosu(Number(master[value]?.sheets?.[proc.id]?.kosu)||'');
     }}/>}
     <div className="individual-grid">
+      <IndividualField label="日付"><LocalizedInput type="date" value={instructionDate} disabled={assigned||busy} onChange={e=>setInstructionDate(e.target.value)}/>
+        {assigned&&<small><BiText value="作業開始後は日付を変更できません。"/></small>}
+      </IndividualField>
       <IndividualField label="担当者"><LocalizedSelect value={workerId} disabled={assigned} onChange={e=>setWorkerId(e.target.value)}>
         <LocalizedOption value="">担当者を選択</LocalizedOption>
         {people.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}
@@ -8058,6 +8070,7 @@ function SchedulePlanner({
         </div>
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
+          onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);}}
           nextOrder={(rows.length?Math.max(...rows.map(r=>r.order||0)):0)+10} onClose={()=>setIndividualEditor(null)}/>}
         <div style={{
         fontSize: 13,
