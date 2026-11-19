@@ -456,6 +456,26 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .admin-pin-keypad button:nth-child(10){font-size:15px}
 .admin-pin-keypad button:active{background:#cbdcf3}
 @media(max-height:640px){.admin-pin-keypad button{min-height:43px}.admin-pin-dialog{padding:12px 18px}.admin-pin-dots{margin:8px 0}.admin-pin-dialog h2{margin-bottom:6px}}
+.history-detail-button{min-height:44px;min-width:64px;padding:8px 12px;border-radius:8px;background:#12306b;color:#fff;font-size:14px;font-weight:700;white-space:nowrap}
+.history-result-row{cursor:pointer}.history-result-row:hover{outline:2px solid #b9cbe4;outline-offset:-2px}
+.history-detail{font-size:16px;line-height:1.6;overflow-wrap:anywhere}
+.history-detail-identity{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 18px;color:#12306b}
+.history-detail-identity strong{font-size:24px}.history-detail-period{margin:6px 0 14px;font-size:14px;color:#475569}
+.history-detail-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}
+.history-detail-metrics>div{display:grid;padding:10px 12px;border:1px solid #d4deeb;background:#f4f8ff;border-radius:8px;font-size:14px}
+.history-detail-metrics strong{font-size:22px;color:#12306b}.history-detail-diff{padding:10px 0;font-weight:700}
+.history-detail h3{font-size:17px;margin:12px 0 8px;color:#12306b}
+.history-notes{margin:12px 0;padding:8px 12px;background:#f7f9fc;border:1px solid #d4deeb;border-radius:8px}
+.history-note{padding:8px 0}.history-note+.history-note{border-top:1px solid #d4deeb}
+.history-comment{white-space:pre-wrap;overflow-wrap:anywhere}.history-secondary,.history-event-worker{font-size:14px;color:#475569}
+.history-timeline-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.history-timeline-heading label{font-size:14px}.history-timeline-heading select{min-height:44px;padding:6px 10px;border:1px solid #b9cbe4;border-radius:8px;background:#fff;color:#12306b;max-width:100%}
+.history-record-note{font-size:14px;color:#475569;line-height:1.6;margin:8px 0}.history-event-count{font-size:14px;color:#475569;text-align:right}
+.history-events{list-style:none;padding:0;margin:4px 0 16px;border:1px solid #d4deeb;border-radius:8px;overflow:hidden}
+.history-event{display:grid;grid-template-columns:170px minmax(130px,1fr) minmax(0,2.2fr);gap:8px 14px;padding:12px;border-bottom:1px solid #d4deeb;background:#fff}
+.history-event:last-child{border-bottom:0}.history-event:nth-child(even){background:#f7f9fc}.history-event time{font-size:14px;font-variant-numeric:tabular-nums;color:#334155}
+.history-event-alert{border-left:4px solid #b3261e}.history-event-alert strong{color:#b3261e}.history-event-content>span+span{margin-left:10px}
+@media(max-width:680px){.history-event{grid-template-columns:minmax(0,1fr);gap:4px}.history-detail-identity strong{font-size:21px}.history-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.history-event-worker{display:inline;margin-left:12px}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -492,7 +512,8 @@ async function lockKanbanOrder(orderId,lockId,code=''){
     const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
     if(order.status==='done')throw new Error('作業状態が変わりました。計画表を確認してください。');
     if(order.qrBlocked)return order.qrLockId;
-    tx.update(ref,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)});return lockId;
+    tx.update(ref,withWorkOperations(order,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)},
+      [workOperationEvent(order,'qr_blocked',Date.now(),{reason:String(code).slice(0,160),lockId})]));return lockId;
   });
 }
 async function managerQrHash(raw){
@@ -504,7 +525,10 @@ async function unlockKanbanOrder(orderId,raw){
   if(!snap.exists||!snap.data().qrBlocked)throw new Error('解除対象のロックを確認できません。');const order=snap.data();
   const ticket=db.collection('kanbanUnlocks').doc(),batch=db.batch();
   batch.set(ticket,{orderId,lockId:order.qrLockId,tokenHash,createdAt:qrServerStamp(),uid:auth.currentUser.uid});
-  batch.update(orderRef,{qrBlocked:false,qrUnlockTicketId:ticket.id,qrUnlockOf:order.qrLockId,qrUnlockedAt:qrServerStamp()});
+  const unlockedAt=Date.now();
+  batch.update(orderRef,{qrBlocked:false,qrUnlockTicketId:ticket.id,qrUnlockOf:order.qrLockId,qrUnlockedAt:qrServerStamp(),
+    operationHistorySince:order.operationHistorySince||unlockedAt,
+    operationEvents:firebase.firestore.FieldValue.arrayUnion(workOperationEvent(order,'qr_unlocked',unlockedAt,{lockId:order.qrLockId}))});
   await batch.commit();qrKeepLocal(orderId,null);return true;
 }
 const DEFAULT_QR_PART={mode:'full',start:1,length:1,delimiter:',',field:1,trim:true};
@@ -595,7 +619,7 @@ async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,wor
     const used=order.qrUsedBoxKeys||[],key=checked.serial?JSON.stringify([hinban,checked.serial]):'';if(key&&used.includes(key))throw new Error('この箱のQRはすでに完了登録されています。');
     const event={id:eventId,at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex,serial:checked.serial||'',doneAfter:done+1};
     const patch={qrMode:'kanban-v1',kosu:Number(order.kosu)||Number(current.sheets&&current.sheets[order.procId]&&current.sheets[order.procId].kosu),doneBoxes:done+1,qrLastCheck:event,qrCountEvents:[...oldEvents,event],qrLastCountAt:qrServerStamp(),qrCooldownMs:interval};if(key)patch.qrUsedBoxKeys=[...used,key];
-    tx.update(orderRef,patch);return {count:done+1,until:Date.now()+interval};
+    tx.update(orderRef,withWorkOperations(order,patch,[workOperationEvent(order,'box_done',event.at,{source:'qr',refId:event.id,doneAfter:done+1,previous:done})]));return {count:done+1,until:Date.now()+interval};
   });
 }
 async function undoVerifiedKanban(orderId,workerChangeCount=0){
@@ -607,7 +631,7 @@ async function undoVerifiedKanban(orderId,workerChangeCount=0){
     const count=Number(order.doneBoxes)||0,events=order.qrCountEvents||[],last=events[events.length-1];if(count<=workerBoxBaseline(order))return;
     if(last&&last.doneAfter!==count)throw new Error('QR完了履歴と箱数が異なります。管理者に確認してください。');
     const patch={doneBoxes:count-1};if(last){patch.qrCountEvents=events.slice(0,-1);patch.qrLastCheck=events.length>1?events[events.length-2]:null;if(last.serial){const key=JSON.stringify([order.hinban,last.serial]);patch.qrUsedBoxKeys=(order.qrUsedBoxKeys||[]).filter(x=>x!==key);}}
-    tx.update(ref,patch);
+    tx.update(ref,withWorkOperations(order,patch,[workOperationEvent(order,'box_undo',Date.now(),{source:'qr',doneAfter:count-1,previous:count})]));
   });
 }
 const WORKER_REQUIRED = '担当者を選択してください。';
@@ -665,11 +689,11 @@ function TranslationStatus() {
     </button>}
   </div>;
 }
-function QrDialog({title,onClose,busy,children}){
+function QrDialog({title,onClose,busy,children,wide=false}){
   const ref=useRef(null),close=useRef(null);
   useEffect(()=>{const previous=document.activeElement,els=[document.documentElement,document.body],old=els.map(el=>el.style.overflow);els.forEach(el=>el.style.overflow='hidden');close.current&&close.current.focus();return()=>{els.forEach((el,i)=>el.style.overflow=old[i]);if(previous&&previous.isConnected)previous.focus();};},[]);
   return ReactDOM.createPortal(<div className="kanban-qr-backdrop" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget&&!busy)onClose();}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'&&!busy){e.preventDefault();onClose();}if(e.key==='Tab'){const controls=Array.from(ref.current.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex="0"]')).filter(x=>x.getClientRects().length);const first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}}>
-    <section ref={ref} role="dialog" aria-modal="true" aria-labelledby="kanban-qr-title" className="kanban-qr-dialog">
+    <section ref={ref} role="dialog" aria-modal="true" aria-labelledby="kanban-qr-title" className="kanban-qr-dialog" style={wide?{width:'min(1000px,100%)'}:undefined}>
       <header><strong id="kanban-qr-title"><BiText value={title}/></strong><ReturnJapaneseButton/><button type="button" ref={close} onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></header>
       <div className="kanban-qr-body">{title==='作業手順'&&<TranslationStatus/>}{children}</div>
     </section>
@@ -1839,6 +1863,32 @@ for (const [label,[id,pt,vi]] of Object.entries(INDIVIDUAL_LABELS)) {
   DICT[label]=id;
   PROCESS_LABELS[label]=[pt,vi];
 }
+const HISTORY_LABELS={
+  '詳細':['Rincian','Detalhes','Chi tiết'],
+  '作業記録の詳細':['Rincian catatan kerja','Detalhes do registro de trabalho','Chi tiết bản ghi công việc'],
+  '不良数・コメント（担当者ごとの最終保存内容）':['Jumlah cacat dan komentar terakhir tiap petugas','Defeitos e último comentário de cada operador','Số lỗi và ghi chú lưu cuối của từng người làm'],
+  '操作の記録（時刻順）':['Riwayat operasi (urutan waktu)','Histórico de operações (por horário)','Lịch sử thao tác (theo thời gian)'],
+  '表示内容':['Isi yang ditampilkan','Conteúdo exibido','Nội dung hiển thị'],
+  'すべて':['Semua','Todos','Tất cả'],
+  '箱数':['Jumlah kotak','Quantidade de caixas','Số thùng'],
+  '休憩・ライン応援':['Istirahat dan Bantu Line','Pausas e apoio à linha','Nghỉ và hỗ trợ dây chuyền'],
+  '異常・QR不一致':['Kelainan dan QR tidak cocok','Anormalidades e QR divergente','Bất thường và QR không khớp'],
+  '不良数・コメント':['Jumlah cacat dan komentar','Defeitos e comentários','Số lỗi và ghi chú'],
+  '担当者変更':['Pergantian petugas','Troca de operador','Đổi người làm'],
+  '不良数・コメント保存':['Simpan jumlah cacat dan komentar','Salvar defeitos e comentário','Lưu số lỗi và ghi chú'],
+  '停止終了（作業終了）':['Jeda berakhir (pekerjaan selesai)','Fim da pausa (trabalho encerrado)','Kết thúc dừng (kết thúc công việc)'],
+  'QR不一致・管理者解除待ち':['QR tidak cocok, menunggu pengelola','QR divergente, aguardando liberação','QR không khớp, chờ quản lý mở khóa'],
+  '管理者解除':['Pembukaan kunci oleh pengelola','Liberação pelo administrador','Quản lý mở khóa'],
+  '手動':['Manual','Manual','Thủ công'],
+  '保存時刻':['Waktu disimpan','Horário de salvamento','Thời điểm lưu'],
+  '時刻不明':['Waktu tidak diketahui','Horário desconhecido','Không rõ thời gian'],
+  '停止中':['Sedang berhenti','Parado','Đang dừng'],
+  '保存済みの記録を表示しています。過去に保存されていない操作や時刻は復元できません。':['Menampilkan catatan tersimpan. Operasi dan waktu yang tidak disimpan sebelumnya tidak dapat dipulihkan.','Exibindo registros salvos. Não é possível recuperar operações e horários que não foram registrados.','Hiển thị bản ghi đã lưu. Không thể khôi phục thao tác và thời gian chưa được lưu trước đây.'],
+  'この記録では、コメント・不良数の途中保存時刻と箱数の取消履歴は保存されていません。':['Catatan ini tidak menyimpan waktu penyimpanan komentar/jumlah cacat atau riwayat pembatalan kotak.','Este registro não contém os horários de salvamento de comentários/defeitos nem o histórico de cancelamento de caixas.','Bản ghi này không lưu thời điểm lưu ghi chú/số lỗi giữa chừng hoặc lịch sử hủy số thùng.'],
+  '該当する操作記録はありません。':['Tidak ada operasi yang sesuai.','Não há operações correspondentes.','Không có bản ghi thao tác phù hợp.'],
+  '記録の行、または「詳細」を押すと、操作の記録を確認できます。':['Ketuk baris catatan atau Rincian untuk melihat riwayat operasi.','Toque na linha ou em Detalhes para ver o histórico de operações.','Nhấn vào dòng bản ghi hoặc Chi tiết để xem lịch sử thao tác.']
+};
+for(const [label,[id,pt,vi]] of Object.entries(HISTORY_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
@@ -6355,12 +6405,37 @@ function workerBoxBaseline(order) {
   const changes=order.workerChanges || [];
   return changes[changes.length-1]?.boxTotal || 0;
 }
-function manualBoxPatch(order, delta, at) {
+/* 操作結果と同じ書き込みで保存し、箱数の取消やコメントの上書きも残す。 */
+function workOperationEvent(order,type,at,values={}) {
+  return {type,at,workerId:order.workerId||'',workerName:order.workerName||'',...values};
+}
+function withWorkOperations(order,patch,events) {
+  if(!events.length)return patch;
+  return {...patch,operationHistorySince:order.operationHistorySince||events[0].at,
+    operationEvents:[...(order.operationEvents||[]),...events]};
+}
+function recordWorkPatch(order,patch,at=Date.now()) {
+  if(!patch)return patch;
+  const events=[];
+  if(Object.hasOwn(patch,'doneBoxes')&&patch.doneBoxes!==order.doneBoxes){
+    const last=patch.manualBoxEvents?.at(-1);
+    events.push(workOperationEvent(order,patch.doneBoxes>(Number(order.doneBoxes)||0)?'box_done':'box_undo',
+      patch.doneBoxes>(Number(order.doneBoxes)||0)&&last?last.at:at,
+      {source:'manual',doneAfter:patch.doneBoxes,previous:Number(order.doneBoxes)||0}));
+  }
+  if(Object.hasOwn(patch,'defectCount')||Object.hasOwn(patch,'workerComment')){
+    const notes=(patch.workerChanges?.length||0)>(order.workerChanges?.length||0)?patch.workerChanges.at(-1).segment:patch;
+    events.push(workOperationEvent(order,'notes_saved',patch.endAt||patch.workerChanges?.at(-1)?.at||at,{
+      defectCount:notes.defectCount??order.defectCount??0,
+      workerComment:notes.workerComment??order.workerComment??''
+    }));
+  }
+  return withWorkOperations(order,patch,events);
+}
+function manualBoxPatch(order, delta, at=Date.now()) {
   const total=Number(order.doneBoxes) || 0;
   if (delta<0 && total<=workerBoxBaseline(order)) return null;
   const doneBoxes=total+delta;
-  if (!supportsIndividualPlan(order.procId)) return {doneBoxes};
-
   const events=(order.manualBoxEvents || []).filter(event=>event.doneAfter<Math.max(total,doneBoxes));
   if (delta>0) events.push({at,doneAfter:doneBoxes});
   return {doneBoxes,manualBoxEvents:events};
@@ -6378,7 +6453,7 @@ async function updateWorkRun(order, buildPatch, {allowMissingWorker=false}={}) {
     if(current.qrBlocked || (localBlock&&current.qrUnlockOf!==localBlock.lockId))throw new Error('管理者の解除が必要です。');
     if(!allowMissingWorker&&!hasWorkOrderWorker(current))throw new Error(WORKER_REQUIRED);
     const patch=await buildPatch(current,tx);
-    if(patch)tx.update(ref,patch);
+    if(patch)tx.update(ref,recordWorkPatch(current,patch));
     return patch;
   });
 }
@@ -10019,6 +10094,142 @@ function ResultModal({
     </div>;
 }
 
+/* ── 作業記録の詳細：保存された事実だけを時刻順に表示する ── */
+function historyWorkerAt(order,at) {
+  const changes=order.workerChanges||[];
+  let name=changes[0]?.segment?.workerName||order.workerName||'';
+  for(const change of changes)if(qrStamp(change.at)<=at)name=change.nextWorkerName||'';
+  return name;
+}
+function workHistoryTimeline(order) {
+  const rows=[];
+  const add=(type,at,values={})=>{
+    const time=qrStamp(at);
+    if(time>0)rows.push({workerName:historyWorkerAt(order,time),...values,type,at:time});
+  };
+  add('start',order.startAt,{workerName:order.workerChanges?.[0]?.segment?.workerName||order.workerName||''});
+  const operations=order.operationEvents||[];
+  for(const event of operations)add(event.type,event.at,event);
+  const recordedBoxIds=new Set(operations.filter(op=>op.type==='box_done').flatMap(op=>[
+    op.source+':id:'+op.refId,op.source+':at:'+qrStamp(op.at)+':'+op.doneAfter]));
+  for(const [source,events] of [['qr',order.qrCountEvents],['manual',order.manualBoxEvents]]){
+    for(const event of events||[]){
+      const recorded=event.id&&recordedBoxIds.has(source+':id:'+event.id)||
+        recordedBoxIds.has(source+':at:'+qrStamp(event.at)+':'+event.doneAfter);
+      if(!recorded)add('box_done',event.at,{source,doneAfter:event.doneAfter});
+    }
+  }
+  for(const pause of order.pauses||[]){
+    const type=pause.type==='break'?'break':pause.type==='support'?'support':'pause';
+    add(type,pause.from,{until:qrStamp(pause.to)});
+    if(pause.to)add(qrStamp(pause.to)===qrStamp(order.endAt)?'pause_end':'resume',pause.to,{pauseType:type});
+  }
+  for(const anomaly of order.anomalies||[])add('anomaly',anomaly.at,{comment:anomaly.comment||''});
+  for(const change of order.workerChanges||[])add('worker_change',change.at,{
+    workerName:change.segment?.workerName||'',nextWorkerName:change.nextWorkerName||'',changedBy:change.changedBy||''
+  });
+  if(order.qrBlockedAt&&!operations.some(e=>e.type==='qr_blocked'&&e.lockId===order.qrLockId))
+    add('qr_blocked',order.qrBlockedAt,{reason:order.qrBlockCode||''});
+  if(order.qrUnlockedAt&&!operations.some(e=>e.type==='qr_unlocked'&&e.lockId===order.qrUnlockOf))
+    add('qr_unlocked',order.qrUnlockedAt);
+  add('finish',order.endAt,{doneAfter:Number(order.doneBoxes)||0,fraction:Number(order.fraction)||0});
+  add('adjust',order.adjustedAt,{adjustMin:Number(order.adjustMin)||0,comment:order.adjustNote||'',workerName:''});
+  const priority={start:0,box_done:1,box_undo:1,notes_saved:2,worker_change:3,finish:9,adjust:10};
+  return rows.sort((a,b)=>a.at-b.at||(priority[a.type]??4)-(priority[b.type]??4));
+}
+function historyNoteSnapshots(order) {
+  const notes=(order.workerChanges||[]).map(change=>({...change.segment}));
+  notes.push({workerId:order.workerId||'',workerName:order.workerName||'',defectCount:order.defectCount,workerComment:order.workerComment||'',
+    startAt:order.workerChanges?.at(-1)?.at||order.startAt,endAt:order.endAt});
+  return notes.map(note=>{
+    const saved=(order.operationEvents||[]).filter(event=>event.type==='notes_saved'&&
+      (note.workerId?event.workerId===note.workerId:event.workerName===note.workerName)&&
+      qrStamp(event.at)>=qrStamp(note.startAt)&&(!note.endAt||qrStamp(event.at)<=qrStamp(note.endAt))&&
+      event.defectCount===note.defectCount&&(event.workerComment||'')===(note.workerComment||'')).at(-1);
+    return {...note,savedAt:saved?qrStamp(saved.at):0};
+  });
+}
+const HISTORY_EVENT_LABELS={start:'作業開始',box_done:'1箱完了',box_undo:'1つ戻す',break:'休憩',support:'ライン応援',pause:'中断',
+  resume:'再開',pause_end:'停止終了（作業終了）',anomaly:'異常',worker_change:'担当者変更',notes_saved:'不良数・コメント保存',
+  qr_blocked:'QR不一致・管理者解除待ち',qr_unlocked:'管理者解除',finish:'作業終了',adjust:'評価を調整'};
+function WorkHistoryDetail({order,onClose}) {
+  const {lang}=useLang();
+  const [filter,setFilter]=useState('all');
+  const [now,setNow]=useState(Date.now);
+  useEffect(()=>{if(order.status==='done')return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[order.status]);
+  const timeline=React.useMemo(()=>workHistoryTimeline(order),[order]);
+  const groups={boxes:['box_done','box_undo'],pauses:['break','support','pause','resume','pause_end'],
+    reports:['anomaly','qr_blocked','qr_unlocked'],notes:['notes_saved'],workers:['worker_change']};
+  const rows=filter==='all'?timeline:timeline.filter(event=>groups[filter]?.includes(event.type));
+  const snapshots=historyNoteSnapshots(order);
+  const metrics=calcLog(order,order.endAt||now);
+  const number=value=>Math.round((Number(value)||0)*10)/10;
+  const stamp=value=>value?new Date(qrStamp(value)).toLocaleString('ja-JP',{
+    timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
+  const hasKosu=Number(order.kosu)>0||order.kind==='task';
+  const finished=order.status==='done';
+  const standard=finished?order.stdMin??(order.kind==='task'?order.durMin:metrics.stdMin):order.kind==='task'?order.durMin:metrics.stdMin;
+  const difference=finished?effDiff(order):(Number(standard)||0)-metrics.actMin;
+  const totals=[['完了箱数',order.kind==='task'?'—':`${Number(order.doneBoxes)||0}${(!order.individualPlan||order.individualPlan.hasQuantity)?' / '+(Number(order.targetBoxes)||0):''}`],
+    ['標準',hasKosu?number(standard):'—'],
+    ['実働',number(finished?order.actMin??metrics.actMin:metrics.actMin)],['停止',number(finished?order.pausedMin??metrics.paused/60000:metrics.paused/60000)],
+    ['不良数',order.kind==='task'?'—':snapshots.some(n=>n.defectCount!==undefined)?orderDefectTotal(order):'—']];
+  function eventContent(event) {
+    if(event.type==='box_done'||event.type==='box_undo')return <>
+      <span><BiText value="完了箱数"/>：{event.previous!==undefined&&<>{event.previous} → </>}{event.doneAfter} <BiText value="箱"/></span>
+      <span className="history-secondary">{event.source==='qr'?'QR':<BiText value="手動"/>}</span>
+    </>;
+    if(['break','support','pause'].includes(event.type))return event.until?<>
+      <span>{stamp(event.at)} → {stamp(event.until)}</span>
+      <span>{number((event.until-event.at)/60000)} <BiText value="分"/></span>
+    </>:<BiText value="停止中"/>;
+    if(event.type==='notes_saved')return <>
+      <span><BiText value="不良数"/>：{event.defectCount} <BiText value="個"/></span>
+      <div className="history-comment"><BiText value="作業者コメント"/>：{event.workerComment||'—'}</div>
+    </>;
+    if(event.type==='worker_change')return <>
+      <span>{event.workerName||'—'} → {event.nextWorkerName||'—'}</span>
+      {event.changedBy&&<div className="history-secondary"><BiText value="変更操作アカウント"/>：{event.changedBy}</div>}
+    </>;
+    if(event.type==='finish')return order.kind==='task'?null:<span><BiText value="完了箱数"/>：{event.doneAfter} <BiText value="箱"/>
+      {event.fraction>0&&<> ＋ {event.fraction} <BiText value="個"/></>}</span>;
+    if(event.type==='adjust')return <><span><BiText value="調整時間"/>：{event.adjustMin>=0?'+':''}{event.adjustMin} <BiText value="分"/></span><div className="history-comment">{event.comment}</div></>;
+    return <div className="history-comment">{event.comment||event.reason||''}</div>;
+  }
+  return <QrDialog title="作業記録の詳細" onClose={onClose} wide>
+    <div className="history-detail">
+      <div className="history-detail-identity"><strong>{order.hinban||order.taskName||'—'}</strong><span>{order.partNo||''}</span><span>{order.procName||''}</span></div>
+      <div className="history-detail-period"><BiText value="開始"/> {stamp(order.startAt)}　<BiText value="終了"/> {stamp(order.endAt)}</div>
+      <div className="history-detail-metrics">{totals.map(([label,value])=><div key={label}><BiText value={label}/><strong>{value}{['標準','実働','停止'].includes(label)&&value!=='—'&&<> <BiText value="分"/></>}</strong></div>)}</div>
+      {hasKosu&&<div className="history-detail-diff"><BiText value="先行・遅れ"/>：{difference>=0?'+':''}{number(difference)} <BiText value="分"/>
+        {!!Number(order.adjustMin)&&<>　<BiText value="調整時間"/>：{Number(order.adjustMin)>0?'+':''}{order.adjustMin} <BiText value="分"/></>}</div>}
+      {order.kind!=='task'&&<section className="history-notes"><h3><BiText value="不良数・コメント（担当者ごとの最終保存内容）"/></h3>
+        {snapshots.map((note,i)=><div key={i} className="history-note"><strong>{note.workerName||'—'}</strong>
+          <div className="history-secondary"><BiText value="保存時刻"/>：{note.savedAt?stamp(note.savedAt):<BiText value="時刻不明"/>}</div>
+          <div><BiText value="不良数"/>：{note.defectCount??'—'} <BiText value="個"/></div>
+          <div className="history-comment"><BiText value="作業者コメント"/>：{note.workerComment||'—'}</div>
+        </div>)}
+      </section>}
+      <section className="history-timeline"><div className="history-timeline-heading"><h3><BiText value="操作の記録（時刻順）"/></h3>
+        <label><BiText value="表示内容"/> <select value={filter} onChange={e=>setFilter(e.target.value)}>
+          {[['all','すべて'],['boxes','箱数'],['pauses','休憩・ライン応援'],['reports','異常・QR不一致'],['notes','不良数・コメント'],['workers','担当者変更']].map(([value,label])=><option key={value} value={value}>{singleLanguageText(label,lang)}</option>)}
+        </select></label>
+      </div>
+        <p className="history-record-note"><BiText value="保存済みの記録を表示しています。過去に保存されていない操作や時刻は復元できません。"/></p>
+        {!order.operationHistorySince&&<p className="history-record-note"><BiText value="この記録では、コメント・不良数の途中保存時刻と箱数の取消履歴は保存されていません。"/></p>}
+        <div className="history-event-count">{rows.length} <BiText value="件"/></div>
+        <ol className="history-events">{rows.map((event,i)=><li key={i} className={'history-event '+(['anomaly','qr_blocked'].includes(event.type)?'history-event-alert':'')}>
+          <time dateTime={new Date(event.at).toISOString()}>{stamp(event.at)}</time>
+          <div><strong><BiText value={HISTORY_EVENT_LABELS[event.type]||event.type}/></strong><div className="history-event-worker">{event.workerName||'—'}</div></div>
+          <div className="history-event-content">{eventContent(event)}</div>
+        </li>)}</ol>
+        {!rows.length&&<p><BiText value="該当する操作記録はありません。"/></p>}
+      </section>
+      <WorkerChangeHistory order={order}/>
+    </div>
+  </QrDialog>;
+}
+
 /* ── 履歴（期間検索・過去10年対応） ── */
 function WorkHistory({
   proc,
@@ -10034,6 +10245,7 @@ function WorkHistory({
   const reportStart=useReportStart();
   const [all, setAll] = useState(false);
   const [adj, setAdj] = useState(null);
+  const [detail,setDetail]=useState(null);
   const [fromDate,setFromDate]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
   const [toDate,setToDate]=useState(()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
   const [query,setQuery]=useState('');
@@ -10049,9 +10261,9 @@ function WorkHistory({
     finally{setHistoryBusy(false);}
   }
   const historySource=historyRows||Object.values(logs||{});
-  const activeChanges=historySource.filter(l=>['running','paused'].includes(l.status)&&l.workerChanges?.length&&
+  const activeRecords=historySource.filter(l=>['running','paused'].includes(l.status)&&
     l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
-    (!query||[l.hinban,l.workerName,...l.workerChanges.map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
+    (!query||[l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
   const list = historySource.filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || [l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
   const th = {
     padding: '7px 8px',
@@ -10137,8 +10349,10 @@ function WorkHistory({
           }}>⚠ <BiText value={sum.anom} /></span>
           </div>
         </div>
-        {activeChanges.map(l=><section key={l.id} style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
+        <p className="history-record-note"><BiText value="記録の行、または「詳細」を押すと、操作の記録を確認できます。"/></p>
+        {activeRecords.map(l=><section key={l.id} style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
           <strong>{l.hinban||l.taskName}　<BiText value="作業中"/></strong>
+          <button type="button" className="history-detail-button" onClick={()=>setDetail(l)}><BiText value="詳細"/></button>
           <WorkerChangeHistory order={l}/>
         </section>)}
         <div style={{
@@ -10154,6 +10368,7 @@ function WorkHistory({
             <thead><tr style={{
               background: NAVY
             }}>
+              <th style={th}><BiText value="詳細"/></th>
               <th style={th}><BiText value={"\u65E5\u4ED8"} /></th><th style={th}><TH k="担当者" /></th><BiText value={all && <th style={th}><BiText value={"\u5DE5\u7A0B"} /></th>} /><th style={th}><TH k="呼称" /></th>
               <th style={th}><BiText value={"\u958B\u59CB \u2192 \u7D42\u4E86"} /></th><th style={th}><TH k="完了箱数" /></th><th style={th}><TH k="実働" /></th><th style={th}><BiText value={"\u505C\u6B62"} /></th><th style={th}><TH k="先行" k2="遅れ" /></th><th style={th}><BiText value="不良数"/></th><th style={th}><BiText value="作業者コメント"/></th><th style={th}><TH k="異常" /></th><th style={{
                 ...th,
@@ -10166,9 +10381,10 @@ function WorkHistory({
               const d = effDiff(l);
               const hasK = Number(l.kosu) > 0 || l.kind === 'task';
               const hasAdj = Number(l.adjustMin) || 0;
-              return <tr key={l.id} style={{
+              return <tr key={l.id} className="history-result-row" style={{
                 background: i % 2 ? '#F7F9FC' : '#fff'
-              }}>
+              }} onClick={e=>{if(!e.target.closest('button,a,input,textarea,select,details,summary'))setDetail(l);}}>
+                    <td style={td}><button type="button" className="history-detail-button" onClick={()=>setDetail(l)} aria-label={singleLanguageText('詳細',lang)+' '+(l.hinban||l.taskName||'')}><BiText value="詳細"/></button></td>
                     <td style={td}><BiText value={l.date} /></td><td style={{
                   ...td,
                   color: l.workerName ? '#1A1A1A' : '#9AA3AF'
@@ -10176,7 +10392,7 @@ function WorkHistory({
                     <td style={{
                   ...td,
                   fontWeight: 700
-                }}>{l.hinban}</td>
+                }}>{l.hinban||l.taskName}</td>
                     <td style={td}><BiText value={l.startAt ? fmtHM(new Date(l.startAt)) : ''} /> → <BiText value={l.endAt ? fmtHM(new Date(l.endAt)) : ''} /></td>
                     <td style={td}><BiText value={l.doneBoxes || 0} />{(!l.individualPlan||l.individualPlan.hasQuantity)&&<> / <BiText value={l.targetBoxes || 0} /></>}<BiText value={l.fraction ? `（+${l.fraction}個）` : ''} /></td>
                     <td style={td}><BiText value={Math.round(l.actMin || 0)} /> <BiText value={t('分')} /></td>
@@ -10218,7 +10434,7 @@ function WorkHistory({
                     </td>
                   </tr>;
             })} />
-              <BiText value={list.length === 0 && <tr><td colSpan={all ? 13 : 12} style={{
+              <BiText value={list.length === 0 && <tr><td colSpan={all ? 14 : 13} style={{
                 ...td,
                 textAlign: 'center',
                 color: '#9AA3AF',
@@ -10230,6 +10446,7 @@ function WorkHistory({
       </div>
       <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} />
       <BiText value={adj && <AdjustModal order={adj} onClose={() => setAdj(null)} />} />
+      {detail&&<WorkHistoryDetail order={historySource.find(l=>l.id===detail.id)||detail} onClose={()=>setDetail(null)}/>}
     </div>;
 }
 
@@ -10778,3 +10995,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
