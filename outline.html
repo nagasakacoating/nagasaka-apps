@@ -478,7 +478,7 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 @media(max-width:680px){.history-event{grid-template-columns:minmax(0,1fr);gap:4px}.history-detail-identity strong{font-size:21px}.history-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.history-event-worker{display:inline;margin-left:12px}}
 
 .evaluation-screen{height:100vh;display:flex;flex-direction:column}.evaluation-main{flex:1;overflow:auto;padding:16px 22px;color:#17253b;font-size:16px}
-.evaluation-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.evaluation-toolbar label{display:grid;gap:4px;font-size:14px;font-weight:700}.evaluation-toolbar input,.evaluation-toolbar select{min-height:44px;padding:6px 10px;border:1px solid #b9cbe4;border-radius:8px;max-width:220px}
+.evaluation-date{background:#dbeafe;border:2px solid #2563eb;border-radius:10px;padding:6px 10px;color:#123875}.evaluation-date input{background:white;color:#123875;color-scheme:light;width:100%}.evaluation-date input:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.evaluation-period-picker{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.evaluation-period-picker button{min-height:44px;padding:6px 10px}.evaluation-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.evaluation-toolbar label{display:grid;gap:4px;font-size:14px;font-weight:700}.evaluation-toolbar input,.evaluation-toolbar select{min-height:44px;padding:6px 10px;border:1px solid #b9cbe4;border-radius:8px;max-width:220px}
 .evaluation-screen button{min-height:44px;border:1px solid #b9cbe4;border-radius:8px;padding:8px 12px;font-size:14px;background:#edf3fc;color:#12306b;font-weight:700}.evaluation-screen button[aria-pressed=true]{background:#12306b;color:#fff}.evaluation-screen button:disabled{opacity:.55;cursor:default}
 .evaluation-periods,.evaluation-breadcrumb{display:flex;gap:6px;flex-wrap:wrap}.evaluation-breadcrumb{margin:12px 0}.evaluation-breadcrumb button{background:white}.evaluation-settings{font-size:14px;width:100%}.evaluation-settings summary{cursor:pointer}
 .evaluation-summary,.evaluation-detail-section{background:#fff;border:1px solid #d3deed;border-radius:12px;padding:14px;margin:12px 0}.evaluation-summary h3,.evaluation-detail-section h3{font-size:18px;color:#12306b;margin:0 0 12px}.evaluation-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px}.evaluation-metrics>div{display:grid;gap:4px;padding:10px;background:#f3f7fc;border-radius:8px;font-size:14px}.evaluation-metrics strong{font-size:24px;font-variant-numeric:tabular-nums}
@@ -9397,6 +9397,9 @@ function ReportStartEditor({report}){
 /* 評価は標準時間÷実働時間。箱の完了時刻を基準に時間帯へ配賦する。 */
 const EVALUATION_TEXTS={
  '当日':['Hari','Dia','Ngày'], '対象日':['Tanggal acuan','Data de referência','Ngày xem'],
+ '日別':['Per hari','Por dia','Theo ngày'], '週別':['Per minggu','Por semana','Theo tuần'], '月別':['Per bulan','Por mês','Theo tháng'], '年別':['Per tahun','Por ano','Theo năm'],
+ '集計区間':['Rentang penilaian','Intervalo de avaliação','Khoảng đánh giá'],
+ '前の期間':['Periode sebelumnya','Período anterior','Kỳ trước'], '次の期間':['Periode berikutnya','Próximo período','Kỳ sau'],
  '期間合計':['Total periode','Total do período','Tổng kỳ'], 'この範囲の評価':['Evaluasi rentang ini','Avaliação deste intervalo','Đánh giá khoảng này'],
  'アプリの自動評価':['Evaluasi otomatis aplikasi','Avaliação automática do aplicativo','Đánh giá tự động của ứng dụng'],
  '詳しく見る':['Lihat rincian','Ver detalhes','Xem chi tiết'], '時間帯別':['Per jam','Por hora','Theo giờ'],
@@ -9442,10 +9445,15 @@ const evaluationNumber=n=>Math.round((Number(n)||0)*10)/10;
 const evaluationDay=at=>new Date(at+9*3600000).toISOString().slice(0,10);
 const evaluationMidnight=date=>Date.parse(date+'T00:00:00+09:00');
 const evaluationClock=(at,seconds=false)=>new Date(at+9*3600000).toISOString().slice(11,seconds?19:16);
+const evaluationWeekStart=at=>at-((new Date(at+32400000).getUTCDay()+6)%7)*86400000;
+const evaluationDatesLabel=(from,to)=>evaluationDay(from)+' ～ '+evaluationDay(to-1);
 function evaluationRange(mode,date) {
   const start=evaluationMidnight(date),year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
   if(mode==='day')return {kind:'day',from:start,to:start+86400000,label:date};
-  if(mode==='week')return {kind:'days',from:start-6*86400000,to:start+86400000,label:evaluationDay(start-6*86400000)+' ～ '+date};
+  if(mode==='week'){
+    const from=evaluationWeekStart(start),to=from+7*86400000;
+    return {kind:'days',from,to,label:evaluationDatesLabel(from,to)};
+  }
   if(mode==='month')return {kind:'month',from:Date.UTC(year,month-1,1)-32400000,to:Date.UTC(year,month,1)-32400000,label:date.slice(0,7)};
   const years=mode==='year'?1:Number(mode);
   return {kind:years===1?'year':'years',from:Date.UTC(year-years+1,0,1)-32400000,to:Date.UTC(year+1,0,1)-32400000,label:years===1?String(year):`${year-years+1} ～ ${year}`};
@@ -9541,13 +9549,14 @@ function evaluationMetric(prepared,scope,worker='') {
   return result;
 }
 function evaluationChildren(scope) {
-  const children=[],kind=scope.kind==='years'?'year':scope.kind==='year'?'month':['month','days'].includes(scope.kind)?'day':scope.kind==='day'?'hour':scope.kind==='hour'?'ten':'box';
+  const children=[],kind=scope.kind==='years'?'year':scope.kind==='year'?'month':scope.kind==='month'?'days':scope.kind==='days'?'day':scope.kind==='day'?'hour':scope.kind==='hour'?'ten':'box';
   if(kind==='box')return children;
   for(let from=scope.from;from<scope.to;){
     const date=evaluationDay(from),year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
     let to,label;
     if(kind==='year'){to=Date.UTC(year+1,0,1)-32400000;label=String(year);}
     else if(kind==='month'){to=Date.UTC(year,month,1)-32400000;label=date.slice(0,7);}
+    else if(kind==='days'){to=evaluationWeekStart(from)+7*86400000;label=evaluationDatesLabel(from,Math.min(to,scope.to));}
     else {to=from+(kind==='day'?86400000:kind==='hour'?3600000:600000);label=kind==='day'?date:evaluationClock(from)+' ～ '+evaluationClock(to);}
     to=Math.min(to,scope.to);children.push({kind,from,to,label});from=to;
   }
@@ -9596,6 +9605,15 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
   const rateText=m=>m.rate===null?'—':m.rate+'%',diffText=m=>m.missing?'—':(m.diff>=0?'+':'')+evaluationNumber(m.diff);
   const color=m=>m.rate===null?'#64748b':m.rate>=100?'#18733c':'#b3261e';
   function reset(){setPath([]);}
+  function movePeriod(direction){
+    const year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
+    const next=mode==='week'?evaluationDay(direction<0?range.from-86400000:range.to)
+      :mode==='month'?new Date(Date.UTC(year,month-1+direction,1)).toISOString().slice(0,10)
+      :String(year+direction)+'-01-01';
+    setDate(next>today?today:next);
+    reset();
+  }
+  const breakdown={years:'年別',year:'月別',month:'週別',days:'日別',day:'時間帯別',hour:'10分ごと'};
   const text=(key,values)=><EvaluationText text={key} values={values}/>;
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
   function summary(m,title,adjust=false){return <section className="evaluation-summary">
@@ -9617,7 +9635,12 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
     <TopBar title={b('評価')} onBack={onBack} user={user}/>
     <main className="evaluation-main"><div className="evaluation-toolbar">
       <div className="evaluation-periods">{[['day','当日'],['week','週'],['month','月'],['year','年'],['3','3年'],['5','5年'],['10','10年']].map(([value,label])=><button key={value} aria-pressed={mode===value} onClick={()=>{setMode(value);reset();}}>{text(label)}</button>)}</div>
-      <label>{text('対象日')}<input type="date" max={today} value={date} onChange={e=>{if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){setDate(e.target.value);reset();}}}/></label>
+      {mode==='day'?<label className="evaluation-date">{text('対象日')}<input type="date" max={today} value={date} onChange={e=>{if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){setDate(e.target.value);reset();}}}/></label>
+        :<div className="evaluation-period-picker">
+          <button type="button" disabled={(report.start&&range.from<=evaluationMidnight(report.start)&&(range.kind!=='years'||Number(date.slice(0,4))<=Number(report.start.slice(0,4))))||Number(date.slice(0,4))<=1900} onClick={()=>movePeriod(-1)}>{text('前の期間')}</button>
+          <strong>{range.label}</strong>
+          <button type="button" disabled={range.to>evaluationMidnight(today)} onClick={()=>movePeriod(1)}>{text('次の期間')}</button>
+        </div>}
       <label><BiText value="担当者"/><select value={worker} onChange={e=>setWorker(e.target.value)}><option value="">{t('全員')}</option>{workerOptions.map(([key,name])=><option key={key} value={key}>{name||t('担当者なし')}</option>)}</select></label>
       <button aria-pressed={all} onClick={()=>setAll(!all)}><BiText value={all?'全工程':proc.ja}/></button>
       <details className="evaluation-settings"><summary><BiText value="記録開始日（本運用開始日）"/></summary><ReportStartEditor report={report}/></details>
@@ -9628,13 +9651,13 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
       {summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}
       {path.length===0&&trend&&<div className="evaluation-auto"><EvaluationText {...trend}/></div>}
       {!!total.adjust&&<p className="evaluation-note">{text('管理者の調整時間は、全期間合計の先行・遅れに反映します。')}</p>}
-      {scope.kind!=='ten'&&<section className="evaluation-detail-section"><h3>{text(scope.kind==='day'?'時間帯別':scope.kind==='hour'?'10分ごと':'推移')}</h3>
+      {scope.kind!=='ten'&&<section className="evaluation-detail-section"><h3>{text(breakdown[scope.kind])}</h3>
         <p className="evaluation-note">{text('グラフや行を押すと、さらに詳しく見られます。')}</p>
         {['day','hour'].includes(scope.kind)&&<p className="evaluation-note">{text('時間帯ごとの評価です。それ以前の先行・遅れは持ち越しません。')} {text('箱は完了時刻の区間に計上します。作業途中の箱があるため、短い区間の数値は上下します。')}</p>}
         <div className="evaluation-chart">{visible.map((child,i)=><button key={i} disabled={!child.metric.count} onClick={()=>setPath([...path,child])}>
           <strong style={{color:color(child.metric)}}>{rateText(child.metric)}</strong><div className="evaluation-bar-area"><span className="evaluation-standard-line" style={{bottom:100/maxRate*100+'%'}}/><span className="evaluation-bar" style={{height:(child.metric.rate||0)/maxRate*100+'%',background:color(child.metric)}}/></div><span>{child.label}</span>
         </button>)}</div>
-        <div className="evaluation-table-wrap"><table className="evaluation-table"><thead><tr>{['対象日','達成率','完了箱数','標準','実働','先行・遅れ','アプリの自動評価'].map(label=><th key={label}>{text(label)}</th>)}</tr></thead>
+        <div className="evaluation-table-wrap"><table className="evaluation-table"><thead><tr>{['集計区間','達成率','完了箱数','標準','実働','先行・遅れ','アプリの自動評価'].map(label=><th key={label}>{text(label)}</th>)}</tr></thead>
           <tbody>{visible.map((child,i)=><tr key={i}><td><button disabled={!child.metric.count} onClick={()=>setPath([...path,child])}>{child.label}</button></td><td style={{color:color(child.metric)}}>{rateText(child.metric)}</td><td>{child.metric.boxes}</td><td>{child.metric.missing?'—':evaluationNumber(child.metric.std)}</td><td>{evaluationNumber(child.metric.active)}</td><td>{diffText(child.metric)}</td><td>{auto(child.metric)}</td></tr>)}</tbody></table></div>
       </section>}
       {scope.kind==='ten'&&<section className="evaluation-detail-section"><h3>{scope.label}　{text('1箱ごと')}</h3>
