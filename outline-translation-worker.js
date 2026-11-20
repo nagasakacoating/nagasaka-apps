@@ -71,7 +71,7 @@ function loadModel(pair){
     await loadRuntime();
     const vocabs=new self.Module.AlignedMemoryList();
     vocabs.push_back(aligned(vocab,64));
-    const config='beam-size: 1\nnormalize: 1.0\nword-penalty: 0\ncpu-threads: 0\ngemm-precision: int8shiftAlphaAll\nskip-cost: true\nalignment: soft\nquiet: true\nquiet-translation: true\nmax-length-break: 128\nmini-batch-words: 1024\nworkspace: 128\nmax-length-factor: 2.0\n';
+    const config='beam-size: 1\nnormalize: 1.0\nword-penalty: 0\ncpu-threads: 0\ngemm-precision: int8shiftAlphaAll\nskip-cost: true\nalignment: soft\nquiet: true\nquiet-translation: true\nmax-length-break: 128\nmini-batch-words: 512\nworkspace: 32\nmax-length-factor: 2.0\n';
     return new self.Module.TranslationModel(config,aligned(model,256),aligned(lex,64),vocabs,null);
   })();
   const retryableTask=task.catch(error=>{models.delete(pair);throw error;});

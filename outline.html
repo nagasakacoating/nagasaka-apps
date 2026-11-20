@@ -1922,6 +1922,8 @@ function singleLanguageText(text, lang, useRegistered = true) {
   const normalized=normalizeStepTranslation(key);
   const knownStep=PHOTO_STEP_LABELS.get(normalized);
   if(knownStep)return knownStep[column];
+  const hangingHole=key.normalize('NFKC').match(/^掛け穴(?:の(?:直径|径))?(?:が|は|[:：])?\s*(?:[φΦ⌀]\s*)?(\d+(?:\.\d+)?)\s*mm[。.!！]?$/i);
+  if(hangingHole)return column===0?`Diâmetro do furo para pendurar: ${hangingHole[1]} mm`:`Đường kính lỗ treo: ${hangingHole[1]} mm`;
   // Translate composite labels only when every Japanese fragment is known.
   let result = text;
   for (const label of PROCESS_LABEL_PARTS) result = result.split(label).join(PROCESS_LABELS[label][column]);
@@ -2136,14 +2138,19 @@ async function translateProductJobs(jobs, onProgress, loadModule, isActive=()=>t
   const total=jobs.length;
   if(!total)return 0;
   onProgress({done,total,downloading:true});
-  try{
+  // Release each language's model before loading the next one on mobile devices.
+  for(const language of [...new Set(jobs.map(job=>job.lang))]){
+    const group=jobs.filter(job=>job.lang===language);
+    let processed=0;
+    if(!isActive())break;
+    try{
     const {Translator}=await translationDeadline(loadModule(),30000);
-    const firstLanguage=jobs[0].lang==='pt-BR'?'pt':jobs[0].lang;
+    const firstLanguage=language==='pt-BR'?'pt':language;
     translator=new Translator({from:'ja',to:firstLanguage,onProgress(event){
       if(event.status==='loading'||event.status==='downloading')onProgress({done,total,downloading:true});
     }});
     await translationDeadline(translator.load(),180000);
-    for(const {lang,ja,apply} of jobs){
+    for(const {lang,ja,apply} of group){
       if(!isActive())break;
       try{
         const result=await translationDeadline(translator.translate(ja,{from:'ja',to:lang==='pt-BR'?'pt':lang}),120000);
@@ -2155,13 +2162,17 @@ async function translateProductJobs(jobs, onProgress, loadModule, isActive=()=>t
         console.warn('Outline translation item:',error.message);
         failed++;
       }
+      processed++;
       onProgress({done:++done,total});
     }
   }catch(error){
     console.warn('Outline translation engine:',error.message);
-    failed+=total-done;
+    failed+=group.length-processed;
+    done+=group.length-processed;
+    onProgress({done,total});
   }
-  finally{translator?.dispose();}
+  finally{translator?.dispose();translator=undefined;}
+  }
   return failed;
 }
 class OutlineTranslator {
@@ -2171,7 +2182,7 @@ class OutlineTranslator {
     this.pending=new Map();
     this.loaded=new Map();
     this.nextId=0;
-    this.worker=new Worker(new URL('./outline-translation-worker.js?v=2',window.location.href));
+    this.worker=new Worker(new URL('./outline-translation-worker.js?v=3',window.location.href));
     this.worker.onmessage=({data})=>{
       const pending=this.pending.get(data.id);
       if(!pending)return;
@@ -2228,6 +2239,8 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
     if(!HAS_JAPANESE.test(ja)||(!force&&existing?.trim()))return;
     const manual=PROCESS_LABELS[ja]||PHOTO_STEP_LABELS.get(normalizeStepTranslation(ja));
     if(manual){apply(manual[lang==='pt-BR'?0:1]);return;}
+    const builtIn=singleLanguageText(ja,lang,false);
+    if(builtIn!==ja&&!HAS_JAPANESE.test(builtIn)){apply(builtIn);return;}
     const registered=records.get(ja)?.[lang];
     if(!force&&registered?.trim()){apply(registered);return;}
     const key=JSON.stringify([lang,ja]);
@@ -10986,5 +10999,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
 
 
