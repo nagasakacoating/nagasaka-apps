@@ -693,8 +693,10 @@ function TranslationStatus() {
   const {viewedTranslations,lang}=useLang();
   if(!viewedTranslations||viewedTranslations.status==='idle')return null;
   const loading=viewedTranslations.status==='loading';
+  const progress=viewedTranslations.progress;
   return <div role="status" style={{padding:'6px 10px',fontSize:13}}>
     {singleLanguageText(loading?'翻訳中です…':'翻訳できなかった項目があります。',lang)}
+    {loading&&progress?.total>0&&!progress.downloading&&<span> {progress.done}/{progress.total}</span>}
     {!loading&&<button type="button" onClick={viewedTranslations.retry}>
       {singleLanguageText('翻訳を再試行',lang)}
     </button>}
@@ -1918,7 +1920,7 @@ function singleLanguageText(text, lang, useRegistered = true) {
   const searchCount=key.match(/^検索結果：(\d+)件$/);
   if(searchCount)return lang==='pt-BR'?`Resultados: ${searchCount[1]}`:`Kết quả: ${searchCount[1]}`;
   const registered=useRegistered?masterTranslations.get(key)?.[lang]:undefined;
-  if(registered)return text.replace(key,()=>registered);
+  if(validProductTranslation(registered))return text.replace(key,()=>registered);
   const normalized=normalizeStepTranslation(key);
   const knownStep=PHOTO_STEP_LABELS.get(normalized);
   if(knownStep)return knownStep[column];
@@ -2133,7 +2135,13 @@ function sharedTranslationTexts(data) {
   return [...new Set(collectTranslateJobs(JSON.parse(JSON.stringify({...data,sheets:{}})),true)
     .map(job=>job.jp).filter(text=>HAS_JAPANESE.test(text)))];
 }
-async function translateProductJobs(jobs, onProgress, loadModule, isActive=()=>true) {
+let productTranslationTail=Promise.resolve();
+function translateProductJobs(...args) {
+  const task=productTranslationTail.then(()=>runProductTranslationJobs(...args));
+  productTranslationTail=task.catch(()=>{});
+  return task;
+}
+async function runProductTranslationJobs(jobs, onProgress, loadModule, isActive=()=>true) {
   let done=0,failed=0,translator;
   const total=jobs.length;
   if(!total)return 0;
@@ -2236,13 +2244,13 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
   const jobs=new Map();
   function add(lang, text, existing, apply) {
     const ja=typeof text==='string'?text.trim():'';
-    if(!HAS_JAPANESE.test(ja)||(!force&&existing?.trim()))return;
+    if(!HAS_JAPANESE.test(ja)||(!force&&validProductTranslation(existing)))return;
     const manual=PROCESS_LABELS[ja]||PHOTO_STEP_LABELS.get(normalizeStepTranslation(ja));
     if(manual){apply(manual[lang==='pt-BR'?0:1]);return;}
     const builtIn=singleLanguageText(ja,lang,false);
     if(builtIn!==ja&&!HAS_JAPANESE.test(builtIn)){apply(builtIn);return;}
     const registered=records.get(ja)?.[lang];
-    if(!force&&registered?.trim()){apply(registered);return;}
+    if(!force&&validProductTranslation(registered)){apply(registered);return;}
     const key=JSON.stringify([lang,ja]);
     if(!jobs.has(key))jobs.set(key,{lang,ja,apply:[]});
     jobs.get(key).apply.push(apply);
@@ -2278,11 +2286,20 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
   data.displayTranslations=[...displayed].filter(ja=>records.has(ja)).map(ja=>({ja,translations:records.get(ja)}));
   return failed;
 }
+function validProductTranslation(value) {
+  return typeof value==='string'&&!!value.trim()&&!HAS_JAPANESE.test(value);
+}
+function translatedProductField(obj,key,suffix,index) {
+  const field=key+'_'+suffix, source=field+'_src';
+  const ja=index===undefined?obj?.[key]:obj?.[key]?.[index];
+  const value=index===undefined?obj?.[field]:obj?.[field]?.[index];
+  const original=index===undefined?obj?.[source]:obj?.[source]?.[index];
+  return validProductTranslation(value)&&(!original||original===String(ja||'').trim())?value:'';
+}
 function sheetTranslationEntries(sheet, key) {
-  const field='text_'+key, notes='notes_'+key;
   return [
-    ...(sheet?.steps||[]).map(step=>[step.text,step[field]]),
-    ...(sheet?.notes||[]).map((note,i)=>[note,sheet[notes]?.[i]])
+    ...(sheet?.steps||[]).map(step=>[step.text,translatedProductField(step,'text',key)]),
+    ...(sheet?.notes||[]).map((note,i)=>[note,translatedProductField(sheet,'notes',key,i)])
   ];
 }
 function missingProductTranslations(product, procId, lang, useRegistered=true) {
@@ -2290,7 +2307,7 @@ function missingProductTranslations(product, procId, lang, useRegistered=true) {
   const key=lang==='pt-BR'?'pt':'vi';
   const entries=[...sheetTranslationEntries(product.sheets?.[procId],key),
     ...sharedTranslationTexts(product).map(text=>[text])];
-  const registered=new Set((product.displayTranslations||[]).filter(entry=>entry.translations?.[lang]?.trim()).map(entry=>entry.ja));
+  const registered=new Set((product.displayTranslations||[]).filter(entry=>validProductTranslation(entry.translations?.[lang])).map(entry=>entry.ja));
   return [...new Set(entries.filter(([ja,translated])=>typeof ja==='string'&&HAS_JAPANESE.test(ja)&&
     !translated?.trim()&&!registered.has(ja.trim())&&singleLanguageText(ja,lang,useRegistered)===ja).map(([ja])=>ja.trim()))];
 }
@@ -2309,6 +2326,10 @@ async function saveMissingProcessTranslations(master, procId, lang, onProgress, 
     }
   }
   const uniqueMissing=new Set([...missingByProduct.values()].flat());
+  for(const ja of uniqueMissing){
+    const cached=viewedTranslationCache.get(lang+'|'+ja);
+    if(!known.has(ja)&&validProductTranslation(cached))known.set(ja,cached);
+  }
   const jobs=[...uniqueMissing].filter(ja=>!known.has(ja)).map(ja=>({
     lang,ja,apply:value=>known.set(ja,value)
   }));
@@ -2344,6 +2365,40 @@ async function saveMissingProcessTranslations(master, procId, lang, onProgress, 
   }
   return {products:ids.length,saved,untranslated:[...uniqueMissing].filter(ja=>!known.has(ja)).length,saveErrors};
 }
+function useAutomaticProcessTranslations(master,procId,lang,enabled=true,loadModule=loadOutlineTranslator) {
+  const [status,setStatus]=useState('idle'),[progress,setProgress]=useState(null);
+  const [attempt,retry]=useState(0),[revision,setRevision]=useState(0);
+  const busy=useRef(false),attempted=useRef(new Set()),mounted=useRef(true);
+  const scope=enabled&&hasProcessLanguages(procId)&&['pt-BR','vi'].includes(lang)?procId+'|'+lang:'';
+  const currentScope=useRef(scope);currentScope.current=scope;
+  const fingerprint=React.useMemo(()=>{
+    const pending=scope?hinbansOf(master,procId).map(id=>[id,missingProductTranslations(master[id],procId,lang,false)]).filter(([,texts])=>texts.length):[];
+    return pending.length?JSON.stringify(pending):'';
+  },[master,scope,procId,lang]);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  useEffect(()=>{
+    if(!scope||!fingerprint){setStatus('idle');setProgress(null);return;}
+    if(busy.current)return;
+    const key=scope+'|'+attempt+'|'+fingerprint;
+    if(attempted.current.has(key))return;
+    attempted.current.add(key);
+    if(attempted.current.size>20)attempted.current.delete(attempted.current.values().next().value);
+    busy.current=true;setStatus('loading');setProgress(null);
+    const active=()=>mounted.current&&currentScope.current===scope;
+    saveMissingProcessTranslations(master,procId,lang,event=>{
+      if(active())setProgress(event);
+    },loadModule).then(result=>{
+      if(active())setStatus(result.untranslated||result.saveErrors?'failed':'idle');
+    }).catch(error=>{
+      console.warn('Automatic process translation:',error.code||error.message);
+      if(active())setStatus('failed');
+    }).finally(()=>{
+      busy.current=false;
+      if(mounted.current)setRevision(n=>n+1);
+    });
+  },[scope,fingerprint,attempt,revision,loadModule]);
+  return {status,progress,retry:()=>{attempted.current.clear();retry(n=>n+1);}};
+}
 const viewedTranslationCache=new Map();
 const viewedTranslationQueue=[];
 let viewedTranslationBusy=false;
@@ -2367,7 +2422,8 @@ function useViewedProductTranslations(product, procId, lang, loadModule=loadOutl
   const [attempt,retry]=useState(0);
   const [status,setStatus]=useState('idle');
   const [,setRevision]=useState(0);
-  const candidates=React.useMemo(()=>missingProductTranslations(product,procId,lang),[product,procId,lang]);
+  const candidateKey=JSON.stringify(missingProductTranslations(product,procId,lang));
+  const candidates=React.useMemo(()=>JSON.parse(candidateKey),[candidateKey]);
   useEffect(()=>{
     if(!candidates.some(ja=>!viewedTranslationCache.has(lang+'|'+ja))){setStatus('idle');return;}
     let active=true;
@@ -2607,7 +2663,7 @@ function WarnBox({
         fontSize: 13,
         color: '#5C4A14',
         lineHeight: 1.75
-      }}>・<BiText value={x} other={translations?.notes_id?.[i]} translations={{'pt-BR':translations?.notes_pt?.[i],vi:translations?.notes_vi?.[i]}} /></div>)} />
+      }}>・<BiText value={x} other={translations?.notes_id?.[i]} translations={{'pt-BR':translatedProductField(translations,'notes','pt',i),vi:translatedProductField(translations,'notes','vi',i)}} /></div>)} />
       </div>
     </div>;
 }
@@ -3777,7 +3833,7 @@ function PageContent({
                 lineHeight: 1.8,
                 color: '#2A3340',
                 whiteSpace: 'pre-wrap'
-              }}><BiText value={L(s, 'text')} other={s.text_id} translations={{'pt-BR':s.text_pt,vi:s.text_vi}} /></div>
+              }}><BiText value={L(s, 'text')} other={s.text_id} translations={{'pt-BR':translatedProductField(s,'text','pt'),vi:translatedProductField(s,'text','vi')}} /></div>
               </div>)} />
           </div> : none} />
       </Body></P>
@@ -8396,7 +8452,7 @@ function SheetSteps({
         lineHeight: 1.8,
         color: '#2A3340',
         whiteSpace: 'pre-wrap'
-      }}><BiText value={dv(s, 'text', lang)} other={singleLanguage ? s.text_id : undefined} translations={{'pt-BR':s.text_pt,vi:s.text_vi}} /></div>
+      }}><BiText value={dv(s, 'text', lang)} other={singleLanguage ? s.text_id : undefined} translations={{'pt-BR':translatedProductField(s,'text','pt'),vi:translatedProductField(s,'text','vi')}} /></div>
         </div>)} />
     </div>;
 }
@@ -10648,6 +10704,13 @@ function App() {
   const singleLanguage = hasProcessLanguages(view.proc?.id) && !['master','planner','analytics'].includes(view.name);
   const screenLang = singleLanguage && Object.hasOwn(PROCESS_LANGUAGES, processLang) ? processLang : lang;
   const viewedTranslations=useViewedProductTranslations(singleLanguage?master[displayProduct]:null,view.proc?.id,screenLang);
+  const automaticTranslations=useAutomaticProcessTranslations(master,view.proc?.id,screenLang,!!user&&singleLanguage);
+  const processTranslations={...viewedTranslations,
+    status:viewedTranslations.status==='loading'||automaticTranslations.status==='loading'?'loading':
+      viewedTranslations.status==='failed'||automaticTranslations.status==='failed'?'failed':'idle',
+    progress:automaticTranslations.progress,
+    retry:()=>{viewedTranslations.retry();automaticTranslations.retry();}
+  };
   function returnToJapanese() {
     setLang('ja');
     changeProcessLang('ja');
@@ -10762,7 +10825,7 @@ function App() {
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
       {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
   </>;
-  const screenContext = singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations} : ctx;
+  const screenContext = singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
   return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
       {(err||(view.name==='workrun'&&!orders[view.logId])||(view.name==='worksheet'&&!orders[view.orderId]))&&
@@ -10868,7 +10931,7 @@ function BiText({ value, other, source, translations }) {
   if (Array.isArray(value)) return value.map((v, i) => React.isValidElement(v) ? v : <BiText key={i} value={v} />);
   if (singleLanguage && typeof value === 'string') {
     const ja = pair?.ja || value;
-    const translated = lang === 'id' ? pair?.id : lang === 'ja' ? '' : translations?.[lang];
+    const translated = lang === 'id' ? pair?.id : lang === 'ja' ? '' : validProductTranslation(translations?.[lang])?translations[lang]:'';
     const scheduled=viewedTranslations?.texts.includes(ja.trim());
     const main=translated||singleLanguageText(ja,lang);
     const automatic=scheduled&&main===ja?viewedTranslationCache.get(lang+'|'+ja.trim()):null;
