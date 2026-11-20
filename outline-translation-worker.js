@@ -49,7 +49,7 @@ function loadRuntime() {
     };
     try{importScripts(runtimeBase+'bergamot-translator-worker.js');}
     catch(error){wasm.catch(()=>{});reject(error);}
-  });
+  }).catch(error=>{runtime=undefined;throw error;});
   return runtime;
 }
 
@@ -74,8 +74,9 @@ function loadModel(pair){
     const config='beam-size: 1\nnormalize: 1.0\nword-penalty: 0\ncpu-threads: 0\ngemm-precision: int8shiftAlphaAll\nskip-cost: true\nalignment: soft\nquiet: true\nquiet-translation: true\nmax-length-break: 128\nmini-batch-words: 1024\nworkspace: 128\nmax-length-factor: 2.0\n';
     return new self.Module.TranslationModel(config,aligned(model,256),aligned(lex,64),vocabs,null);
   })();
-  models.set(pair,task);
-  return task;
+  const retryableTask=task.catch(error=>{models.delete(pair);throw error;});
+  models.set(pair,retryableTask);
+  return retryableTask;
 }
 
 self.onmessage=async({data:{id,operation,text,to}})=>{
@@ -98,3 +99,4 @@ self.onmessage=async({data:{id,operation,text,to}})=>{
     }
   }catch(error){self.postMessage({id,error:error.message||String(error)});}
 };
+

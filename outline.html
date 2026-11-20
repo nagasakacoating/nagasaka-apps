@@ -1929,6 +1929,7 @@ function singleLanguageText(text, lang, useRegistered = true) {
 }
 Object.assign(DICT,{
   'この画面の操作':'Panduan layar ini',
+  '保存しました。未翻訳分は次回の保存時に再試行します。':'Data telah disimpan. Terjemahan yang belum selesai akan dicoba lagi saat penyimpanan berikutnya.',
   '翻訳データを読み込み中…':'Memuat data terjemahan…','保存する（未翻訳分を自動翻訳）':'Simpan dan terjemahkan bagian yang belum diterjemahkan',
   'アプリのアドレス':'Alamat aplikasi','URLをコピー':'Salin URL','URLをコピーしました。':'URL telah disalin.',
   'Chromeのアドレス欄に、このURLを貼り付けて開いてください。':'Tempel URL ini di bilah alamat Chrome untuk membuka aplikasi.',
@@ -1966,20 +1967,51 @@ function dva(obj, key, lang) {
 
 /* ══════════ 自動翻訳（JP→ID）：生産計画アプリと同じプロキシ ══════════ */
 const TRANSLATE_URL = 'https://dawn-wave-20e6.motsu922.workers.dev';
+const translationRequests = new Map(), translationWaiters = [];
+let translationActive = 0;
 async function translateText(text) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
-  try {
-    const r = await fetch(TRANSLATE_URL + '?text=' + encodeURIComponent(text), {
-      signal: controller.signal
+  if (!text || !HAS_JAPANESE.test(text)) return text || '';
+  if (DICT[text]) return DICT[text];
+  if (translationRequests.has(text)) return translationRequests.get(text);
+  const task = (async () => {
+    await new Promise(resolve => {
+      if (translationActive < 2) { translationActive++; resolve(); }
+      else translationWaiters.push(resolve);
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    if (j.error) throw new Error(j.error);
-    return j.translated || '';
-  } finally {
-    clearTimeout(timer);
-  }
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        let retryDelay = 1000;
+        try {
+          const r = await fetch(TRANSLATE_URL + '?text=' + encodeURIComponent(text), {signal: controller.signal});
+          if (!r.ok) {
+            const error = new Error('Translation HTTP ' + r.status);
+            error.retryable = r.status === 408 || r.status === 429 || r.status >= 500;
+            const seconds = Number(r.headers?.get('Retry-After'));
+            if (seconds > 0) retryDelay = Math.min(seconds * 1000, 5000);
+            throw error;
+          }
+          const j = await r.json();
+          if (j.error) throw new Error('Translation service returned an error');
+          const value = typeof j.translated === 'string' ? j.translated.trim() : '';
+          if (!value || HAS_JAPANESE.test(value)) throw new Error('Translation response is empty or untranslated');
+          return value;
+        } catch (error) {
+          if (attempt || error.retryable === false) throw error;
+        } finally {
+          clearTimeout(timer);
+        }
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    } finally {
+      const next = translationWaiters.shift();
+      if (next) next(); else translationActive--;
+    }
+  })();
+  translationRequests.set(text, task);
+  try { return await task; }
+  finally { translationRequests.delete(text); }
 }
 /* 翻訳が必要な箇所を収集（_src＝翻訳元の日本語。日本語が変わった項目だけ再翻訳。手入力の _id は尊重） */
 function trStr(obj, key, jobs, force) {
@@ -2139,7 +2171,7 @@ class OutlineTranslator {
     this.pending=new Map();
     this.loaded=new Map();
     this.nextId=0;
-    this.worker=new Worker(new URL('./outline-translation-worker.js?v=1',window.location.href));
+    this.worker=new Worker(new URL('./outline-translation-worker.js?v=2',window.location.href));
     this.worker.onmessage=({data})=>{
       const pending=this.pending.get(data.id);
       if(!pending)return;
@@ -2163,7 +2195,11 @@ class OutlineTranslator {
   load(to=this.to) {
     if(!this.loaded.has(to)){
       this.onProgress?.({status:'loading'});
-      this.loaded.set(to,this.request('load',to));
+      const request=this.request('load',to).catch(error=>{
+        this.loaded.delete(to);
+        throw error;
+      });
+      this.loaded.set(to,request);
     }
     return this.loaded.get(to);
   }
@@ -2345,21 +2381,27 @@ try{
 async function runTranslate(jobs, onProgress) {
   let done = 0,
     fail = 0;
-  const queue = jobs.slice();
+  const grouped = new Map();
+  for (const job of jobs) {
+    if (!grouped.has(job.jp)) grouped.set(job.jp, []);
+    grouped.get(job.jp).push(job);
+  }
+  const queue = [...grouped.values()];
   async function worker() {
     while (queue.length) {
-      const j = queue.shift();
+      const group = queue.shift(), j = group[0];
       try {
         const id = await translateText(j.jp);
-        if (id) j.apply(id);else fail++;
+        if (id) group.forEach(job=>job.apply(id));else fail+=group.length;
       } catch (e) {
-        fail++;
+        console.warn('Outline Indonesian translation:', e.message);
+        fail+=group.length;
       }
-      done++;
+      done+=group.length;
       onProgress && onProgress(done, jobs.length);
     }
   }
-  await Promise.all([0, 1, 2, 3].map(worker));
+  await Promise.all([0, 1].map(worker));
   return {
     done,
     fail
@@ -4854,6 +4896,7 @@ function MasterEditor({
   }
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [translationPending, setTranslationPending] = useState(false);
   const [busy, setBusy] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const [rnBusy, setRnBusy] = useState(false);
@@ -4872,6 +4915,8 @@ function MasterEditor({
   async function save(force) {
     if(saving||busy)return;
     setSaving(true);
+    setSaved(false);
+    setTranslationPending(false);
     try {
       const nd=JSON.parse(JSON.stringify(d));
       const stamp=new Date().toISOString().slice(0,10);
@@ -4883,7 +4928,7 @@ function MasterEditor({
       setSaved(true);
       setTimeout(()=>setSaved(false),2500);
       const failed=result.fail+additionalFailures;
-      if(failed)showBiDialog('alert',`翻訳できなかった項目が ${failed} 件あります。保存済みの翻訳を確認し、通信を確認してから再試行してください。`);
+      setTranslationPending(failed > 0);
     }catch(e){
       showBiDialog('alert','保存に失敗: '+e.message);
     }finally{
@@ -5154,6 +5199,7 @@ function MasterEditor({
         padding: '12px 20px',
         borderTop: '1px solid ' + LINE,
         display: 'flex',
+        flexWrap: 'wrap',
         gap: 12,
         alignItems: 'center',
         background: '#F7F8FA',
@@ -5183,12 +5229,15 @@ function MasterEditor({
           fontWeight: 700,
           whiteSpace: 'normal'
         }}><BiText value={"\uD83C\uDF10 \u5168\u3066\u518D\u7FFB\u8A33"} /></button>
-          <BiText value={saved && <span style={{
+          <BiText value={saved && !translationPending && <span style={{
           color: '#2E7D4F',
           fontWeight: 700,
           fontSize: 14,
           whiteSpace: 'normal'
         }}><BiText value={"\u2713 \u4FDD\u5B58\u3057\u307E\u3057\u305F"} /></span>} />
+          {translationPending && <div role="status" style={{width:'100%',flexShrink:0,color:'#526579',fontSize:12,lineHeight:1.5}}>
+            <BiText value="保存しました。未翻訳分は次回の保存時に再試行します。" />
+          </div>}
         </div>
       </div>
       <BiText value={renaming && <RenameModal current={hinban} taken={taken || []} busy={rnBusy} progress={rnProg} onSubmit={doRename} onClose={() => !rnBusy && setRenaming(false)} />} />
@@ -10937,4 +10986,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
 
