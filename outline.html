@@ -1833,6 +1833,7 @@ const PART_NAME_TRANSLATIONS = new Map([
 ]);
 const masterTranslations = new Map();
 const INDIVIDUAL_LABELS = {
+  '1箱工数（分・任意）':['Waktu per kotak (menit, opsional)','Tempo por caixa (minutos, opcional)','Thời gian mỗi thùng (phút, tùy chọn)'],
   '製品・作業の指定':['Penentuan produk / pekerjaan','Definição do produto / trabalho','Chọn sản phẩm / công việc'],
   '登録済み製品から選択':['Pilih produk terdaftar','Selecionar produto cadastrado','Chọn sản phẩm đã đăng ký'],
   '直接入力':['Ketik langsung','Digitar diretamente','Nhập trực tiếp'],
@@ -6350,7 +6351,7 @@ function instructionForecast(order, now) {
   const limit = finish ?? end;
   const checkpoints = [...breaks.map(rest=>hm2min(rest.from)).filter(at=>at>from&&at<limit),limit].sort((a,b)=>a-b);
   let previous = 0, periodStart = addWork(from,0,breaks);
-  const periods = status === 'done' ? [] : checkpoints.flatMap(at=>{
+  const periods = status === 'done' || minutes<=0 ? [] : checkpoints.flatMap(at=>{
     const count = Math.min(remaining ?? Infinity,boxesAt(at));
     const period = {from:periodStart,to:at,boxes:Math.max(0,count-previous)};
     previous=count;
@@ -6358,7 +6359,7 @@ function instructionForecast(order, now) {
     return period.to>period.from ? [period] : [];
   });
   return {
-    start,end,finish,done,remaining,periods,breaks,hasShortfall:status!=='done'&&remaining>0&&finish===null,
+    start,end,finish,done,remaining,periods,breaks,hasShortfall:minutes>0&&status!=='done'&&remaining>0&&finish===null,
     nextBreak:breaks.find(rest=>hm2min(rest.to)>Math.max(clock,start))
   };
 }
@@ -7715,7 +7716,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const timesValid = start!==null&&(mode==='quantity'||end!==null&&end>start);
   const breaksValid = breaks.every((rest,i)=>hm2min(rest.to)<=1440&&(!i||hm2min(rest.from)>=hm2min(breaks[i-1].to)));
   const validQuantity = actualRemaining===null || Number.isSafeInteger(actualRemaining)&&actualRemaining>=0&&Number.isSafeInteger(actualRemaining+done);
-  const validCost = Number.isFinite(draft.kosu)&&draft.kosu>0;
+  const validCost = Number.isFinite(draft.kosu)&&(draft.kosu>0||freeText&&draft.kosu===0);
   const showPreview = timesValid&&breaksValid&&validQuantity&&validCost&&(mode==='time'||actualRemaining!==null);
   const live = todayKeyFor(new Date())===instructionDate ? new Date() : undefined;
   const preview = showPreview ? instructionForecast({...draft,status:current?.status||'pending',doneBoxes:done,targetBoxes:(actualRemaining??0)+done},live) : null;
@@ -7778,7 +7779,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
       {mode==='quantity'&&<IndividualField label="残り箱数"><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
         setRemaining(e.target.value);setQuantityChanged(true);
       }}/></IndividualField>}
-      <IndividualField label="1箱工数（分）"><LocalizedInput type="number" min="0.01" step="any" disabled={assigned} value={kosu} onChange={e=>setKosu(e.target.value)}/></IndividualField>
+      <IndividualField label={freeText?'1箱工数（分・任意）':'1箱工数（分）'}><LocalizedInput type="number" min="0.01" step="any" disabled={assigned} value={kosu} onChange={e=>setKosu(e.target.value)}/></IndividualField>
     </div>
     <fieldset>
       <legend><BiText value="本人の休憩開始時刻"/></legend>
@@ -8671,7 +8672,7 @@ function WorkSheetScreen({
           color: '#5A6472',
           textAlign: 'center'
         }}><BiText value={b('標準')} />: <BiText value={Math.round(kosu * tgt)} /> <BiText value={t('分')} />（<BiText value={b('終了予定')} /> <BiText value={fmtHM(new Date(Date.now() + kosu * tgt * 60000))} />）</div>} />
-          <BiText value={!kosu && <div style={{
+          <BiText value={!kosu && !individual?.freeText && <div style={{
           fontSize: 12,
           color: '#B45309',
           background: '#FEF3E7',
