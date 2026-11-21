@@ -1833,6 +1833,17 @@ const PART_NAME_TRANSLATIONS = new Map([
 ]);
 const masterTranslations = new Map();
 const INDIVIDUAL_LABELS = {
+  'ライン応援予定時間':['Jadwal Bantu Line','Horário de apoio à linha','Lịch hỗ trợ chuyền'],
+  '開始時刻':['Jam mulai','Horário de início','Giờ bắt đầu'],
+  '応援時間（分）':['Durasi bantuan (menit)','Duração do apoio (minutos)','Thời gian hỗ trợ (phút)'],
+  '応援予定を追加':['Tambah jadwal bantuan','Adicionar apoio','Thêm lịch hỗ trợ'],
+  '応援予定を保存':['Simpan jadwal bantuan','Salvar apoio','Lưu lịch hỗ trợ'],
+  '応援予定を保存しました。':['Jadwal bantuan tersimpan.','Horários de apoio salvos.','Đã lưu lịch hỗ trợ.'],
+  '選択した日付・工程の予定に反映します。応援は最大5回まで設定できます。':['Diterapkan pada tanggal dan proses yang dipilih. Maksimal 5 kali bantuan.','Aplicado à data e ao processo selecionados. Até 5 apoios.','Áp dụng cho ngày và công đoạn đã chọn. Tối đa 5 lần hỗ trợ.'],
+  '応援予定は最大5回までです。':['Maksimal 5 kali bantuan.','São permitidos até 5 apoios.','Tối đa 5 lần hỗ trợ.'],
+  '応援の開始時刻と時間を確認してください。':['Periksa jam mulai dan durasi bantuan.','Confira o início e a duração do apoio.','Kiểm tra giờ bắt đầu và thời gian hỗ trợ.'],
+  '応援予定の時間が重複しています。':['Jadwal bantuan bertumpang tindih.','Os horários de apoio se sobrepõem.','Các lịch hỗ trợ bị trùng giờ.'],
+  '製品切替は3分':['Pergantian produk: 3 menit','Troca de produto: 3 minutos','Đổi sản phẩm: 3 phút'],
   '1箱工数（分・任意）':['Waktu per kotak (menit, opsional)','Tempo por caixa (minutos, opcional)','Thời gian mỗi thùng (phút, tùy chọn)'],
   '製品・作業の指定':['Penentuan produk / pekerjaan','Definição do produto / trabalho','Chọn sản phẩm / công việc'],
   '登録済み製品から選択':['Pilih produk terdaftar','Selecionar produto cadastrado','Chọn sản phẩm đã đăng ký'],
@@ -6255,9 +6266,36 @@ function min2hm(m) {
   m = Math.max(0, Math.round(m));
   return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
 }
-/* start(分)から dur(分) 作業したときの終了時刻(分)。休憩帯はまたいで後ろ倒し */
+function mergeWorkBreaks(breaks) {
+  const spans=(breaks||[]).map(b=>({from:hm2min(b.from),to:hm2min(b.to)})).filter(b=>b.to>b.from).sort((a,b)=>a.from-b.from);
+  const merged=[];
+  for (const span of spans) {
+    const last=merged[merged.length-1];
+    if(last&&span.from<=last.to)last.to=Math.max(last.to,span.to);
+    else merged.push({...span});
+  }
+  return merged.map(b=>({from:min2hm(b.from),to:min2hm(b.to)}));
+}
+function validateLineSupportSlots(slots) {
+  if(slots.length>5)throw new Error('応援予定は最大5回までです。');
+  const entries=slots.filter(s=>s.from).map(s=>({from:s.from,minutes:Number(s.minutes)}));
+  if(entries.some(s=>instructionMinute(s.from)===null||!Number.isInteger(s.minutes)||s.minutes<=0||hm2min(s.from)+s.minutes>1440))
+    throw new Error('応援の開始時刻と時間を確認してください。');
+  entries.sort((a,b)=>hm2min(a.from)-hm2min(b.from));
+  if(entries.some((s,i)=>i&&hm2min(s.from)<hm2min(entries[i-1].from)+entries[i-1].minutes))
+    throw new Error('応援予定の時間が重複しています。');
+  return entries;
+}
+function lineSupportBreaks(settings,date) {
+  return (settings?.lineSupportByDate?.[date]||[]).slice(0,5).filter(s=>instructionMinute(s.from)!==null&&Number(s.minutes)>0&&hm2min(s.from)+Number(s.minutes)<=1440)
+    .map(s=>({from:s.from,to:min2hm(hm2min(s.from)+Number(s.minutes))}));
+}
+function lineSupportMinutes(start,end,breaks,supports) {
+  return Math.max(0,instructionWorkMins(start,end,breaks)-instructionWorkMins(start,end,[...(breaks||[]),...supports]));
+}
+/* 作業時間を確保し、休憩・ライン応援の間は作業を進めない。 */
 function addWork(start, dur, breaks) {
-  const bs = (breaks || []).map((b) => ({
+  const bs = mergeWorkBreaks(breaks).map((b) => ({
     f: hm2min(b.from),
     t: hm2min(b.to)
   })).filter((b) => b.t > b.f).sort((a, b) => a.f - b.f);
@@ -6289,19 +6327,26 @@ function rowPlanMin(o) {
 function buildTimeline(rows, settings) {
   const st = settings || DEFAULT_SETTINGS;
   let cur = hm2min(st.startTime || '08:00');
-  return rows.map((o) => {
+  return rows.map((o,i) => {
+    const supports=lineSupportBreaks(st,o.date);
     if (o.individualPlan) {
-      const plan=instructionForecast(o);
+      const plan=instructionForecast(o,undefined,st);
       const end=o.individualPlan.mode==='time' ? plan.end : plan.finish ?? plan.start;
-      return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks)};
+      return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks),_planSupportMin:lineSupportMinutes(plan.start,end,plan.breaks,supports)};
     }
+    const previous=rows[i-1];
+    const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?3:0;
     const dur = rowPlanMin(o);
-    const a = addWork(cur, 0, st.breaks); /* 休憩中なら明けへ */
-    const e = addWork(a, dur, st.breaks);
+    const blocks=[...(st.breaks||[]),...supports];
+    const a = addWork(cur+changeover, 0, blocks);
+    const e = addWork(a, dur, blocks);
+    const supportMin=lineSupportMinutes(a,e,st.breaks,supports);
     cur = e;
     return {
       ...o,
-      _planMin: dur,
+      _planMin: dur+supportMin,
+      _planSupportMin:supportMin,
+      _planChangeoverMin:changeover,
       _planStart: a,
       _planEnd: e
     };
@@ -6329,10 +6374,10 @@ function instructionBreaks(plan) {
   });
 }
 function instructionWorkMins(start, end, breaks) {
-  return Math.max(0, end-start) - breaks.reduce((total, rest) =>
+  return Math.max(0, end-start) - mergeWorkBreaks(breaks).reduce((total, rest) =>
     total+Math.max(0, Math.min(end,hm2min(rest.to))-Math.max(start,hm2min(rest.from))), 0);
 }
-function instructionForecast(order, now) {
+function instructionForecast(order, now, settings) {
   const plan = order.individualPlan;
   const start = instructionMinute(plan.from) ?? 0;
   const end = plan.mode === 'time' ? instructionMinute(plan.to) ?? start : 1440;
@@ -6342,11 +6387,12 @@ function instructionForecast(order, now) {
   const done = now ? Number(order.doneBoxes) || 0 : 0;
   const remaining = plan.hasQuantity ? Math.max(0, (Number(order.targetBoxes)||0)-done) : null;
   const breaks = instructionBreaks(plan);
+  const workBreaks=mergeWorkBreaks([...breaks,...lineSupportBreaks(settings,order.date)]);
   const from = Math.min(end,Math.max(start, now ? clock : start));
   const minutes = Number(order.kosu) || 0;
-  const boxesAt = at => minutes > 0 ? Math.floor(Math.max(0,instructionWorkMins(from,at,breaks))/minutes + 1e-9) : 0;
+  const boxesAt = at => minutes > 0 ? Math.floor(Math.max(0,instructionWorkMins(from,at,workBreaks))/minutes + 1e-9) : 0;
   const completedMinute=order.endAt&&todayKeyFor(new Date(order.endAt))===order.date ? hm2min(fmtHM(new Date(order.endAt))) : from;
-  const rawFinish = remaining === 0 ? completedMinute : minutes > 0 && remaining !== null ? addWork(from,remaining*minutes,breaks) : null;
+  const rawFinish = remaining === 0 ? completedMinute : minutes > 0 && remaining !== null ? addWork(from,remaining*minutes,workBreaks) : null;
   const finish = rawFinish !== null && rawFinish <= end ? Math.ceil(rawFinish) : null;
   const limit = finish ?? end;
   const checkpoints = [...breaks.map(rest=>hm2min(rest.from)).filter(at=>at>from&&at<limit),limit].sort((a,b)=>a-b);
@@ -6385,7 +6431,7 @@ function plannedBreakTarget(order, settings, now) {
   const kosu=Number(order.kosu);
   const target=order.individualPlan && !order.individualPlan.hasQuantity ? Infinity : Math.max(0,Number(order.targetBoxes)||0);
   const boxesAt=at=>{
-    const paused=rests.reduce((sum,entry)=>sum+Math.max(0,Math.min(at,entry.to)-Math.max(start,entry.from)),0);
+    const paused=mergeWorkBreaks([...schedule,...lineSupportBreaks(settings,order.date)]).reduce((sum,entry)=>sum+Math.max(0,Math.min(at,hm2min(entry.to))-Math.max(start,hm2min(entry.from))),0);
     return Math.min(target,Math.floor(Math.max(0,at-start-paused)/kosu+1e-9));
   };
   return {rest,isBreak:!!rest && rest.from<=clock,periodStart,cutoff,boxes:kosu>0 ? boxesAt(cutoff)-boxesAt(periodStart) : null};
@@ -7007,6 +7053,43 @@ function HinbanPicker({
     </div>;
 }
 
+function LineSupportSchedule({proc,date,settings}) {
+  const saved=JSON.stringify(settings?.lineSupportByDate?.[date]||[]);
+  const initial=()=>JSON.parse(saved).map(s=>({...s}));
+  const [slots,setSlots]=useState(initial);
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  useEffect(()=>{setSlots(initial());setError('');setNotice('');},[saved]);
+  function edit(index,key,value) {
+    setSlots(values=>values.map((s,i)=>i===index?{...s,[key]:value}:s));setNotice('');setError('');
+  }
+  async function save() {
+    if(busy)return;
+    setError('');setNotice('');
+    try {
+      const entries=validateLineSupportSlots(slots);
+      setBusy(true);
+      await db.collection('procSettings').doc(proc.id).set({lineSupportByDate:{[date]:entries}},{merge:true});
+      setNotice('応援予定を保存しました。');
+    } catch(e) {setError(e.message);} finally {setBusy(false);}
+  }
+  return <section className="individual-card individual-editor" aria-label="ライン応援予定時間">
+    <div className="individual-header"><strong><BiText value="ライン応援予定時間"/>　{date}</strong><strong><BiText value="製品切替は3分"/></strong></div>
+    <small><BiText value="選択した日付・工程の予定に反映します。応援は最大5回まで設定できます。"/></small>
+    {slots.map((slot,i)=><div key={i} className="individual-periods">
+      <strong>{i+1}</strong>
+      <IndividualField label="開始時刻"><LocalizedInput type="time" value={slot.from} disabled={busy} onChange={e=>edit(i,'from',e.target.value)}/></IndividualField>
+      <IndividualField label="応援時間（分）"><LocalizedInput type="number" min="1" max="1440" step="1" value={slot.minutes} disabled={busy} onChange={e=>edit(i,'minutes',e.target.value)}/></IndividualField>
+      <button type="button" disabled={busy} onClick={()=>{setSlots(values=>values.filter((_,j)=>j!==i));setNotice('');}}><BiText value="削除"/></button>
+    </div>)}
+    <div className="individual-periods">
+      <button type="button" disabled={busy||slots.length>=5} onClick={()=>{setSlots(values=>values.length<5?[...values,{from:'',minutes:10}]:values);setNotice('');}}><BiText value="応援予定を追加"/></button>
+      <button type="button" className="individual-primary" disabled={busy} onClick={save}><BiText value={busy?'保存中…':'応援予定を保存'}/></button>
+    </div>
+    {error&&<p role="alert" className="individual-error"><BiText value={error}/></p>}
+    {notice&&<p role="status"><BiText value={notice}/></p>}
+  </section>;
+}
+
 /* ── 始業・休憩設定（工程ごと・固定） ── */
 function ShiftSettingsModal({
   proc,
@@ -7527,7 +7610,9 @@ function WorkPlanScreen({
                   ...td,
                   fontWeight: 700,
                   color: NAVY
-                }}><span className="plan-mobile-label"><BiText value={b('予定時間')} /></span><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} /></td>
+                }}><span className="plan-mobile-label"><BiText value={b('予定時間')} /></span><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} />
+                  {o._planSupportMin>0&&<small style={{display:'block'}}><BiText value="ライン応援"/> +{Math.round(o._planSupportMin)} <BiText value="分"/></small>}
+                </td>
                     <td style={{
                   ...td,
                   fontVariantNumeric: 'tabular-nums'
@@ -7719,7 +7804,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const validCost = Number.isFinite(draft.kosu)&&(draft.kosu>0||freeText&&draft.kosu===0);
   const showPreview = timesValid&&breaksValid&&validQuantity&&validCost&&(mode==='time'||actualRemaining!==null);
   const live = todayKeyFor(new Date())===instructionDate ? new Date() : undefined;
-  const preview = showPreview ? instructionForecast({...draft,status:current?.status||'pending',doneBoxes:done,targetBoxes:(actualRemaining??0)+done},live) : null;
+  const preview = showPreview ? instructionForecast({...draft,status:current?.status||'pending',doneBoxes:done,targetBoxes:(actualRemaining??0)+done},live,settings) : null;
   async function publish() {
     if (pending.current) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(instructionDate)||todayKeyFor(new Date(instructionDate+'T00:00:00'))!==instructionDate) return setError('日付を選択してください。');
@@ -7808,9 +7893,9 @@ function IndividualPeriods({forecast}) {
     </div>
   </>;
 }
-function IndividualInstructionNotice({order, now, showCheckpoint=true, showNextBreak=true}) {
+function IndividualInstructionNotice({order, now, settings, showCheckpoint=true, showNextBreak=true}) {
   const {t}=useLang();
-  const forecast=instructionForecast(order,now);
+  const forecast=instructionForecast(order,now,settings);
   const {start,end,finish,remaining,done,nextBreak,periods}=forecast;
   const timeMode=order.individualPlan.mode==='time';
   const endLabel=timeMode?min2hm(end):finish!==null?min2hm(finish):'—';
@@ -8212,6 +8297,7 @@ function SchedulePlanner({
           whiteSpace: 'normal'
         }}>⏰ <BiText value={t('始業・休憩設定')} /></button>
         </div>
+        <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings}/>
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
           onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);}}
@@ -8289,7 +8375,7 @@ function SchedulePlanner({
               const m = o.individualPlan?.freeText ? {} : master[o.hinban] || {};
               const locked = o.status !== 'pending';
               const individual = o.individualPlan;
-              const forecast = individual&&instructionForecast(o,new Date(plannerNow));
+              const forecast = individual&&instructionForecast(o,new Date(plannerNow),settings);
               const isTask = o.kind === 'task';
               return <tr key={o.id} style={{
                 background: i % 2 ? '#F7F9FC' : '#fff'
@@ -8328,7 +8414,9 @@ function SchedulePlanner({
                   ...td,
                   fontWeight: 700,
                   color: NAVY
-                }}><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} /></td>
+                }}><BiText value={Math.round(o._planMin)} /> <BiText value={t('分')} />
+                  {o._planSupportMin>0&&<small style={{display:'block'}}><BiText value="ライン応援"/> +{Math.round(o._planSupportMin)} <BiText value="分"/></small>}
+                </td>
                     <td style={{
                   ...td,
                   fontVariantNumeric: 'tabular-nums'
@@ -8494,6 +8582,7 @@ function WorkSheetScreen({
   worker,
   workers,
   master,
+  settings,
   user,
   onBack,
   onStart,
@@ -8605,7 +8694,7 @@ function WorkSheetScreen({
           </div>
           {!useWorker&&<p role="status" style={{color:'#9a3412',margin:0}}><BiText value={WORKER_REQUIRED}/></p>}
           {!isTask&&<>
-          {individual?<IndividualInstructionNotice order={order} now={new Date(noticeNow)}/>:<div style={{
+          {individual?<IndividualInstructionNotice order={order} now={new Date(noticeNow)} settings={settings}/>:<div style={{
           padding: '16px',
           background: '#F2F6FD',
           borderRadius: 10,
@@ -8884,7 +8973,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
 
   const c = calcLog(log, now);
   const individual=log.individualPlan;
-  const forecast=individual&&instructionForecast(log,new Date(now));
+  const forecast=individual&&instructionForecast(log,new Date(now),settings);
   const planEta=individual?(forecast.finish===null?'—':min2hm(forecast.finish)):c.hasKosu?fmtHM(c.eta):'—';
   const taskPlanMin = Number(log.durMin) || 0;
   const taskDiff = taskPlanMin - c.active / 60000;
@@ -9066,7 +9155,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         overflowY: 'auto'
       }}>
           {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
-          {individual&&<IndividualInstructionNotice order={log} now={new Date(now)} showCheckpoint={!breakProgress} showNextBreak={!breakProgress?.rest}/>}
+          {individual&&<IndividualInstructionNotice order={log} now={new Date(now)} settings={settings} showCheckpoint={!breakProgress} showNextBreak={!breakProgress?.rest}/>}
           <div className="responsive-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
@@ -10800,7 +10889,7 @@ function App() {
     proc: view.proc
   })} />;else if (view.name === 'worksheet') {
     const o = orders[view.orderId];
-    screen = o ? <WorkSheetScreen key={o.id} proc={view.proc} order={o} worker={view.worker} workers={workers} master={master} user={user} onBack={() => setView({
+    screen = o ? <WorkSheetScreen key={o.id} proc={view.proc} order={o} worker={view.worker} workers={workers} master={master} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
       name: 'work',
       proc: view.proc
     })} onStart={(id) => setView({
