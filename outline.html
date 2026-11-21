@@ -678,8 +678,8 @@ async function startWorkOrder({order,hinban,procId,payload}){
     const worker=await requireRegisteredWorker(tx,payload.workerId);
     if(current.individualPlan && current.assignedWorkerId!==worker.id)
       throw new Error('担当者が変わりました。計画表を確認してください。');
-    const ms=isTask?null:await tx.get(db.collection('outlineMaster').doc(hinban));
-    const usesQr=!isTask&&(current.qrMode==='kanban-v1'||(ms.exists&&kanbanRules(ms.data()).length>0));
+    const ms=isTask||current.individualPlan?.freeText?null:await tx.get(db.collection('outlineMaster').doc(hinban));
+    const usesQr=!isTask&&!current.individualPlan?.freeText&&(current.qrMode==='kanban-v1'||(ms?.exists&&kanbanRules(ms.data()).length>0));
     if(usesQr){
       if(!ms.exists)throw new Error('作業またはマスターが見つかりません。');
       const guard=await tx.get(guardRef);
@@ -915,7 +915,7 @@ function KanbanPlanButton({order,master,onlyBlocked=false}){
   const [open,setOpen]=useState(false);
   const localBlock=qrReadLocal(order.id);
   const blocked=order.qrBlocked||(localBlock&&order.qrUnlockOf!==localBlock.lockId);
-  if(order.kind==='task'||order.status==='done'||(!blocked&&(onlyBlocked||order.status!=='running')))return null;
+  if(order.kind==='task'||order.individualPlan?.freeText||order.status==='done'||(!blocked&&(onlyBlocked||order.status!=='running')))return null;
   const m=master[order.hinban]||{};
   return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} ><BiText value={blocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
     {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={order.status==='running'?'count':'verify'} onClose={()=>setOpen(false)}/>}</>;
@@ -1833,6 +1833,11 @@ const PART_NAME_TRANSLATIONS = new Map([
 ]);
 const masterTranslations = new Map();
 const INDIVIDUAL_LABELS = {
+  '製品・作業の指定':['Penentuan produk / pekerjaan','Definição do produto / trabalho','Chọn sản phẩm / công việc'],
+  '登録済み製品から選択':['Pilih produk terdaftar','Selecionar produto cadastrado','Chọn sản phẩm đã đăng ký'],
+  '直接入力':['Ketik langsung','Digitar diretamente','Nhập trực tiếp'],
+  '製品名・作業内容':['Nama produk / isi pekerjaan','Nome do produto / descrição do trabalho','Tên sản phẩm / nội dung công việc'],
+  '製品名・作業内容を入力してください。':['Silakan ketik nama produk atau isi pekerjaan.','Digite o nome do produto ou a descrição do trabalho.','Vui lòng nhập tên sản phẩm hoặc nội dung công việc.'],
   '個別作業指示':['Instruksi kerja per petugas','Instrução de trabalho individual','Chỉ thị công việc cá nhân'],
   '日付を選択してください。':['Silakan pilih tanggal.','Selecione a data.','Vui lòng chọn ngày.'],
   '作業開始後は日付を変更できません。':['Tanggal tidak dapat diubah setelah pekerjaan dimulai.','A data não pode ser alterada após o início do trabalho.','Không thể đổi ngày sau khi bắt đầu công việc.'],
@@ -6419,7 +6424,7 @@ async function saveIndividualPlan({existing, data, remaining, replaceQuantity}) 
       throw new Error('指示が更新されました。開き直してください。');
     if (current.status!=='pending' && data.date!==current.date)
       throw new Error('作業開始後は日付を変更できません。');
-    if (current.status!=='pending' && (data.assignedWorkerId!==current.assignedWorkerId || data.hinban!==current.hinban || data.kosu!==current.kosu))
+    if (current.status!=='pending' && (data.assignedWorkerId!==current.assignedWorkerId || data.hinban!==current.hinban || data.kosu!==current.kosu || !!data.individualPlan.freeText!==!!current.individualPlan.freeText))
       throw new Error('作業開始後は担当者・製品・工数を変更できません。');
     const target = replaceQuantity ? remaining === null ? 0 : remaining+(Number(current.doneBoxes)||0) : current.targetBoxes;
     if (!Number.isSafeInteger(target)) throw new Error('残り箱数を確認してください。');
@@ -7386,7 +7391,7 @@ function WorkPlanScreen({
               fontSize: 14,
               color: '#3A4552'
             }}>
-                  <BiText value={nextRow.kind === 'task' ? `${nextRow.durMin} ${t('分')}` : `${dv(master[nextRow.hinban] || {}, 'name', lang) || nextRow.hinbanName || ''}　/　${nextRow.individualPlan && !nextRow.individualPlan.hasQuantity ? '—' : nextRow.targetBoxes+' '+t('箱')}`} />
+                  <BiText value={nextRow.kind === 'task' ? `${nextRow.durMin} ${t('分')}` : `${nextRow.individualPlan?.freeText?'':dv(master[nextRow.hinban] || {}, 'name', lang) || nextRow.hinbanName || ''}　/　${nextRow.individualPlan && !nextRow.individualPlan.hasQuantity ? '—' : nextRow.targetBoxes+' '+t('箱')}`} />
                 </div>
                 {nextRow.individualPlan&&<strong>{nextRow.assignedWorkerName}</strong>}
                 <div style={{
@@ -7507,7 +7512,7 @@ function WorkPlanScreen({
                     color: '#6B7480',
                     lineHeight: 1.45
                   }}>
-                        <BiText value={isTask ? '（製品なし）' : [(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
+                        <BiText value={isTask ? '（製品なし）' : individual?.freeText?'':[(master[o.hinban] || {}).partNo || o.partNo, dv(master[o.hinban] || {}, 'name', lang) || o.hinbanName].filter(Boolean).join('　') || '—'} />
                       </div>
                       {individual&&<strong>{o.assignedWorkerName}</strong>}
                       {individual&&!isNext&&<PlanBreakTarget target={plannedBreakTarget(o,settings,now)} compact/>}
@@ -7679,6 +7684,8 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const [instructionDate,setInstructionDate] = useState(existing?.date || date);
   const [mode,setMode] = useState(saved?.mode || 'quantity');
   const [hinban,setHinban] = useState(existing?.hinban || '');
+  const [productSource,setProductSource] = useState(saved?.freeText ? 'text' : 'master');
+  const [workName,setWorkName] = useState(saved?.freeText ? existing?.hinban || '' : '');
   const [workerId,setWorkerId] = useState(existing?.assignedWorkerId || '');
   const [from,setFrom] = useState(saved?.from || settings?.startTime || DEFAULT_SETTINGS.startTime);
   const [to,setTo] = useState(saved?.to || '');
@@ -7693,13 +7700,15 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const boxes = mode==='time' ? '' : quantityChanged ? remaining : savedRemaining;
   const actualRemaining = boxes==='' ? null : Number(boxes);
   const done = Number(current?.doneBoxes)||0;
-  const item = master[hinban] || {};
-  const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null};
+  const freeText=productSource==='text';
+  const instructionName=freeText ? workName.trim() : hinban;
+  const item = freeText ? {} : master[hinban] || {};
+  const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null,freeText};
   const dateRows=Object.values(orders).filter(o=>o.date===instructionDate&&o.procId===proc.id&&o.id!==existing?.id);
   const destinationOrder=(dateRows.length?Math.max(...dateRows.map(o=>Number(o.order)||0)):0)+10;
   const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?nextOrder:destinationOrder,
-    hinban,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
-    kosu:Number(kosu),capacity:capacityOf(item,proc.id),individualPlan:plan};
+    hinban:instructionName,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
+    kosu:Number(kosu),capacity:freeText?1:capacityOf(item,proc.id),individualPlan:plan};
   const people = Object.values(workers).filter(w=>w.name?.trim()).sort((a,b)=>(a.order||0)-(b.order||0));
   const start = instructionMinute(from),end = instructionMinute(to);
   const breaks = instructionBreaks(plan);
@@ -7713,7 +7722,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   async function publish() {
     if (pending.current) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(instructionDate)||todayKeyFor(new Date(instructionDate+'T00:00:00'))!==instructionDate) return setError('日付を選択してください。');
-    if (!hinban || !master[hinban]) return setError('製品を選択してください。');
+    if (freeText ? !instructionName : !hinban || !master[hinban]) return setError(freeText?'製品名・作業内容を入力してください。':'製品を選択してください。');
     if (!workers[workerId]?.name?.trim()) return setError(WORKER_REQUIRED);
     if (!timesValid) return setError('作業の開始・終了時刻を確認してください。');
     if (!validQuantity || mode==='quantity'&&(actualRemaining===null || !assigned && actualRemaining===0)) return setError('残り箱数を確認してください。');
@@ -7741,11 +7750,17 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   }
   return <section className="individual-card individual-editor" aria-label={singleLanguageText('個別作業指示',lang)}>
     <div className="individual-header"><strong><BiText value="個別作業指示"/></strong><button type="button" onClick={onClose} disabled={busy}><BiText value="閉じる"/></button></div>
-    {assigned?<strong>{hinban}　{item.partNo}</strong>:<InlineHinbanSearch master={master} procId={proc.id} value={hinban} onPick={value=>{
+    <IndividualField label="製品・作業の指定"><LocalizedSelect value={productSource} disabled={assigned||busy} onChange={e=>setProductSource(e.target.value)}>
+      <LocalizedOption value="master">登録済み製品から選択</LocalizedOption>
+      <LocalizedOption value="text">直接入力</LocalizedOption>
+    </LocalizedSelect></IndividualField>
+    {assigned?<strong>{instructionName}　{item.partNo}</strong>:freeText?<IndividualField label="製品名・作業内容">
+      <LocalizedInput value={workName} onChange={e=>setWorkName(e.target.value)} disabled={busy} placeholder="製品名・作業内容"/>
+    </IndividualField>:<InlineHinbanSearch master={master} procId={proc.id} value={hinban} onPick={value=>{
       setHinban(value);
       setKosu(Number(master[value]?.sheets?.[proc.id]?.kosu)||'');
     }}/>}
-    {!assigned&&hinban&&item.partNo&&<strong><BiText value="品番"/>　{item.partNo}</strong>}
+    {!assigned&&!freeText&&hinban&&item.partNo&&<strong><BiText value="品番"/>　{item.partNo}</strong>}
     <div className="individual-grid">
       <IndividualField label="日付"><LocalizedInput type="date" value={instructionDate} disabled={assigned||busy} onChange={e=>setInstructionDate(e.target.value)}/>
         {assigned&&<small><BiText value="作業開始後は日付を変更できません。"/></small>}
@@ -8270,7 +8285,7 @@ function SchedulePlanner({
             </tr></thead>
             <tbody>
               <BiText value={rows.map((o, i) => {
-              const m = master[o.hinban] || {};
+              const m = o.individualPlan?.freeText ? {} : master[o.hinban] || {};
               const locked = o.status !== 'pending';
               const individual = o.individualPlan;
               const forecast = individual&&instructionForecast(o,new Date(plannerNow));
@@ -8490,7 +8505,7 @@ function WorkSheetScreen({
   } = useLang();
   const isTask=order.kind==='task';
   const hinban = order.hinban;
-  const m = master[hinban] || {};
+  const m = order.individualPlan?.freeText ? {} : master[hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
   const kosu = Number(order.kosu) || Number(sheet.kosu) || 0;
   const cap = Number(order.capacity) || capacityOf(m, proc.id);
@@ -8539,7 +8554,7 @@ function WorkSheetScreen({
         overflowY: 'auto',
         padding: '18px 22px'
       }}>
-          {isTask ? <h2><BiText value={order.taskName || '作業'}/></h2> : <>
+          {isTask||individual?.freeText ? <h2><BiText value={isTask?order.taskName || '作業':hinban}/></h2> : <>
           <div className="worksheet-product-header" style={{
           display: 'flex',
           alignItems: 'center',
@@ -8698,7 +8713,7 @@ function WorkSheetScreen({
           </button>
         </div>
       </div>
-<FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={!isTask&&<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
+<FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} right={!isTask&&!individual?.freeText&&<FBtn onClick={() => onInfo(hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
     </div>;
 }
 
@@ -8862,7 +8877,7 @@ function WorkRunScreen({
 const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({blocked:false,busy:false,flash:false});
   const [showOperationHelp,setShowOperationHelp]=useState(false);
   const isTask = log.kind === 'task';
-  const m = master[log.hinban] || {};
+  const m = log.individualPlan?.freeText ? {} : master[log.hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
 const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)||qrGate.blocked),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
 
@@ -9280,7 +9295,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           </>} />
         </QrDialog>}
         {showOperationHelp&&<WorkOperationHelp needsQr={needsQr} onClose={()=>setShowOperationHelp(false)}/>}
-<FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
+<FooterBar left={<FBtn onClick={onExit}>‹ <BiText value={b('計画表')} /></FBtn>} right={!individual?.freeText&&<FBtn onClick={() => onInfo(log.hinban)}>ℹ <BiText value={t('製品情報を見る')} /></FBtn>} />
       <BiText value={anom && <AnomalyModal onClose={() => setAnom(false)} onSave={async (c) => {
       await addAnom(c);
       setAnom(false);
