@@ -513,6 +513,11 @@ function qrClock(seconds){return Math.floor(seconds/60)+':'+String(seconds%60).p
 function qrLocalKey(orderId){return 'outline-qr-block-v1:'+orderId;}
 function qrReadLocal(orderId){try{return JSON.parse(localStorage.getItem(qrLocalKey(orderId))||'null');}catch(e){return null;}}
 function qrKeepLocal(orderId,lock){try{if(lock)localStorage.setItem(qrLocalKey(orderId),JSON.stringify(lock));else localStorage.removeItem(qrLocalKey(orderId));}catch(e){}}
+function kanbanOrderNeedsUnlock(order){
+  if(!order)return false;
+  const local=qrReadLocal(order.id);
+  return !!(order.qrBlocked||(local&&order.qrUnlockOf!==local.lockId));
+}
 function qrServerStamp(){return firebase.firestore.FieldValue.serverTimestamp();}
 // QR保護ルールの更新項目は固定。履歴は解除・箱数登録の成功後に別途保存する。
 async function recordQrHistory(orderId,order,events){
@@ -824,7 +829,7 @@ function KanbanVerdict({ok,kind,message}){
   </div>,document.body);
 }
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,inline=false,suspended=false,onStateChange}){
-  const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(false),[localUntil,setLocalUntil]=useState(0);
+  const [result,setResult]=useState(null),[flash,setFlash]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[guard,setGuard]=useState(null),[local,setLocal]=useState(()=>order&&qrReadLocal(order.id)),[managerMode,setManagerMode]=useState(mode==='unlock'),[localUntil,setLocalUntil]=useState(0);
   const pending=useRef(false),alive=useRef(true),now=useNow(),signature=kanbanSignature(m),initial=useRef(signature);
   const workerMissing=mode==='count'&&order&&!hasWorkOrderWorker(order);
   const blocked=!!(order&&(order.qrBlocked||local)),until=Math.max(qrCooldownEnd(order||{}),localUntil),remaining=qrSeconds(until,now),running=order&&order.status==='running',complete=!!(mode==='count'&&order&&Number(order.targetBoxes)>0&&Number(order.doneBoxes)>=Number(order.targetBoxes));
@@ -833,7 +838,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
   useEffect(()=>{if(initial.current!==signature){setResult(null);setFlash(null);setError('マスターが変更されました。もう一度QRを読んでください。');initial.current=signature;}},[signature]);
   useEffect(()=>{if(!flash)return;const timer=setTimeout(()=>{
     setFlash(null);
-    if(flash.kind==='verify')onClose();
+    if(flash.kind==='verify'||flash.kind==='unlock'&&mode==='unlock')onClose();
   },2000);return()=>clearTimeout(timer);},[flash]);
   useEffect(()=>{if(!remaining&&result&&result.ok&&mode==='count'&&!flash)setResult(null);},[remaining,flash]);
   async function persistBlock(message,code,checked){
@@ -933,13 +938,12 @@ function KanbanEditor({items,onChange,upImg,busy,hinban}){
   </>;
 }
 function KanbanPlanButton({order,master,onlyBlocked=false}){
-  const [open,setOpen]=useState(false);
-  const localBlock=qrReadLocal(order.id);
-  const blocked=order.qrBlocked||(localBlock&&order.qrUnlockOf!==localBlock.lockId);
+  const [open,setOpen]=useState('');
+  const blocked=kanbanOrderNeedsUnlock(order);
   if(order.kind==='task'||order.individualPlan?.freeText||order.status==='done'||(!blocked&&(onlyBlocked||order.status!=='running')))return null;
   const m=master[order.hinban]||{};
-  return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(true)} ><BiText value={blocked?'管理者解除待ち':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
-    {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={order.status==='running'?'count':'verify'} onClose={()=>setOpen(false)}/>}</>;
+  return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(blocked?'unlock':order.status==='running'?'count':'verify')} ><BiText value={blocked?'管理者の解除用QRを読む':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
+    {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={open} onClose={()=>setOpen('')}/>}</>;
 }
 function KanbanInfo({m,hinban,allMaster}){
   return <div className="kanban-info-list">{(m.kanbans||[]).map((item,i)=><section className="panel" key={i}><div className="kanban-info-photo"><TapPhoto src={item.img} caption="かんばんの写真" style={{width:'100%',height:220,objectFit:'contain'}}/></div><div className="panel-h"><BiText value={item.type||'かんばん'}/></div><div className="kanban-info-detail">{[['QR照合コード（含まれていれば一致）',item.qrCheck?.expected??item.code],['用途',item.use],['使用工程',item.process],['発行先',item.issuer],['サイズ',item.size],['備考',item.note]].map(([label,value])=><div key={label}><strong><BiText value={label}/></strong><span>{label.startsWith('QR')?<code>{value||'—'}</code>:<BiText value={value||'—'}/>}</span></div>)}</div></section>)}<WarnBox items={m.kanbanNotes||[]}/></div>;
@@ -7328,8 +7332,15 @@ function WorkPlanScreen({
   const [workerId,setWorkerId]=useState('');
   const [workerBusy,setWorkerBusy]=useState(false);
   const [workerError,setWorkerError]=useState('');
+  const [unlockOrder,setUnlockOrder]=useState(null);
   const confirmingWorker=useRef(false);
+  const liveStartOrder=startOrder&&(orders[startOrder.id]||startOrder);
+  function openManagerUnlock(order) {
+    setStartOrder(null);setWorkerError('');setScanW(false);setUnlockOrder(order);
+  }
   function openWorkerSelection(order) {
+    const current=orders[order.id]||order;
+    if(kanbanOrderNeedsUnlock(current)){openManagerUnlock(current);return;}
     if (order.individualPlan) {
       const assigned = workers[order.assignedWorkerId];
       if (!assigned?.name?.trim()) { showBiDialog('alert',WORKER_REQUIRED); return; }
@@ -7342,6 +7353,7 @@ function WorkPlanScreen({
     setStartOrder(order);
   }
   async function confirmWorker() {
+    if(kanbanOrderNeedsUnlock(liveStartOrder)){openManagerUnlock(liveStartOrder);return;}
     const worker=workers[workerId];
     if(!worker?.name?.trim()||confirmingWorker.current)return;
     if(startOrder.status==='pending'){
@@ -7354,7 +7366,10 @@ function WorkPlanScreen({
     try{
       await continueWorkOrder(startOrder,worker.id,user);
       onResume(startOrder);
-    }catch(e){setWorkerError(e.message);}
+    }catch(e){
+      if(e.message==='管理者の解除が必要です。')openManagerUnlock(orders[startOrder.id]||startOrder);
+      else setWorkerError(e.message);
+    }
     finally{confirmingWorker.current=false;setWorkerBusy(false);}
   }
   const [scanW, setScanW] = useState(false);
@@ -7769,6 +7784,7 @@ function WorkPlanScreen({
         {startOrder.workerName&&<p><BiText value="現在の担当者"/>　{startOrder.workerName}</p>}
         <WorkOrderWorkerPicker workers={workers} value={workerId} onChange={setWorkerId} disabled={workerBusy}/>
         {workerError&&<p role="alert"><BiText value={workerError}/></p>}
+        {kanbanOrderNeedsUnlock(liveStartOrder)&&<button type="button" className="kanban-plan-check" disabled={workerBusy} onClick={()=>openManagerUnlock(liveStartOrder)}><BiText value="管理者の解除用QRを読む"/></button>}
         <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
           {QR_ENABLED&&<button type="button" disabled={workerBusy} onClick={()=>setScanW(true)}><BiText value="担当者QR"/></button>}
           <button type="button" disabled={workerBusy||!workers[workerId]?.name?.trim()} onClick={confirmWorker}
@@ -7777,6 +7793,9 @@ function WorkPlanScreen({
           </button>
         </div>
       </QrDialog>}
+      {unlockOrder&&<KanbanCheckModal key={'unlock-'+unlockOrder.id} hinban={unlockOrder.hinban}
+        m={master[unlockOrder.hinban]||{}} master={master} order={orders[unlockOrder.id]||unlockOrder}
+        procId={proc.id} mode="unlock" onClose={()=>setUnlockOrder(null)}/>}
       <BiText value={QR_ENABLED && scanW && <QRScannerModal expectedValue="" label={t('担当者QR')} onSuccess={resolveWorker} onClose={() => setScanW(false)} />} />
     </div>;
 }
