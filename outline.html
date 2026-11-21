@@ -514,6 +514,19 @@ function qrLocalKey(orderId){return 'outline-qr-block-v1:'+orderId;}
 function qrReadLocal(orderId){try{return JSON.parse(localStorage.getItem(qrLocalKey(orderId))||'null');}catch(e){return null;}}
 function qrKeepLocal(orderId,lock){try{if(lock)localStorage.setItem(qrLocalKey(orderId),JSON.stringify(lock));else localStorage.removeItem(qrLocalKey(orderId));}catch(e){}}
 function qrServerStamp(){return firebase.firestore.FieldValue.serverTimestamp();}
+// QR保護ルールの更新項目は固定。履歴は解除・箱数登録の成功後に別途保存する。
+async function recordQrHistory(orderId,order,events){
+  try {
+    const patch={operationEvents:firebase.firestore.FieldValue.arrayUnion(...events)};
+    if(!order.operationHistorySince)patch.operationHistorySince=events[0].at;
+    await db.collection('workOrders').doc(orderId).update(patch);
+  } catch(e) { /* 履歴保存の失敗で、成功した解除や箱数登録を失敗扱いにしない。 */ }
+}
+function qrUnlockErrorMessage(error){
+  if(/(?:^|\/)permission-denied$/.test(error?.code||''))return '解除の保存が拒否されました。管理者設定を確認してください。';
+  if(/(?:^|\/)(unavailable|deadline-exceeded|network-request-failed)$/.test(error?.code||''))return '通信できず解除できませんでした。接続を確認して再度読み取ってください。';
+  return HAS_JAPANESE.test(error?.message||'')?error.message:'解除できません。管理者の解除用QRを確認してください。';
+}
 async function qrGuardReady(){
   const snap=await db.collection('kanbanSettings').doc('runtime').get({source:'server'});if(!snap.exists||snap.data().enabled!==true||snap.data().protocol!==1)return false;
   try{await db.collection('kanbanPrivate').doc('ruleProbe').get();return false;}catch(e){return e.code==='permission-denied'||e.code==='firestore/permission-denied';}
@@ -523,8 +536,7 @@ async function lockKanbanOrder(orderId,lockId,code=''){
     const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
     if(order.status==='done')throw new Error('作業状態が変わりました。計画表を確認してください。');
     if(order.qrBlocked)return order.qrLockId;
-    tx.update(ref,withWorkOperations(order,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)},
-      [workOperationEvent(order,'qr_blocked',Date.now(),{reason:String(code).slice(0,160),lockId})]));return lockId;
+    tx.update(ref,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)});return lockId;
   });
 }
 async function managerQrHash(raw){
@@ -537,10 +549,13 @@ async function unlockKanbanOrder(orderId,raw){
   const ticket=db.collection('kanbanUnlocks').doc(),batch=db.batch();
   batch.set(ticket,{orderId,lockId:order.qrLockId,tokenHash,createdAt:qrServerStamp(),uid:auth.currentUser.uid});
   const unlockedAt=Date.now();
-  batch.update(orderRef,{qrBlocked:false,qrUnlockTicketId:ticket.id,qrUnlockOf:order.qrLockId,qrUnlockedAt:qrServerStamp(),
-    operationHistorySince:order.operationHistorySince||unlockedAt,
-    operationEvents:firebase.firestore.FieldValue.arrayUnion(workOperationEvent(order,'qr_unlocked',unlockedAt,{lockId:order.qrLockId}))});
-  await batch.commit();qrKeepLocal(orderId,null);return true;
+  batch.update(orderRef,{qrBlocked:false,qrUnlockTicketId:ticket.id,qrUnlockOf:order.qrLockId,qrUnlockedAt:qrServerStamp()});
+  await batch.commit();qrKeepLocal(orderId,null);
+  const events=[];
+  if(!(order.operationEvents||[]).some(e=>e.type==='qr_blocked'&&e.lockId===order.qrLockId))
+    events.push(workOperationEvent(order,'qr_blocked',qrStamp(order.qrBlockedAt)||unlockedAt,{lockId:order.qrLockId,reason:order.qrBlockCode||''}));
+  events.push(workOperationEvent(order,'qr_unlocked',unlockedAt,{lockId:order.qrLockId}));
+  recordQrHistory(orderId,order,events);return true;
 }
 const DEFAULT_QR_PART={mode:'full',start:1,length:1,delimiter:',',field:1,trim:true};
 function qrPart(raw,part={}){
@@ -615,7 +630,9 @@ function verifyKanban(raw,hinban,m,allMaster={}){
 }
 async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,workerChangeCount=0}){
   const orderRef=db.collection('workOrders').doc(orderId),masterRef=db.collection('outlineMaster').doc(hinban),guardRef=db.collection('kanbanSettings').doc('runtime');
-  return db.runTransaction(async tx=>{
+  let history;
+  const result=await db.runTransaction(async tx=>{
+    history=null;
     const orderSnap=await tx.get(orderRef),masterSnap=await tx.get(masterRef),guard=await tx.get(guardRef);
     if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     if(!orderSnap.exists||!masterSnap.exists)throw new Error('作業またはマスターが見つかりません。');const order=orderSnap.data(),current=masterSnap.data();
@@ -630,11 +647,14 @@ async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,wor
     const used=order.qrUsedBoxKeys||[],key=checked.serial?JSON.stringify([hinban,checked.serial]):'';if(key&&used.includes(key))throw new Error('この箱のQRはすでに完了登録されています。');
     const event={id:eventId,at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex,serial:checked.serial||'',doneAfter:done+1};
     const patch={qrMode:'kanban-v1',kosu:Number(order.kosu)||Number(current.sheets&&current.sheets[order.procId]&&current.sheets[order.procId].kosu),doneBoxes:done+1,qrLastCheck:event,qrCountEvents:[...oldEvents,event],qrLastCountAt:qrServerStamp(),qrCooldownMs:interval};if(key)patch.qrUsedBoxKeys=[...used,key];
-    tx.update(orderRef,withWorkOperations(order,patch,[workOperationEvent(order,'box_done',event.at,{source:'qr',refId:event.id,doneAfter:done+1,previous:done})]));return {count:done+1,until:Date.now()+interval};
+    tx.update(orderRef,patch);history={order,event:workOperationEvent(order,'box_done',event.at,{source:'qr',refId:event.id,doneAfter:done+1,previous:done})};return {count:done+1,until:Date.now()+interval};
   });
+  if(history)recordQrHistory(orderId,history.order,[history.event]);return result;
 }
 async function undoVerifiedKanban(orderId,workerChangeCount=0){
-  const ref=db.collection('workOrders').doc(orderId);return db.runTransaction(async tx=>{
+  const ref=db.collection('workOrders').doc(orderId);let history;
+  const result=await db.runTransaction(async tx=>{
+    history=null;
     const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
     if(order.qrBlocked||qrReadLocal(orderId))throw new Error('管理者の解除が必要です。');
     if(order.status!=='running')throw new Error('作業状態が変わりました。計画表を確認してください。');
@@ -642,8 +662,9 @@ async function undoVerifiedKanban(orderId,workerChangeCount=0){
     const count=Number(order.doneBoxes)||0,events=order.qrCountEvents||[],last=events[events.length-1];if(count<=workerBoxBaseline(order))return;
     if(last&&last.doneAfter!==count)throw new Error('QR完了履歴と箱数が異なります。管理者に確認してください。');
     const patch={doneBoxes:count-1};if(last){patch.qrCountEvents=events.slice(0,-1);patch.qrLastCheck=events.length>1?events[events.length-2]:null;if(last.serial){const key=JSON.stringify([order.hinban,last.serial]);patch.qrUsedBoxKeys=(order.qrUsedBoxKeys||[]).filter(x=>x!==key);}}
-    tx.update(ref,withWorkOperations(order,patch,[workOperationEvent(order,'box_undo',Date.now(),{source:'qr',doneAfter:count-1,previous:count})]));
+    tx.update(ref,patch);history={order,event:workOperationEvent(order,'box_undo',Date.now(),{source:'qr',doneAfter:count-1,previous:count})};
   });
+  if(history)recordQrHistory(orderId,history.order,[history.event]);return result;
 }
 const WORKER_REQUIRED = '担当者を選択してください。';
 function hasWorkOrderWorker(order) {
@@ -797,9 +818,9 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
     {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
   </div>;
 }
-function KanbanVerdict({ok,kind}){
+function KanbanVerdict({ok,kind,message}){
   return ReactDOM.createPortal(<div className={'kanban-verdict '+(ok?'kanban-verdict-ok':'kanban-verdict-ng')} role="alert" aria-live="assertive" onClick={e=>{e.preventDefault();e.stopPropagation();}}>
-    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。'}/></p></div>
+    <div className="kanban-verdict-card"><div className="kanban-verdict-symbol" aria-hidden="true">{ok?'○':'×'}</div><strong><BiText value={kind==='unlock'?'解除完了':kind==='manager'?'解除不可':ok?'一致':'不一致'}/></strong><p><BiText value={message||(kind==='unlock'?'かんばんQRをもう一度照合してください。':kind==='manager'?'管理者の解除用QRを確認してください。':ok?'選択中の品番と一致しました。':'作業を止めて管理者を呼んでください。')}/></p></div>
   </div>,document.body);
 }
 function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,inline=false,suspended=false,onStateChange}){
@@ -828,7 +849,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
       try{
         if(order&&local&&!order.qrBlocked)await lockKanbanOrder(order.id,local.lockId);
         await unlockKanbanOrder(order.id,raw);if(!alive.current)return;setLocal(null);setManagerMode(false);setResult(null);setFlash({ok:true,kind:'unlock'});setError('解除しました。かんばんQRをもう一度照合してください。');
-      }catch(e){if(alive.current){setError('解除できません。管理者の解除用QRを確認してください。');setFlash({ok:false,kind:'manager'});}}
+      }catch(e){if(alive.current){const message=qrUnlockErrorMessage(e);setError(message);setFlash({ok:false,kind:'manager',message});}}
       finally{pending.current=false;if(alive.current)setBusy(false);}return;
     }
     if(blocked||complete||workerMissing||(mode==='count'&&!running))return;
@@ -865,7 +886,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
     {!managerMode&&<QrMismatchDetails comparison={result&&result.comparison||local&&local.failure&&local.failure.comparison}/>}
     {error&&<div role="alert" className="qr-error"><BiText value={error}/></div>}
     {!inline&&mode==='count'&&<p className="qr-help"><BiText value="一致すると自動で1箱完了になります。不一致では箱数は増えず、管理者の解除が必要です。"/></p>}
-    {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind}/>}
+    {flash&&<KanbanVerdict ok={flash.ok} kind={flash.kind} message={flash.message}/>}
   </>;
   return inline?<section id="workrun-camera" className="workrun-camera-card" aria-label="作業中のカメラ"><header><strong><BiText value={managerMode?'管理者解除QRの読取':'カメラ映像・QR自動照合'}/></strong><code>{m.partNo||hinban}</code></header>{content}</section>:<QrDialog title={managerMode?'管理者解除QRの読取':'かんばんQR照合'} onClose={onClose} busy={busy}>{content}</QrDialog>;
 }
@@ -1833,6 +1854,8 @@ const PART_NAME_TRANSLATIONS = new Map([
 ]);
 const masterTranslations = new Map();
 const INDIVIDUAL_LABELS = {
+  '解除の保存が拒否されました。管理者設定を確認してください。':['Penyimpanan pembukaan kunci ditolak. Periksa pengaturan pengelola.','O desbloqueio não pôde ser salvo. Confira as configurações do supervisor.','Lưu mở khóa bị từ chối. Hãy kiểm tra cài đặt quản lý.'],
+  '通信できず解除できませんでした。接続を確認して再度読み取ってください。':['Kunci tidak dapat dibuka karena koneksi gagal. Periksa koneksi lalu pindai lagi.','Não foi possível desbloquear por falha de conexão. Confira a conexão e leia novamente.','Không thể mở khóa do lỗi kết nối. Kiểm tra kết nối rồi quét lại.'],
   'ライン応援予定時間':['Jadwal Bantu Line','Horário de apoio à linha','Lịch hỗ trợ chuyền'],
   '開始時刻':['Jam mulai','Horário de início','Giờ bắt đầu'],
   '応援時間（分）':['Durasi bantuan (menit)','Duração do apoio (minutos)','Thời gian hỗ trợ (phút)'],
