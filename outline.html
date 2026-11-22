@@ -745,12 +745,12 @@ function decodeQrImage(media){
   const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(media,0,0,canvas.width,canvas.height);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
   const code=window.jsQR(pixels.data,canvas.width,canvas.height,{inversionAttempts:'attemptBoth'});return code&&code.data||'';
 }
-function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActive=false,compact=false}){
+function QrInputPanel({onRead,disabled,continuous=false,scannerEnabled=continuous,autoStart=false,keepActive=false,compact=false}){
   const video=useRef(null),stream=useRef(null),timer=useRef(null),generation=useRef(0),active=useRef(true),callback=useRef(onRead),input=useRef(null),options=useRef({}),startRef=useRef(null),clearRequired=useRef(continuous),blankFrames=useRef(0),wedge=useRef({text:'',at:0});
-  const cameraWanted=useRef((()=>{try{return !continuous||localStorage.getItem('outline-continuous-camera')!=='off';}catch(e){return true;}})());
+  const cameraWanted=useRef((()=>{try{return !scannerEnabled||localStorage.getItem('outline-continuous-camera')!=='off';}catch(e){return true;}})());
   callback.current=onRead;options.current={disabled,continuous,autoStart,keepActive};
   const [running,setRunning]=useState(false),[starting,setStarting]=useState(false),[error,setError]=useState(''),[text,setText]=useState(''),[awaitingClear,setAwaitingClear]=useState(continuous),[camera,setCamera]=useState(()=>{try{return localStorage.getItem('outline-qr-camera')||'environment';}catch(e){return 'environment';}});
-  const [externalOnly,setExternalOnly]=useState(continuous&&!cameraWanted.current);
+  const [externalOnly,setExternalOnly]=useState(scannerEnabled&&!cameraWanted.current);
   function stop(){generation.current++;clearTimeout(timer.current);timer.current=null;if(stream.current){stream.current.getTracks().forEach(t=>t.stop());stream.current=null;}if(video.current)video.current.srcObject=null;if(active.current){setRunning(false);setStarting(false);}}
   function read(raw){if(!raw||!active.current||options.current.disabled)return false;if(!options.current.continuous)stop();else{clearRequired.current=true;blankFrames.current=0;setAwaitingClear(true);}setText('');callback.current(raw);return true;}
   async function start(){
@@ -784,7 +784,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
   useEffect(()=>{if(autoStart&&cameraWanted.current&&!document.hidden&&(!options.current.disabled||options.current.keepActive))start();else if(continuous&&!autoStart)stop();},[autoStart,camera]);
   useEffect(()=>{try{localStorage.setItem('outline-qr-camera',camera);}catch(e){}},[camera]);
   useEffect(()=>{
-    if(!continuous)return;
+    if(!scannerEnabled)return;
     const onKey=e=>{
       if(e.isComposing||e.ctrlKey||e.altKey||e.metaKey||e.repeat)return;
       const target=e.target;if(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'))return;
@@ -797,8 +797,8 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
       e.preventDefault();wedge.current.text=(wedge.current.text+e.key).slice(-16384);wedge.current.at=now;
     };
     document.addEventListener('keydown',onKey,true);return()=>document.removeEventListener('keydown',onKey,true);
-  },[continuous]);
-  function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(continuous&&!want);if(continuous)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
+  },[scannerEnabled]);
+  function toggleCamera(){const want=!(running||starting);cameraWanted.current=want;setExternalOnly(scannerEnabled&&!want);if(scannerEnabled)try{localStorage.setItem('outline-continuous-camera',want?'on':'off');}catch(e){}if(want)start();else stop();}
   function useExternal(){cameraWanted.current=false;setExternalOnly(true);try{localStorage.setItem('outline-continuous-camera','off');}catch(e){}stop();setError('');}
   async function readFile(e){const file=e.target.files&&e.target.files[0];e.target.value='';if(!file||disabled)return;if(!continuous)stop();setError('');let decoded;try{decoded=await decodePhoto(file);const raw=decodeQrImage(decoded.image);if(!raw)throw new Error('QRが見つかりません。明るさ・距離を変えてください。');if(active.current)read(raw);}catch(err){if(active.current)setError(err.message);}finally{if(decoded)decoded.release();}}
   const {lang,singleLanguage}=useLang();
@@ -815,7 +815,7 @@ function QrInputPanel({onRead,disabled,continuous=false,autoStart=false,keepActi
     {compact&&cameraView}
     <div className="qr-camera-tools"><button type="button" onClick={toggleCamera} disabled={starting||(!(running)&&disabled)}><BiText value={starting?'カメラ起動中…':running?'カメラを止める':'カメラでQRを読む'}/></button>
       <select aria-label={singleLanguage ? singleLanguageText('カメラ',lang) : 'カメラ / Kamera'} value={camera} disabled={starting||(!compact&&running)||(disabled&&!keepActive)} onChange={e=>setCamera(e.target.value)}><option value="environment">{singleLanguage ? (lang==='id'?'Kamera belakang':singleLanguageText('背面カメラ',lang)) : '背面カメラ / Kamera belakang'}</option><option value="user">{singleLanguage ? (lang==='id'?'Kamera depan':singleLanguageText('前面カメラ',lang)) : '前面カメラ / Kamera depan'}</option></select>
-      {continuous&&<button type="button" className="qr-external-mode" onClick={useExternal}><BiText value={externalOnly?'外付けスキャナー受付中':'外付けスキャナーを使う'}/></button>}
+      {scannerEnabled&&<button type="button" className="qr-external-mode" onClick={useExternal}><BiText value={externalOnly?'外付けスキャナー受付中':'外付けスキャナーを使う'}/></button>}
       {!compact&&<button type="button" onClick={()=>input.current&&input.current.focus()} disabled={disabled}><BiText value="ハンディ・手入力"/></button>}</div>
     {!compact&&cameraView}
     {continuous&&running&&<p className="qr-help qr-live-hint" role="status"><BiText value={awaitingClear?'QRをいったん画面から外してください。次の箱を待機します。':'1箱完了時にQRをかざしてください。自動で照合・登録します。'}/></p>}
@@ -875,7 +875,7 @@ function KanbanCheckModal({hinban,m,master,mode='verify',order,procId,onClose,in
   }
   const disabled=busy||!!flash||guard!==true||suspended||(!managerMode&&(blocked||complete||workerMissing||(mode==='count'&&!running)));
   useEffect(()=>{onStateChange&&onStateChange({blocked,busy,flash:!!flash});},[blocked,busy,!!flash]);
-  const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete&&!workerMissing))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete&&!workerMissing}/>;
+  const input=<QrInputPanel key={managerMode?'manager':'kanban'} onRead={read} disabled={disabled} compact={inline} continuous={mode==='count'&&!managerMode} scannerEnabled={managerMode||mode==='count'} autoStart={!suspended&&guard===true&&(managerMode||(mode==='count'&&running&&!blocked&&!complete&&!workerMissing))} keepActive={!suspended&&mode==='count'&&!managerMode&&guard===true&&running&&!blocked&&!complete&&!workerMissing}/>;
   const content=<>
     {!inline&&<div className="qr-selected"><BiText value="選択中の品番"/><strong>{hinban}</strong><code>{m.partNo||''}</code></div>}
     {!inline&&mode==='count'&&<div className="qr-live-progress"><BiText value="完了箱数"/><strong>{Number(order&&order.doneBoxes)||0}{(!order?.individualPlan||order.individualPlan.hasQuantity)&&' / '+(Number(order?.targetBoxes)||'—')}</strong><BiText value={complete?'予定箱数に達しました。作業終了してください。':'連続QR照合：箱ごとのボタン操作は不要です。'}/></div>}
