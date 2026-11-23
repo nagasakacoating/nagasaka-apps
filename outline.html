@@ -1829,6 +1829,7 @@ const PROCESS_LABELS = {
   "ラインに掛けた後で押さえを忘れない事": ["Após pendurar na linha, não se esqueça de acionar o fixador.", "Sau khi treo lên dây chuyền, đừng quên gài bộ phận giữ."],
   "必ず手袋を使用する事": ["Use luvas obrigatoriamente.", "Bắt buộc đeo găng tay."],
   "怪我に注意する事": ["Tenha cuidado para evitar lesões.", "Cẩn thận để tránh bị thương."],
+  "ハンガーを作業場のフックに掛ける。": ["Pendure o suporte no gancho da área de trabalho.", "Treo giá treo lên móc tại khu vực làm việc."],
   "翻訳中です…": ["Traduzindo…", "Đang dịch…"],
   "翻訳できなかった項目があります。": ["Alguns itens não puderam ser traduzidos.", "Không thể dịch một số mục."],
   "翻訳を再試行": ["Tentar traduzir novamente", "Thử dịch lại"],
@@ -1840,6 +1841,7 @@ function normalizeStepTranslation(text) {
 const PHOTO_STEP_LABELS=new Map([
   '製品の入った箱を、2箱ずつ作業台に乗せる。',
   'ハンガーを作業場上のフックに掛ける。',
+  'ハンガーを作業場のフックに掛ける。',
   '製品を片手に4〜5個ずつ取り出す。',
   '製品が入っている箱を縛っている紐を取り外し、紐入れに入れる。',
   '製品の入っている箱を小さい台車に積み上げる。※最大10箱までにすること！！',
@@ -2207,7 +2209,7 @@ async function runProductTranslationJobs(jobs, onProgress, loadModule, isActive=
       try{
         const result=await translationDeadline(translator.translate(ja,{from:'ja',to:lang==='pt-BR'?'pt':lang}),120000);
         const value=result.text?.trim();
-        if(!value||value===ja||HAS_JAPANESE.test(value))throw new Error('Translation unavailable');
+        if(!validProductTranslation(value)||value===ja)throw new Error('Translation unavailable');
         apply(value);
       }catch(error){
         if(error.message==='Translation timed out')throw error;
@@ -2280,8 +2282,9 @@ class OutlineTranslator {
   }
 }
 const loadOutlineTranslator=async()=>({Translator:OutlineTranslator});
-async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator) {
+async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator, onlyLanguage=null) {
   if(!hasMultilingualProduct(data))return 0;
+  clearInvalidProcessTranslations(data,onlyLanguage);
   const shared=sharedTranslationTexts(data);
   const sheets=Object.entries(data.sheets||{}).filter(([id])=>hasProcessLanguages(id)).map(([,sheet])=>sheet);
   const records=new Map((data.displayTranslations||[]).map(entry=>[entry.ja,{...entry.translations}]));
@@ -2300,13 +2303,14 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
     jobs.get(key).apply.push(apply);
   }
   for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+    if(onlyLanguage&&lang!==onlyLanguage)continue;
     for(const ja of shared)add(lang,ja,records.get(ja)?.[lang],value=>{
       records.set(ja,{...records.get(ja),[lang]:value});
     });
     for(const sheet of sheets){
       for(const step of sheet.steps||[]){
         const field='text_'+key, source=field+'_src', ja=String(step.text||'').trim();
-        if(step[source]&&step[source]!==ja){delete step[field];delete step[source];}
+        if(step[source]&&step[source]!==ja){step[field]='';step[source]='';}
         add(lang,ja,step[field],value=>{step[field]=value;step[source]=ja;});
       }
       const field='notes_'+key,source=field+'_src';
@@ -2331,7 +2335,47 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
   return failed;
 }
 function validProductTranslation(value) {
-  return typeof value==='string'&&!!value.trim()&&!HAS_JAPANESE.test(value);
+  if(typeof value!=='string'||!value.trim()||HAS_JAPANESE.test(value))return false;
+  const normalized=value.normalize('NFKC').toLowerCase();
+  // A decoding loop can return nonempty Latin text (for example "the the …").
+  // Reject sustained repeated words/phrases, while allowing ordinary short repetitions.
+  if(/(.)\1{9,}/u.test(normalized.replace(/\s/g,'')))return false;
+  const words=normalized.match(/[\p{L}\p{N}]+/gu)||[];
+  for(let size=1;size<=Math.min(8,Math.floor(words.length/3));size++){
+    for(let start=0;start+size*3<=words.length;start++){
+      let end=start+size;
+      while(end<words.length&&words[end]===words[start+(end-start)%size])end++;
+      const repeated=Math.floor((end-start)/size)*size;
+      if(repeated>=Math.max(6,size*3)&&repeated/words.length>=0.6)return false;
+    }
+  }
+  return true;
+}
+function clearInvalidProcessTranslations(data,onlyLanguage=null) {
+  for(const sheet of Object.values(data.sheets||{})){
+    for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+      if(onlyLanguage&&lang!==onlyLanguage)continue;
+      const field='text_'+key, source=field+'_src';
+      for(const step of sheet.steps||[]){
+        if(step[field]&&!validProductTranslation(step[field])){
+          // Explicit empty values also replace corrupt fields in Firestore merge writes.
+          step[field]='';step[source]='';
+        }
+      }
+      const notes='notes_'+key;
+      if(Array.isArray(sheet[notes]))sheet[notes]=sheet[notes].map((value,i)=>{
+        if(validProductTranslation(value))return value;
+        if(Array.isArray(sheet[notes+'_src']))sheet[notes+'_src'][i]='';
+        return '';
+      });
+    }
+  }
+  for(const entry of data.displayTranslations||[]){
+    for(const [lang] of PROCESS_TRANSLATION_FIELDS){
+      if(onlyLanguage&&lang!==onlyLanguage)continue;
+      if(entry.translations?.[lang]&&!validProductTranslation(entry.translations[lang]))delete entry.translations[lang];
+    }
+  }
 }
 function translatedProductField(obj,key,suffix,index) {
   const field=key+'_'+suffix, source=field+'_src';
@@ -2365,8 +2409,8 @@ async function saveMissingProcessTranslations(master, procId, lang, onProgress, 
     missingByProduct.set(id,missingProductTranslations(product,procId,lang,false));
     const saved=(product.displayTranslations||[]).map(entry=>[entry.ja,entry.translations?.[lang]]);
     for(const [ja,translated] of [...saved,...sheetTranslationEntries(product.sheets?.[procId],field)]){
-      if(typeof ja==='string'&&typeof translated==='string'&&translated.trim()&&
-        !HAS_JAPANESE.test(translated)&&!known.has(ja.trim()))known.set(ja.trim(),translated);
+      if(typeof ja==='string'&&validProductTranslation(translated)&&
+        !known.has(ja.trim()))known.set(ja.trim(),translated);
     }
   }
   const uniqueMissing=new Set([...missingByProduct.values()].flat());
@@ -2488,7 +2532,7 @@ function useViewedProductTranslations(product, procId, lang, loadModule=loadOutl
 }
 try{
   for(const [key,value] of Object.entries(JSON.parse(localStorage.getItem('outline-viewed-translations')||'{}'))){
-    if(typeof value==='string')viewedTranslationCache.set(key,value);
+    if(validProductTranslation(value))viewedTranslationCache.set(key,value);
   }
 }catch{}
 async function runTranslate(jobs, onProgress) {
@@ -5010,6 +5054,8 @@ function MasterEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [translationPending, setTranslationPending] = useState(false);
+  const [translatingLanguage,setTranslatingLanguage]=useState(null);
+  const [translationMessage,setTranslationMessage]=useState('');
   const [busy, setBusy] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const [rnBusy, setRnBusy] = useState(false);
@@ -5030,6 +5076,7 @@ function MasterEditor({
     setSaving(true);
     setSaved(false);
     setTranslationPending(false);
+    setTranslationMessage('');
     try {
       const nd=JSON.parse(JSON.stringify(d));
       const stamp=new Date().toISOString().slice(0,10);
@@ -5046,6 +5093,30 @@ function MasterEditor({
       showBiDialog('alert','保存に失敗: '+e.message);
     }finally{
       setSaving(false);
+      setTrProg(null);
+    }
+  }
+  async function translateLanguage(language) {
+    if(saving||busy||!PROCESS_TRANSLATION_FIELDS.some(([lang])=>lang===language))return;
+    const name=language==='pt-BR'?'ブラジル語':'ベトナム語';
+    setSaving(true);
+    setSaved(false);
+    setTranslationPending(false);
+    setTranslatingLanguage(language);
+    setTranslationMessage(name+'に翻訳中…');
+    try{
+      const nd=JSON.parse(JSON.stringify(d));
+      const failed=await fillProcessTranslations(nd,true,setTrProg,loadOutlineTranslator,language);
+      setD(nd);
+      setTranslationMessage(failed?
+        name+'：翻訳できなかった項目があります。内容を確認して「保存する」を押してください。':
+        name+'への翻訳が完了しました。内容を確認して「保存する」を押してください。');
+    }catch(error){
+      console.warn('Outline translation button:',language,error.message);
+      setTranslationMessage(name+'に翻訳できませんでした。もう一度お試しください。');
+    }finally{
+      setSaving(false);
+      setTranslatingLanguage(null);
       setTrProg(null);
     }
   }
@@ -5318,6 +5389,23 @@ function MasterEditor({
         background: '#F7F8FA',
         flexShrink: 0
       }}>
+          {hasMultilingualProduct(d) && <section aria-label="ブラジル語・ベトナム語への翻訳" style={{width:'100%',display:'grid',gap:6}}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {['pt-BR','vi'].map(language=><button key={language} type="button"
+                onClick={()=>translateLanguage(language)} disabled={saving||!!busy}
+                aria-busy={translatingLanguage===language}
+                style={{flex:'1 1 180px',minHeight:48,padding:'8px 12px',borderRadius:9,
+                  background:saving?'#e3e9f1':'#e7f1ff',color:NAVY,border:'2px solid #3265a8',fontSize:16,fontWeight:800}}>
+                {translatingLanguage===language?'翻訳中…':language==='pt-BR'?'ブラジル語に翻訳':'ベトナム語に翻訳'}
+              </button>)}
+            </div>
+            <p style={{fontSize:14,lineHeight:1.5,color:'#425571'}}>
+              この製品の日本語から、選んだ言語を翻訳し直します。内容を確認して「保存する」を押してください。
+            </p>
+            {translationMessage && <p role="status" aria-live="polite" style={{fontSize:14,lineHeight:1.5,color:NAVY,fontWeight:700}}>
+              {translationMessage}{translatingLanguage&&trProg&&!trProg.downloading?` ${trProg.done}/${trProg.total}`:''}
+            </p>}
+          </section>}
           <button onClick={() => save(false)} disabled={saving||!!busy} style={{
           flex: 1,
           minHeight: 48,
