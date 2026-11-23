@@ -2282,9 +2282,9 @@ class OutlineTranslator {
   }
 }
 const loadOutlineTranslator=async()=>({Translator:OutlineTranslator});
-async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator) {
+async function fillProcessTranslations(data, force, onProgress, loadModule=loadOutlineTranslator, onlyLanguage=null) {
   if(!hasMultilingualProduct(data))return 0;
-  clearInvalidProcessTranslations(data);
+  clearInvalidProcessTranslations(data,onlyLanguage);
   const shared=sharedTranslationTexts(data);
   const sheets=Object.entries(data.sheets||{}).filter(([id])=>hasProcessLanguages(id)).map(([,sheet])=>sheet);
   const records=new Map((data.displayTranslations||[]).map(entry=>[entry.ja,{...entry.translations}]));
@@ -2303,6 +2303,7 @@ async function fillProcessTranslations(data, force, onProgress, loadModule=loadO
     jobs.get(key).apply.push(apply);
   }
   for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+    if(onlyLanguage&&lang!==onlyLanguage)continue;
     for(const ja of shared)add(lang,ja,records.get(ja)?.[lang],value=>{
       records.set(ja,{...records.get(ja),[lang]:value});
     });
@@ -2350,9 +2351,10 @@ function validProductTranslation(value) {
   }
   return true;
 }
-function clearInvalidProcessTranslations(data) {
+function clearInvalidProcessTranslations(data,onlyLanguage=null) {
   for(const sheet of Object.values(data.sheets||{})){
-    for(const [,key] of PROCESS_TRANSLATION_FIELDS){
+    for(const [lang,key] of PROCESS_TRANSLATION_FIELDS){
+      if(onlyLanguage&&lang!==onlyLanguage)continue;
       const field='text_'+key, source=field+'_src';
       for(const step of sheet.steps||[]){
         if(step[field]&&!validProductTranslation(step[field])){
@@ -2370,6 +2372,7 @@ function clearInvalidProcessTranslations(data) {
   }
   for(const entry of data.displayTranslations||[]){
     for(const [lang] of PROCESS_TRANSLATION_FIELDS){
+      if(onlyLanguage&&lang!==onlyLanguage)continue;
       if(entry.translations?.[lang]&&!validProductTranslation(entry.translations[lang]))delete entry.translations[lang];
     }
   }
@@ -5051,6 +5054,8 @@ function MasterEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [translationPending, setTranslationPending] = useState(false);
+  const [translatingLanguage,setTranslatingLanguage]=useState(null);
+  const [translationMessage,setTranslationMessage]=useState('');
   const [busy, setBusy] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const [rnBusy, setRnBusy] = useState(false);
@@ -5071,6 +5076,7 @@ function MasterEditor({
     setSaving(true);
     setSaved(false);
     setTranslationPending(false);
+    setTranslationMessage('');
     try {
       const nd=JSON.parse(JSON.stringify(d));
       const stamp=new Date().toISOString().slice(0,10);
@@ -5087,6 +5093,30 @@ function MasterEditor({
       showBiDialog('alert','保存に失敗: '+e.message);
     }finally{
       setSaving(false);
+      setTrProg(null);
+    }
+  }
+  async function translateLanguage(language) {
+    if(saving||busy||!PROCESS_TRANSLATION_FIELDS.some(([lang])=>lang===language))return;
+    const name=language==='pt-BR'?'ブラジル語':'ベトナム語';
+    setSaving(true);
+    setSaved(false);
+    setTranslationPending(false);
+    setTranslatingLanguage(language);
+    setTranslationMessage(name+'に翻訳中…');
+    try{
+      const nd=JSON.parse(JSON.stringify(d));
+      const failed=await fillProcessTranslations(nd,true,setTrProg,loadOutlineTranslator,language);
+      setD(nd);
+      setTranslationMessage(failed?
+        name+'：翻訳できなかった項目があります。内容を確認して「保存する」を押してください。':
+        name+'への翻訳が完了しました。内容を確認して「保存する」を押してください。');
+    }catch(error){
+      console.warn('Outline translation button:',language,error.message);
+      setTranslationMessage(name+'に翻訳できませんでした。もう一度お試しください。');
+    }finally{
+      setSaving(false);
+      setTranslatingLanguage(null);
       setTrProg(null);
     }
   }
@@ -5359,6 +5389,23 @@ function MasterEditor({
         background: '#F7F8FA',
         flexShrink: 0
       }}>
+          {hasMultilingualProduct(d) && <section aria-label="ブラジル語・ベトナム語への翻訳" style={{width:'100%',display:'grid',gap:6}}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {['pt-BR','vi'].map(language=><button key={language} type="button"
+                onClick={()=>translateLanguage(language)} disabled={saving||!!busy}
+                aria-busy={translatingLanguage===language}
+                style={{flex:'1 1 180px',minHeight:48,padding:'8px 12px',borderRadius:9,
+                  background:saving?'#e3e9f1':'#e7f1ff',color:NAVY,border:'2px solid #3265a8',fontSize:16,fontWeight:800}}>
+                {translatingLanguage===language?'翻訳中…':language==='pt-BR'?'ブラジル語に翻訳':'ベトナム語に翻訳'}
+              </button>)}
+            </div>
+            <p style={{fontSize:14,lineHeight:1.5,color:'#425571'}}>
+              この製品の日本語から、選んだ言語を翻訳し直します。内容を確認して「保存する」を押してください。
+            </p>
+            {translationMessage && <p role="status" aria-live="polite" style={{fontSize:14,lineHeight:1.5,color:NAVY,fontWeight:700}}>
+              {translationMessage}{translatingLanguage&&trProg&&!trProg.downloading?` ${trProg.done}/${trProg.total}`:''}
+            </p>}
+          </section>}
           <button onClick={() => save(false)} disabled={saving||!!busy} style={{
           flex: 1,
           minHeight: 48,
