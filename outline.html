@@ -227,14 +227,23 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 @media(max-width:600px){.qr-config-row{grid-template-columns:minmax(0,1fr)}.kanban-qr-body{padding:10px}.kanban-info-detail>div{grid-template-columns:minmax(0,1fr)}.qr-selected strong{font-size:18px}}
 
 .workrun-screen{height:100dvh!important;min-height:0!important;overflow:hidden}.workrun-screen .workrun-layout{flex:1 1 0!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(360px,1.15fr);gap:0;overflow:hidden;min-height:0}
-/* Keep translated navigation from taking the working area's height on tablets. */
+/* Wrap translated controls without squeezing the product/worker into a zero-width grid column. */
 .workrun-screen>.app-topbar{
  height:auto!important;min-height:0!important;max-height:30vh;
- flex:0 0 auto!important;align-content:start;grid-auto-rows:max-content;
+ display:flex!important;flex-wrap:wrap;flex:0 0 auto!important;
+ align-items:center;align-content:flex-start;gap:8px 16px;
  overflow:auto;overscroll-behavior:contain
 }
-.workrun-screen>.app-topbar .topbar-title{overflow-wrap:anywhere}
-.workrun-screen>.app-topbar .lang-user{min-height:0;align-content:start}
+.workrun-screen>.app-topbar>.topbar-context{flex:1 1 220px;max-width:100%}
+.workrun-screen>.app-topbar>.topbar-title{flex:1 1 220px;max-width:100%;text-align:left;overflow-wrap:break-word}
+.workrun-screen>.app-topbar>.lang-user{flex:1 1 420px;max-width:100%!important;min-height:0;flex-wrap:wrap!important;gap:6px;align-content:flex-start}
+.workrun-screen>.app-topbar>.lang-user>.user-name{flex:0 1 auto;max-width:100%;overflow-wrap:break-word}
+/* The next break and box target stay above both scrolling work panels. */
+.workrun-screen>.workrun-break-progress{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:6px 12px;padding:8px 12px}
+.workrun-screen>.workrun-break-progress>.workrun-break-heading{flex:1 1 280px;min-width:0}
+.workrun-screen>.workrun-break-progress>.workrun-break-values{flex:1 1 320px;min-width:0}
+.workrun-screen>.workrun-break-progress .workrun-break-heading strong{font-size:clamp(24px,3vw,32px)}
+.workrun-screen>.workrun-break-progress .workrun-break-values strong{font-size:clamp(24px,3vw,32px)}
 .workrun-screen .workrun-layout>.workrun-observe{min-width:0;min-height:0;overflow:auto!important;padding:12px;background:#f5f6f8;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
 .workrun-screen .workrun-layout>.workrun-controls{min-width:0;min-height:0;overflow:auto!important;flex:auto!important;padding:12px!important;gap:8px!important}
 .workrun-guide-actions{display:flex;flex-wrap:wrap;gap:8px}
@@ -9012,7 +9021,7 @@ function WorkRunBreakProgress({order, plannedStart, target}) {
   const completed=completedBoxesInPeriod(order,plannedStart,periodStart);
   const remaining=boxes===null || completed===null ? null : Math.max(0,boxes-completed);
   const label=rest ? isBreak ? '休憩中' : '次の休憩' : '終了予定';
-  const deadline=rest && isBreak ? min2hm(rest.from)+'〜'+min2hm(rest.to) : min2hm(cutoff);
+  const deadline=rest ? min2hm(rest.from)+'〜'+min2hm(rest.to) : min2hm(cutoff);
   return <section className="workrun-break-progress" aria-label={singleLanguageText(rest?'休憩までの予定箱数':'終了までの予定箱数',lang)}>
     <div className="workrun-break-heading">
       <BiText value={label}/> <strong>{deadline}</strong> <small>{min2hm(periodStart)}〜{min2hm(cutoff)}</small>
@@ -9268,6 +9277,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         fontWeight: 800
       }}>▶ <BiText value={t('再開')} /></button>
         </div>} />
+      {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
       <div className="workrun-layout" data-has-qr={needsQr} style={{
       flex: 1,
       display: 'flex',
@@ -9292,7 +9302,6 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         gap: 10,
         overflowY: 'auto'
       }}>
-          {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
           {individual&&<IndividualInstructionNotice order={log} now={new Date(now)} settings={settings} showCheckpoint={!breakProgress} showNextBreak={!breakProgress?.rest}/>}
           <div className="responsive-grid" style={{
           display: 'grid',
