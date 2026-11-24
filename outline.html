@@ -2060,6 +2060,64 @@ const HISTORY_LABELS={
 for(const [label,[id,pt,vi]] of Object.entries(HISTORY_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
 const PRODUCT_INFO_LABELS={"ロケ番号":["Nomor lokasi","Localização","Mã vị trí"],"登録中のQR照合設定": ["Pengaturan pengecekan QR terdaftar", "Configurações de QR cadastradas", "Cài đặt đối chiếu QR đã đăng ký"], "かんばんの登録内容と連動しています。設定はマスターの「かんばん」で変更できます。": ["Terhubung dengan data kanban. Ubah pengaturan di Master → Kanban.", "Vinculado ao cadastro de kanban. Altere em Cadastro → Kanban.", "Liên kết với dữ liệu kanban. Thay đổi tại Danh mục → Kanban."], "QR照合テスト": ["Tes pengecekan QR", "Teste de conferência QR", "Kiểm tra đối chiếu QR"], "テストでは箱数は増えず、作業停止や解除の記録も変更しません。": ["Tes tidak menambah jumlah kotak atau mengubah catatan penghentian dan pembukaan kunci.", "O teste não aumenta as caixas nem altera os registros de parada ou desbloqueio.", "Kiểm tra không tăng số thùng hoặc thay đổi bản ghi dừng và mở khóa."], "ロケ番号を登録・変更": ["Daftar / ubah nomor lokasi", "Cadastrar / alterar localização", "Đăng ký / đổi mã vị trí"], "入力例：1-01、A-01（前1文字・後2桁）": ["Contoh: 1-01, A-01 (1 karakter, tanda hubung, 2 digit)", "Ex.: 1-01, A-01 (1 caractere, hífen, 2 dígitos)", "Ví dụ: 1-01, A-01 (1 ký tự, gạch nối, 2 chữ số)"], "ロケ番号は1-01の形式で入力してください。": ["Masukkan nomor lokasi dalam format 1-01.", "Digite a localização no formato 1-01.", "Nhập mã vị trí theo dạng 1-01."]};
 for(const [label,[id,pt,vi]] of Object.entries(PRODUCT_INFO_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
+const START_SCREEN_LABELS={
+  "アウトライン工程": [
+    "Proses Outline",
+    "Processos de produção",
+    "Các công đoạn sản xuất"
+  ],
+  "工程を選択してください": [
+    "Silakan pilih proses",
+    "Selecione o processo",
+    "Vui lòng chọn công đoạn"
+  ],
+  "タブレット操作手順": [
+    "Panduan penggunaan tablet",
+    "Guia de uso do tablet",
+    "Hướng dẫn sử dụng máy tính bảng"
+  ],
+  "小物検査": [
+    "Inspeksi Part Kecil",
+    "Inspeção de peças pequenas",
+    "Kiểm tra chi tiết nhỏ"
+  ],
+  "手吹き": [
+    "Semprot Manual",
+    "Pintura manual",
+    "Phun sơn thủ công"
+  ],
+  "ハガシ": [
+    "Pengelupasan",
+    "Remoção do revestimento",
+    "Tẩy lớp sơn"
+  ],
+  "Vミゾ修正": [
+    "Perbaikan Alur V",
+    "Correção do sulco em V",
+    "Sửa rãnh chữ V"
+  ],
+  "JTEKT・MAZDA・GCT 検査": [
+    "Inspeksi JTEKT/MAZDA/GCT",
+    "Inspeção JTEKT / MAZDA / GCT",
+    "Kiểm tra JTEKT / MAZDA / GCT"
+  ],
+  "日野・織機・デンソー・三菱・川重・日立 検査": [
+    "Inspeksi Hino/Shokki/Denso/Mitsubishi/Kawasaki/Hitachi",
+    "Inspeção Hino / Shokki / Denso / Mitsubishi / Kawasaki / Hitachi",
+    "Kiểm tra Hino / Shokki / Denso / Mitsubishi / Kawasaki / Hitachi"
+  ],
+  "津田・刈谷紙器・製品箱詰め": [
+    "Pengepakan Produk Tsuda/Kariya Shiki",
+    "Embalagem de peças / Tsuda / Kariya Shiki",
+    "Đóng thùng sản phẩm / Tsuda / Kariya Shiki"
+  ],
+  "その他付帯作業": [
+    "Pekerjaan Pendukung",
+    "Outras tarefas auxiliares",
+    "Công việc phụ trợ khác"
+  ]
+};
+for(const [label,[id,pt,vi]] of Object.entries(START_SCREEN_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
@@ -3317,7 +3375,7 @@ function ProcessSelect({
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar title="アウトライン工程 / Proses Outline" user={user} />
+      <TopBar title="アウトライン工程" user={user} />
       <div style={{
       flex: 1,
       overflowY: 'auto',
@@ -11185,7 +11243,12 @@ function App() {
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
       {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
   </>;
-  const screenContext = singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
+  function changeStartLanguage(next) {
+    changeProcessLang(next);
+    if(next==='ja'||next==='id')setLang(next);
+  }
+  const startLanguage=Object.hasOwn(PROCESS_LANGUAGES,processLang)?processLang:lang;
+  const screenContext = view.name==='proc' ? {...ctx,lang:startLanguage,setLang:changeStartLanguage,singleLanguage:true} : singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
   return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
       {(err||(view.name==='workrun'&&!orders[view.logId])||(view.name==='worksheet'&&!orders[view.orderId]))&&
