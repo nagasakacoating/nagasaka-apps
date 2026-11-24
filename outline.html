@@ -1554,6 +1554,11 @@ const PROCESS_LABELS = {
   "この箱のQRはすでに完了登録されています。": ["O QR desta caixa já foi registrado.", "Mã QR của thùng này đã được ghi nhận."],
   "1箱工数を設定してからQRを読み取ってください。": ["Configure o tempo padrão por caixa antes de ler o QR.", "Hãy đặt thời gian chuẩn mỗi thùng trước khi quét mã QR."],
   "予定箱数に達しました": ["Meta de caixas atingida", "Đã đạt số thùng dự kiến"],
+  "再開": ["Retomar", "Tiếp tục"],
+  "再開する": ["Retomar trabalho", "Tiếp tục công việc"],
+  "完了した作業を再開": ["Retomar trabalho concluído", "Tiếp tục công việc đã kết thúc"],
+  "完了後の停止": ["Parada após a conclusão", "Dừng sau khi kết thúc"],
+  "箱数・実績を引き継いで再開します。終了から再開までの時間は実働に含めません。": ["O trabalho será retomado mantendo as caixas e os resultados registrados. O intervalo entre o encerramento e a retomada não conta como tempo de trabalho.", "Tiếp tục công việc và giữ nguyên số thùng cùng kết quả đã ghi. Khoảng thời gian từ lúc kết thúc đến khi tiếp tục không tính vào thời gian làm việc thực tế."],
   "保存しました": ["Salvo", "Đã lưu"],
   "保存に失敗しました": ["Falha ao salvar", "Lưu thất bại"],
   "先行・遅れ": ["Adiantamento ou atraso", "Sớm hoặc chậm tiến độ"],
@@ -1995,6 +2000,10 @@ function singleLanguageText(text, lang, useRegistered = true) {
   return HAS_JAPANESE.test(result) ? text : result;
 }
 Object.assign(DICT,{
+  '再開する':'Lanjutkan pekerjaan',
+  '完了した作業を再開':'Lanjutkan pekerjaan yang sudah diakhiri',
+  '完了後の停止':'Berhenti setelah pekerjaan diakhiri',
+  '箱数・実績を引き継いで再開します。終了から再開までの時間は実働に含めません。':'Pekerjaan dilanjutkan dengan mempertahankan jumlah kotak dan hasil yang tercatat. Waktu antara selesai dan mulai kembali tidak dihitung sebagai waktu kerja aktif.',
   'この画面の操作':'Panduan layar ini',
   '保存しました。未翻訳分は次回の保存時に再試行します。':'Data telah disimpan. Terjemahan yang belum selesai akan dicoba lagi saat penyimpanan berikutnya.',
   '翻訳データを読み込み中…':'Memuat data terjemahan…','保存する（未翻訳分を自動翻訳）':'Simpan dan terjemahkan bagian yang belum diterjemahkan',
@@ -6822,6 +6831,33 @@ function resumeWorkOrder(order) {
   if(!hasWorkOrderWorker(order))return Promise.reject(new Error(WORKER_REQUIRED));
   return continueWorkOrder(order,order.workerId);
 }
+/* 完了を取り消して同じ指示を継続する。完了中の経過時間は実働から除外する。 */
+async function reopenCompletedWorkOrder(order,user) {
+  const ref=db.collection('workOrders').doc(order.id);
+  return db.runTransaction(async tx=>{
+    const snapshot=await tx.get(ref),current=snapshot.exists&&snapshot.data();
+    if(!current||current.status!=='done'||current.endAt!==order.endAt||
+       (current.workerChanges?.length||0)!==(order.workerChanges?.length||0))
+      throw new Error('作業状態または担当者が変わりました。画面を確認してください。');
+    const localBlock=qrReadLocal(order.id);
+    if(current.qrBlocked||(localBlock&&current.qrUnlockOf!==localBlock.lockId))throw new Error('管理者の解除が必要です。');
+    const worker=await requireRegisteredWorker(tx,current.workerId);
+    if(current.individualPlan&&worker.id!==current.assignedWorkerId)throw new Error('個別作業指示の担当者は変更できません。');
+    if(!Number.isFinite(current.endAt)||current.endAt<current.startAt)throw new Error('作業状態が変わりました。計画表を確認してください。');
+    const at=Math.max(Date.now(),current.endAt);
+    const pauses=[...(current.pauses||[]),{type:'completion',from:current.endAt,to:at,
+      reopenedBy:user?.email||user?.displayName||user?.uid||''}];
+    const patch=withWorkOperations(current,{
+      status:'running',endAt:null,pauses,workerName:worker.name,
+      stdMin:null,actMin:null,diffMin:null,pausedMin:null
+    },[workOperationEvent(current,'finish',current.endAt,{
+      doneAfter:Number(current.doneBoxes)||0,fraction:Number(current.fraction)||0,
+      stdMin:current.stdMin??null,actMin:current.actMin??null,diffMin:current.diffMin??null
+    })]);
+    tx.update(ref,patch);
+    return {...current,...patch,id:order.id};
+  });
+}
 function WorkerChangeHistory({order}) {
   const changes=order.workerChanges || [];
   if(!changes.length)return null;
@@ -7438,6 +7474,23 @@ function WorkPlanScreen({
   const [workerBusy,setWorkerBusy]=useState(false);
   const [workerError,setWorkerError]=useState('');
   const [unlockOrder,setUnlockOrder]=useState(null);
+  const [reopenOrder,setReopenOrder]=useState(null);
+  const [reopenBusy,setReopenBusy]=useState(false);
+  const [reopenError,setReopenError]=useState('');
+  const reopening=useRef(false);
+  function openReopen(order){setReopenError('');setReopenOrder(order);}
+  async function confirmReopen(){
+    if(reopening.current)return;
+    reopening.current=true;setReopenBusy(true);setReopenError('');
+    try{
+      const resumed=await reopenCompletedWorkOrder(reopenOrder,user);
+      setReopenOrder(null);onResume(resumed);
+    }catch(e){
+      if(e.message==='管理者の解除が必要です。'){
+        setReopenOrder(null);openManagerUnlock(orders[reopenOrder.id]||reopenOrder);
+      }else setReopenError(e.message);
+    }finally{reopening.current=false;setReopenBusy(false);}
+  }
   const confirmingWorker=useRef(false);
   const liveStartOrder=startOrder&&(orders[startOrder.id]||startOrder);
   function openManagerUnlock(order) {
@@ -7823,11 +7876,13 @@ function WorkPlanScreen({
                     <td style={{
                   ...td,
                   textAlign: 'center'
-                }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span><KanbanPlanButton order={o} master={master} onlyBlocked/>
-                      <BiText value={o.status === 'done' ? <span style={{
+                  }}><span className="plan-mobile-label"><BiText value={b('作業開始')} /></span><KanbanPlanButton order={o} master={master} onlyBlocked/>
+                      <BiText value={o.status === 'done' ? <div style={{display:'grid',gap:6}}><span style={{
                     fontSize: 13,
                     color: '#9AA3AF'
-                  }}>✓ <BiText value={t('完了')} /></span> : <button onClick={() => openWorkerSelection(o)} style={{
+                  }}>✓ <BiText value={t('完了')} /></span><button type="button" onClick={()=>openReopen(o)}
+                    style={{minHeight:44,padding:'6px 12px',borderRadius:8,background:'#C2410C',color:'#fff',fontSize:15,fontWeight:800}}>
+                    ▶ <BiText value={t('再開')}/></button></div> : <button onClick={() => openWorkerSelection(o)} style={{
                     minHeight: 38,
                     padding: '0 10px',
                     borderRadius: 8,
@@ -7884,6 +7939,17 @@ function WorkPlanScreen({
         whiteSpace: 'normal'
       }}><BiText value={lb} /></button>)} />
         </div>} />
+      {reopenOrder&&<QrDialog title="完了した作業を再開" busy={reopenBusy} onClose={()=>setReopenOrder(null)}>
+        <p style={{fontWeight:700,marginBottom:10}}>{reopenOrder.hinban||reopenOrder.taskName}</p>
+        <p><BiText value="現在の担当者"/>　{reopenOrder.workerName}</p>
+        <p><BiText value="完了箱数"/>　{reopenOrder.doneBoxes||0}</p>
+        <p style={{marginTop:12}}><BiText value="箱数・実績を引き継いで再開します。終了から再開までの時間は実働に含めません。"/></p>
+        {reopenError&&<p role="alert" style={{color:'#B71C1C'}}><BiText value={reopenError}/></p>}
+        <button type="button" disabled={reopenBusy} onClick={confirmReopen}
+          style={{minHeight:48,marginTop:16,padding:'8px 24px',borderRadius:8,background:'#C2410C',color:'#fff',fontWeight:800}}>
+          <BiText value="再開する"/>
+        </button>
+      </QrDialog>}
       {startOrder&&!scanW&&<QrDialog title="担当者を選択" busy={workerBusy} onClose={()=>setStartOrder(null)}>
         <p style={{fontWeight:700,marginBottom:10}}>{startOrder.hinban||startOrder.taskName}</p>
         {startOrder.workerName&&<p><BiText value="現在の担当者"/>　{startOrder.workerName}</p>}
@@ -10432,7 +10498,7 @@ function workHistoryTimeline(order) {
     }
   }
   for(const pause of order.pauses||[]){
-    const type=pause.type==='break'?'break':pause.type==='support'?'support':'pause';
+    const type=pause.type==='break'?'break':pause.type==='support'?'support':pause.type==='completion'?'completion_pause':'pause';
     add(type,pause.from,{until:qrStamp(pause.to)});
     if(pause.to)add(qrStamp(pause.to)===qrStamp(order.endAt)?'pause_end':'resume',pause.to,{pauseType:type});
   }
@@ -10462,7 +10528,7 @@ function historyNoteSnapshots(order) {
   });
 }
 const HISTORY_EVENT_LABELS={start:'作業開始',box_done:'1箱完了',box_undo:'1つ戻す',break:'休憩',support:'ライン応援',pause:'中断',
-  resume:'再開',pause_end:'停止終了（作業終了）',anomaly:'異常',worker_change:'担当者変更',notes_saved:'不良数・コメント保存',
+  resume:'再開',completion_pause:'完了後の停止',pause_end:'停止終了（作業終了）',anomaly:'異常',worker_change:'担当者変更',notes_saved:'不良数・コメント保存',
   qr_blocked:'QR不一致・管理者解除待ち',qr_unlocked:'管理者解除',finish:'作業終了',adjust:'評価を調整'};
 function WorkHistoryDetail({order,onClose}) {
   const {lang}=useLang();
@@ -11314,6 +11380,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
 
 
 
