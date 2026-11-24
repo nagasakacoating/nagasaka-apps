@@ -519,6 +519,17 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .info-sheet-metrics strong{font-size:24px;color:#12306b}
 @media(max-width:600px){.plan-next-card{grid-template-columns:minmax(0,1fr)}.plan-next-card>button{grid-column:1;grid-row:3;width:100%}.plan-next-card>.plan-break-target{grid-template-columns:minmax(0,1fr)}}
 
+
+/* Show every start-screen language without opening a menu. */
+.process-screen>.app-topbar{grid-template-columns:minmax(0,1fr);gap:10px}
+.process-screen .app-topbar>.topbar-context{display:none}
+.process-screen .app-topbar>.topbar-title{grid-column:1;grid-row:1}
+.process-screen .app-topbar>.lang-user{grid-column:1;grid-row:2;flex-wrap:wrap!important;justify-content:center;max-width:none}
+.start-language-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1 0 100%;width:100%;max-width:760px}
+.start-language-buttons>button{min-width:0;min-height:52px;padding:10px 12px;border:3px solid transparent;border-radius:9px;background:#fff;color:#12306b;font-size:16px;font-weight:700;line-height:1.4;white-space:normal;overflow-wrap:break-word}
+.start-language-buttons>button[aria-pressed=true]{background:#dbeafe;border-color:#75b6ff;color:#0d2450}
+.start-language-buttons>button:focus-visible{outline:3px solid #facc15;outline-offset:2px}
+@media(max-width:600px){.start-language-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -3010,9 +3021,11 @@ function OverlayJapaneseButton() {
   return lang!=='ja'&&<div className="overlay-language"><ReturnJapaneseButton/></div>;
 }
 function LangUser({ user, showFullscreen = false }) {
-  const { lang, setLang, singleLanguage } = useLang();
+  const { lang, setLang, singleLanguage, startScreen } = useLang();
   return <div className="lang-user">
-    {singleLanguage ? <select className="process-language-switch" aria-label={singleLanguageText('言語', lang)}
+    {startScreen ? <div className="start-language-buttons" role="group" aria-label="言語 / Bahasa / Idioma / Ngôn ngữ" translate="no">
+      {Object.entries(PROCESS_LANGUAGES).map(([code,label])=><button type="button" key={code} lang={code} aria-pressed={lang===code} onClick={()=>setLang(code)}>{label}</button>)}
+    </div> : singleLanguage ? <select className="process-language-switch" aria-label={singleLanguageText('言語', lang)}
       value={lang} onChange={e=>{setLang(e.target.value);e.currentTarget.blur();}}>
       {Object.entries(PROCESS_LANGUAGES).map(([code,label])=><option key={code} value={code} lang={code}>{label}</option>)}
     </select> : <div className="language-switch" role="group" aria-label="言語 / Bahasa">
@@ -11248,7 +11261,7 @@ function App() {
     if(next==='ja'||next==='id')setLang(next);
   }
   const startLanguage=Object.hasOwn(PROCESS_LANGUAGES,processLang)?processLang:lang;
-  const screenContext = view.name==='proc' ? {...ctx,lang:startLanguage,setLang:changeStartLanguage,singleLanguage:true} : singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
+  const screenContext = view.name==='proc' ? {...ctx,lang:startLanguage,setLang:changeStartLanguage,singleLanguage:true,startScreen:true} : singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
   return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
       {(err||(view.name==='workrun'&&!orders[view.logId])||(view.name==='worksheet'&&!orders[view.orderId]))&&
