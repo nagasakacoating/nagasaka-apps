@@ -955,7 +955,7 @@ function KanbanQrSettings({item,onChange}){
       {part&&<div className={part.ok?'qr-preview':'qr-error'} role="status"><BiText value={part.ok?'一致：指定番号がQRに含まれています。':part.error}/>{part.ok&&<code>{part.value}</code>}</div>}
     </div>
     <p className="qr-help"><BiText value="先頭の0・ハイフンを含め、登録コードがそのまま含まれるか照合します。設定後は保存してください。"/></p>
-    {capture&&<QrDialog title="設定テスト用のQR読取" onClose={()=>setCapture(false)}><QrInputPanel onRead={raw=>{setSample(raw);setCapture(false);}}/></QrDialog>}
+    {capture&&<QrDialog title="設定テスト用のQR読取" onClose={()=>setCapture(false)}><QrInputPanel scannerEnabled onRead={raw=>{setSample(raw);setCapture(false);}}/></QrDialog>}
   </div>;
 }
 function KanbanEditor({items,onChange,upImg,busy,hinban}){
@@ -977,6 +977,66 @@ function KanbanPlanButton({order,master,onlyBlocked=false}){
   return <><button type="button" className="kanban-plan-check" onClick={()=>setOpen(blocked?'unlock':order.status==='running'?'count':'verify')} ><BiText value={blocked?'管理者の解除用QRを読む':order.status==='running'?'QR照合して1箱完了':'かんばんQR照合'}/></button>
     {open&&<KanbanCheckModal key={order.id||order.hinban} hinban={order.hinban} m={m} master={master} order={order} procId={order.procId} mode={open} onClose={()=>setOpen('')}/>}</>;
 }
+function ProductQrInfo({m,hinban,allMaster}) {
+  const [testing,setTesting]=useState(false),[result,setResult]=useState(null);
+  const signature=kanbanSignature(m);
+  useEffect(()=>setResult(null),[signature]);
+  const rules=kanbanRules(m);
+  return <section className="product-qr-info">
+    <div className="panel" style={{padding:16,marginBottom:14}}>
+      <h3><BiText value="登録中のQR照合設定" /></h3>
+      <p><BiText value="かんばんの登録内容と連動しています。設定はマスターの「かんばん」で変更できます。" /></p>
+      {rules.length ? <ul>{rules.map(({item,rule,index})=><li key={index} style={{marginBottom:12}}><BiText value={item.type||'かんばん'} />：<code>{rule.expected||'—'}</code></li>)}</ul> : <p role="status"><BiText value="この品番のQR照合は未設定です。" /></p>}
+      <button type="button" className="info-sheet-button" disabled={!rules.length} onClick={()=>{setResult(null);setTesting(true);}}><BiText value="QR照合テスト" /></button>
+      <p><BiText value="テストでは箱数は増えず、作業停止や解除の記録も変更しません。" /></p>
+    </div>
+    <KanbanInfo m={m} hinban={hinban} allMaster={allMaster} />
+    {testing&&<QrDialog title="QR照合テスト" onClose={()=>setTesting(false)}>
+      <p><BiText value="テストでは箱数は増えず、作業停止や解除の記録も変更しません。" /></p>
+      <QrInputPanel scannerEnabled onRead={raw=>setResult(verifyKanban(raw,hinban,m,allMaster))} />
+      {result&&<div className={result.ok?'qr-result qr-ok':'qr-result qr-ng'} role="status"><strong><BiText value={result.ok?'一致：選択中の品番です':'不一致'} /></strong>{result.error&&<p><BiText value={result.error} /></p>}{result.code&&<code>{result.code}</code>}</div>}
+      <QrMismatchDetails comparison={result?.comparison} />
+    </QrDialog>}
+  </section>;
+}
+function normalizeLocationNumber(value) {
+  return String(value||'').normalize('NFKC').trim().replace(/[‐‑‒–—―−ー]/g,'-').toUpperCase();
+}
+function validLocationNumber(value) {
+  return !value || /^[A-Z0-9]-[0-9]{2}$/.test(value);
+}
+function LocationNumberField({value,onChange,disabled=false}) {
+  return <label className="location-number-field" style={{display:'grid',gap:8,fontWeight:700}}>
+    <BiText value="ロケ番号" />
+    <input aria-label="ロケ番号" value={value} disabled={disabled} onChange={e=>onChange(e.target.value)} onBlur={()=>onChange(normalizeLocationNumber(value))} placeholder="1-01" autoComplete="off" spellCheck={false} style={{fontSize:24,minHeight:48,width:'100%'}} />
+    <small><BiText value="入力例：1-01、A-01（前1文字・後2桁）" /></small>
+  </label>;
+}
+function LocationEditScreen({hinban,m,user,onBack}) {
+  const [value,setValue]=useState(m.locNo||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const pending=useRef(false);
+  async function save() {
+    if(pending.current)return;
+    const number=normalizeLocationNumber(value);
+    if(number!==String(m.locNo||'')&&!validLocationNumber(number)){setError('ロケ番号は1-01の形式で入力してください。');return;}
+    pending.current=true;setBusy(true);setError('');
+    try {
+      await db.collection('outlineMaster').doc(hinban).update({locNo:number,updatedAt:new Date().toISOString().slice(0,10)});
+      onBack();
+    } catch(e) {setError('保存に失敗: '+e.message);}
+    finally {pending.current=false;setBusy(false);}
+  }
+  return <div className="app-screen location-edit-screen" style={{height:'100dvh',display:'flex',flexDirection:'column'}}>
+    <TopBar title="端数品置き場所" user={user} onBack={busy?undefined:onBack} />
+    <div style={{flex:1,overflowY:'auto',padding:20}}><div className="panel" style={{padding:20,maxWidth:640,margin:'0 auto'}}>
+      <h2>{hinban}</h2><p><BiText value="品番" />：{m.partNo||'—'}</p>
+      <LocationNumberField value={value} onChange={setValue} disabled={busy} />
+      {error&&<p role="alert" className="qr-error"><BiText value={error} /></p>}
+      <button type="button" className="info-sheet-button" onClick={save} disabled={busy} style={{marginTop:20}}><BiText value={busy?'保存中...':'保存する'} /></button>
+    </div></div>
+  </div>;
+}
+
 function KanbanInfo({m,hinban,allMaster}){
   return <div className="kanban-info-list">{(m.kanbans||[]).map((item,i)=><section className="panel" key={i}><div className="kanban-info-photo"><TapPhoto src={item.img} caption="かんばんの写真" style={{width:'100%',height:220,objectFit:'contain'}}/></div><div className="panel-h"><BiText value={item.type||'かんばん'}/></div><div className="kanban-info-detail">{[['QR照合コード（含まれていれば一致）',item.qrCheck?.expected??item.code],['用途',item.use],['使用工程',item.process],['発行先',item.issuer],['サイズ',item.size],['備考',item.note]].map(([label,value])=><div key={label}><strong><BiText value={label}/></strong><span>{label.startsWith('QR')?<code>{value||'—'}</code>:<BiText value={value||'—'}/>}</span></div>)}</div></section>)}<WarnBox items={m.kanbanNotes||[]}/></div>;
 }
@@ -1998,6 +2058,8 @@ const HISTORY_LABELS={
   '記録の行、または「詳細」を押すと、操作の記録を確認できます。':['Ketuk baris catatan atau Rincian untuk melihat riwayat operasi.','Toque na linha ou em Detalhes para ver o histórico de operações.','Nhấn vào dòng bản ghi hoặc Chi tiết để xem lịch sử thao tác.']
 };
 for(const [label,[id,pt,vi]] of Object.entries(HISTORY_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
+const PRODUCT_INFO_LABELS={"ロケ番号":["Nomor lokasi","Localização","Mã vị trí"],"登録中のQR照合設定": ["Pengaturan pengecekan QR terdaftar", "Configurações de QR cadastradas", "Cài đặt đối chiếu QR đã đăng ký"], "かんばんの登録内容と連動しています。設定はマスターの「かんばん」で変更できます。": ["Terhubung dengan data kanban. Ubah pengaturan di Master → Kanban.", "Vinculado ao cadastro de kanban. Altere em Cadastro → Kanban.", "Liên kết với dữ liệu kanban. Thay đổi tại Danh mục → Kanban."], "QR照合テスト": ["Tes pengecekan QR", "Teste de conferência QR", "Kiểm tra đối chiếu QR"], "テストでは箱数は増えず、作業停止や解除の記録も変更しません。": ["Tes tidak menambah jumlah kotak atau mengubah catatan penghentian dan pembukaan kunci.", "O teste não aumenta as caixas nem altera os registros de parada ou desbloqueio.", "Kiểm tra không tăng số thùng hoặc thay đổi bản ghi dừng và mở khóa."], "ロケ番号を登録・変更": ["Daftar / ubah nomor lokasi", "Cadastrar / alterar localização", "Đăng ký / đổi mã vị trí"], "入力例：1-01、A-01（前1文字・後2桁）": ["Contoh: 1-01, A-01 (1 karakter, tanda hubung, 2 digit)", "Ex.: 1-01, A-01 (1 caractere, hífen, 2 dígitos)", "Ví dụ: 1-01, A-01 (1 ký tự, gạch nối, 2 chữ số)"], "ロケ番号は1-01の形式で入力してください。": ["Masukkan nomor lokasi dalam format 1-01.", "Digite a localização no formato 1-01.", "Nhập mã vị trí theo dạng 1-01."]};
+for(const [label,[id,pt,vi]] of Object.entries(PRODUCT_INFO_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
@@ -3535,7 +3597,9 @@ function InfoViewer({
   master,
   user,
   onBack,
-  onChangeProc
+  onChangeProc,
+  onEditLocation,
+  initialPageKey = 'product'
 }) {
   const {
     lang,
@@ -3543,7 +3607,7 @@ function InfoViewer({
     b
   } = useLang();
   const m = master[hinban] || {};
-  const [pageKey, setPageKey] = useState('product');
+  const [pageKey, setPageKey] = useState(initialPageKey);
   const [scan, setScan] = useState(null);
   const [video, setVideo] = useState(false);
   const idx = INFO_PAGES.findIndex((p) => p.key === pageKey);
@@ -3616,7 +3680,7 @@ function InfoViewer({
               <button className="info-sheet-button" onClick={() => setPageKey('sheet')}><BiText value="要領書・工数" /></button>
               <button className="info-video-button" onClick={() => m.videoUrl ? setVideo(true) : showBiDialog('alert', t('動画が未登録です'))} disabled={!m.videoUrl}>▶ <BiText value="作業動画を再生" /></button>
             </div>
-            <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} allMaster={master} />
+            <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} allMaster={master} onEditLocation={onEditLocation} />
           </div>
           <FooterBar left={<><FBtn onClick={() => go(-1)} disabled={idx === 0}>◀ <BiText value={t('前の項目へ')} /></FBtn><FBtn onClick={() => go(1)} disabled={idx === INFO_PAGES.length - 1}><BiText value={t('次の項目へ')} /> ▶</FBtn><FBtn onClick={onBack}>☰ <BiText value={t('一覧に戻る')} /></FBtn></>} right={<><FBtn primary onClick={() => window.print()}>📄 <BiText value={t('PDFで表示')} /></FBtn><FBtn onClick={() => window.print()}>🖨 <BiText value={t('印刷する')} /></FBtn></>} />
         </div>
@@ -3649,7 +3713,8 @@ function PageContent({
   hinban,
   proc,
   onScan,
-  allMaster
+  allMaster,
+  onEditLocation
 }) {
   const {
     lang,
@@ -4500,79 +4565,15 @@ function PageContent({
             fontWeight: 800,
             color: NAVY,
             letterSpacing: 2
-          }}><BiText value={m.locNo || '—'} /></div>
+          }}>{m.locNo || '—'}</div>
+          {onEditLocation&&<button type="button" className="info-sheet-button" style={{marginTop:18}} onClick={onEditLocation}><BiText value="ロケ番号を登録・変更" /></button>}
         </div>
         <BiText value={m.locNote && <div style={{
           marginTop: 12
         }}><BiText value={txt(L(m, 'locNote'))} /></div>} />
       </Body></P>;
   }
-  if (pageKey === 'qr') {
-    return <div className="responsive-grid" style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))',
-      gap: 14
-    }}>
-        <P><H><BiText value="製品QR" other="QR Produk" /></H><Body>
-          <div style={{
-            textAlign: 'center'
-          }}>
-            <BiText value={m.qrText ? <><QRDisplay value={m.qrText} size={180} /><div style={{
-                fontSize: 18,
-                color: '#6B7480',
-                marginTop: 10,
-                wordBreak: 'break-all'
-              }}>{m.qrText}</div></> : none} />
-            <BiText value={QR_ENABLED ? <button onClick={() => onScan({
-              expected: m.qrText || hinban,
-              label: hinban + '：製品QR照合'
-            })} style={{
-              marginTop: 14,
-              minHeight: 50,
-              padding: '0 30px',
-              borderRadius: 10,
-              background: NAVY,
-              color: '#fff',
-              fontSize: 18,
-              fontWeight: 700
-            }}>▦ <BiText value={b('QR照合')} /></button> : <div style={{
-              marginTop: 14,
-              fontSize: 18,
-              color: '#9AA3AF'
-            }}>※ <BiText value={t('QRスキャナー導入後に利用できます')} /></div>} />
-          </div>
-        </Body></P>
-        <P><H><BiText value="かんばんQR" other="QR Kanban" /></H><Body>
-          <div style={{
-            textAlign: 'center'
-          }}>
-            <BiText value={m.kanbanQr ? <><QRDisplay value={m.kanbanQr} size={180} /><div style={{
-                fontSize: 18,
-                color: '#6B7480',
-                marginTop: 10,
-                wordBreak: 'break-all'
-              }}>{m.kanbanQr}</div></> : none} />
-            <BiText value={QR_ENABLED ? <button onClick={() => onScan({
-              expected: m.kanbanQr,
-              label: hinban + '：かんばんQR照合'
-            })} disabled={!m.kanbanQr} style={{
-              marginTop: 14,
-              minHeight: 50,
-              padding: '0 30px',
-              borderRadius: 10,
-              background: m.kanbanQr ? '#D97706' : '#C7CDD6',
-              color: '#fff',
-              fontSize: 18,
-              fontWeight: 700
-            }}><BiText value={"\u25A6 \u304B\u3093\u3070\u3093\u7167\u5408"} /></button> : <div style={{
-              marginTop: 14,
-              fontSize: 18,
-              color: '#9AA3AF'
-            }}>※ <BiText value={t('QRスキャナー導入後に利用できます')} /></div>} />
-          </div>
-        </Body></P>
-      </div>;
-  }
+  if (pageKey === 'qr') return <ProductQrInfo key={hinban} m={m} hinban={hinban} allMaster={allMaster} />;
   return null;
 }
 
@@ -5144,6 +5145,7 @@ function MasterEditor({
     setTranslationMessage('');
     try {
       const nd=JSON.parse(JSON.stringify(d));
+      if(String(nd.locNo||'')!==String(data.locNo||'')){nd.locNo=normalizeLocationNumber(nd.locNo);if(!validLocationNumber(nd.locNo))throw new Error('ロケ番号は1-01の形式で入力してください。');}
       const stamp=new Date().toISOString().slice(0,10);
       const jobs=collectTranslateJobs(nd,force);
       const result=await runTranslate(jobs,(done,total)=>setTrProg({done,total}));
@@ -5255,7 +5257,7 @@ function MasterEditor({
       setBusy(null);
     }
   }
-  const TABS = [['basic', '基本情報'], ['shape', '形状確認'], ['teekin', 'テーキン'], ['hanger', 'ハンガー'], ['steps', '作業の流れ'], ['caution', '注意ポイント'], ['tools', '必要道具'], ['packing', '収容数・荷姿'], ['boxes', '納入箱'], ['idmark', '識別マーク'], ['kanban', 'かんばん'], ['sheet', '要領書・工数']];
+  const TABS = [['basic', '基本情報'], ['shape', '形状確認'], ['teekin', 'テーキン'], ['hanger', 'ハンガー'], ['steps', '作業の流れ'], ['caution', '注意ポイント'], ['tools', '必要道具'], ['packing', '収容数・荷姿'], ['boxes', '納入箱'], ['idmark', '識別マーク'], ['kanban', 'かんばん'], ['loc', '端数品置き場所'], ['sheet', '要領書・工数']];
   function neighboringTab(dx) {
     const index = TABS.findIndex(([key]) => key === tab);
     return TABS[index + (dx < 0 ? 1 : -1)]?.[0];
@@ -5813,6 +5815,7 @@ function EditorBody({
       ...patch
     }
   });
+  if(tab==='loc') return <LocationNumberField value={d.locNo||''} onChange={v=>S('locNo',v)} disabled={!!busy} />;
   if (tab === 'basic') return <><div className="editor-primary-photo-layout"><div className="editor-primary-photo"><FLbl><BiText value={"\u88FD\u54C1\u5199\u771F"} /></FLbl><ImgSlot url={d.productImg} busy={busy === 'productImg'} h={150} onPick={(f) => upImg('productImg', f, (u) => S('productImg', u))} onClear={() => S('productImg', '')} onApply={(u) => S('productImg', u)} onPasteUpload={(f, applyPastedPhoto) => upImg('productImg', f, applyPastedPhoto)} imageKey={hinban + ":" + 'productImg'} targetOwner={d} /></div><div className="editor-primary-fields"><div style={{
       padding: '10px 12px',
       background: '#F2F6FD',
@@ -5863,7 +5866,7 @@ function EditorBody({
     }}><BiText value={"\u26A0 \u5DE5\u7A0B\u30921\u3064\u4EE5\u4E0A\u9078\u629E\u3057\u306A\u3044\u3068\u3001\u5404\u5DE5\u7A0B\u306E\u4F5C\u696D\u753B\u9762\u306B\u3053\u306E\u88FD\u54C1\u304C\u8868\u793A\u3055\u308C\u307E\u305B\u3093\u3002"} /></div>} />
 {/* QR設定は「かんばん」で行う。既存のqrText・kanbanQrデータは保持する。 */}
 <Row>
-      <div><FLbl><BiText value={"\u7AEF\u6570\u54C1\u7F6E\u304D\u5834\u6240\uFF08\u30ED\u30B1\u756A\u53F7\uFF09"} /></FLbl><LocalizedInput value={d.locNo || ''} onChange={(e) => S('locNo', e.target.value)} placeholder="例: A-12" /></div>
+      <div><FLbl><BiText value={"\u7AEF\u6570\u54C1\u7F6E\u304D\u5834\u6240\uFF08\u30ED\u30B1\u756A\u53F7\uFF09"} /></FLbl><LocationNumberField value={d.locNo||''} onChange={v=>S('locNo',v)} disabled={!!busy} /></div>
       <div><FLbl><BiText value={"\u4F5C\u696D\u52D5\u753BURL"} /></FLbl><LocalizedInput value={d.videoUrl || ''} onChange={(e) => S('videoUrl', e.target.value)} placeholder="https://..." /></div>
     </Row>
 <FLbl><BiText value={"\u88FD\u54C1\u5199\u771F\u30DA\u30FC\u30B8\u306E\u6CE8\u610F\u4E8B\u9805\uFF081\u884C1\u9805\u76EE\uFF09"} /></FLbl>
@@ -11058,7 +11061,7 @@ function App() {
       if(typeof entry?.ja==='string')masterTranslations.set(entry.ja,{...masterTranslations.get(entry.ja),...entry.translations});
     }
   }
-  const singleLanguage = hasProcessLanguages(view.proc?.id) && !['master','planner','analytics'].includes(view.name);
+  const singleLanguage = hasProcessLanguages(view.proc?.id) && !['master','planner','analytics','location'].includes(view.name);
   const screenLang = singleLanguage && Object.hasOwn(PROCESS_LANGUAGES, processLang) ? processLang : lang;
   const viewedTranslations=useViewedProductTranslations(singleLanguage?master[displayProduct]:null,view.proc?.id,screenLang);
   const automaticTranslations=useAutomaticProcessTranslations(master,view.proc?.id,screenLang,!!user&&singleLanguage);
@@ -11113,10 +11116,10 @@ function App() {
   })} />;else if (view.name === 'info') screen = <InfoViewer proc={view.proc} hinban={view.hinban} master={master} user={user} onBack={() => setView(view.backTo || {
     name: 'search',
     proc: view.proc
-  })} onChangeProc={(p) => setView({
+  })} initialPageKey={view.infoPage||'product'} onEditLocation={()=>adminGuard(()=>setView({name:'location',proc:view.proc,hinban:view.hinban,backTo:{...view,infoPage:'loc'}}))} onChangeProc={(p) => setView({
     ...view,
     proc: p
-  })} />;else if (view.name === 'master') screen = <MasterAdmin master={master} proc={view.proc} workers={workers} user={user} onBack={() => setView({
+  })} />;else if(view.name==='location') screen=<LocationEditScreen key={view.hinban} hinban={view.hinban} m={master[view.hinban]||{}} user={user} onBack={()=>setView(view.backTo)}/>;else if (view.name === 'master') screen = <MasterAdmin master={master} proc={view.proc} workers={workers} user={user} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;else if (view.name === 'work') screen = <WorkPlanScreen proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
@@ -11176,7 +11179,7 @@ function App() {
     proc: view.proc
   })} />;
   // screen は差し替えず、編集中の品番・タブ・入力・スクロール位置を保持する。
-  const adminLocked=['master','planner','analytics'].includes(view.name)&&!adminOpen;
+  const adminLocked=['master','planner','analytics','location'].includes(view.name)&&!adminOpen;
   const adminPrompt=<>
       {adminRequest==='ready'&&<AdminPinDialog mode={adminMode} onConfirm={confirmAdmin} onCancel={()=>{setAdminRequest(null);adminNextRef.current=null;}} busy={adminBusy} error={adminError}/>}
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
