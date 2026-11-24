@@ -504,6 +504,21 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .evaluation-table-wrap{overflow:auto}.evaluation-table{width:100%;border-collapse:collapse;font-size:14px}.evaluation-table th{background:#12306b;color:white;padding:10px;white-space:nowrap;text-align:left}.evaluation-table td{padding:10px;border-bottom:1px solid #d3deed;min-width:55px;vertical-align:top}.evaluation-table td:last-child{min-width:250px;max-width:450px;line-height:1.6}.evaluation-table tr:nth-child(even){background:#f7f9fc}.evaluation-table time{white-space:nowrap}
 .evaluation-event{display:grid;grid-template-columns:65px 150px 100px minmax(0,1fr);gap:10px;border-bottom:1px solid #d3deed;padding:10px 0;font-size:14px}.evaluation-bottom-total{margin-top:22px}.evaluation-detail-section>button{margin:4px 8px 4px 0}
 @media(max-width:700px){.evaluation-main{padding:10px}.evaluation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.evaluation-event{grid-template-columns:60px minmax(0,1fr)}.evaluation-event>div{grid-column:1/-1}.evaluation-toolbar label{max-width:100%}.evaluation-summary,.evaluation-detail-section{padding:10px}.evaluation-metrics strong{font-size:22px}}
+
+/* Give product details, translated targets and the start action their own space. */
+.plan-next-card{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(180px,300px);gap:14px 18px!important}
+.plan-next-card>div:first-child{min-width:0;overflow-wrap:anywhere}
+.plan-next-card>div:first-child>div{min-width:0}
+.plan-next-card>button{grid-column:2;grid-row:1;padding:12px 20px!important;white-space:normal;overflow-wrap:anywhere;min-width:0}
+.plan-next-card>.plan-break-target{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}
+.plan-break-target>div{min-width:0;overflow-wrap:anywhere}
+.plan-break-target strong{white-space:normal;overflow-wrap:anywhere}
+.info-sheet-button{min-height:44px;padding:8px 16px;border-radius:8px;background:#12306b;color:#fff;font-weight:700;font-size:16px}
+.info-sheet-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.info-sheet-metrics>div{display:grid;gap:6px;padding:12px;background:#f2f6fd;border-radius:8px;overflow-wrap:anywhere}
+.info-sheet-metrics strong{font-size:24px;color:#12306b}
+@media(max-width:600px){.plan-next-card{grid-template-columns:minmax(0,1fr)}.plan-next-card>button{grid-column:1;grid-row:3;width:100%}.plan-next-card>.plan-break-target{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -1295,6 +1310,12 @@ const INFO_PAGES = [{
   id_: 'Lokasi Barang Sisa',
   icon: '📍'
 }, {
+  key: 'sheet',
+  no: 14,
+  ja: '要領書・工数',
+  id_: 'Lembar Kerja dan Waktu Standar',
+  icon: '📋'
+}, {
   key: 'qr',
   no: 13,
   ja: 'QR照合',
@@ -1594,6 +1615,7 @@ const PROCESS_LABELS = {
   "マスター": ["Cadastro", "Danh mục"],
   "マスター管理": ["Gerenciar cadastro", "Quản lý danh mục"],
   "スケジュール編集": ["Editar programação", "Chỉnh sửa lịch"],
+  "要領書・工数": ["Instruções e tempos", "Hướng dẫn và thời gian"],
   "製品検索": ["Buscar peças", "Tìm sản phẩm"],
   "製品情報を見る": ["Ver informações da peça", "Xem thông tin sản phẩm"],
   "品番": ["Código da peça", "Mã sản phẩm"],
@@ -3591,6 +3613,7 @@ function InfoViewer({
             <div className="info-identity">
               <strong>{hinban}</strong><span><BiText value="品番" />：{m.partNo || '—'}</span>
               <span className="info-product-name"><BiText value={m.name || ''} other={m.name_id || ''} source="ja" /></span>
+              <button className="info-sheet-button" onClick={() => setPageKey('sheet')}><BiText value="要領書・工数" /></button>
               <button className="info-video-button" onClick={() => m.videoUrl ? setVideo(true) : showBiDialog('alert', t('動画が未登録です'))} disabled={!m.videoUrl}>▶ <BiText value="作業動画を再生" /></button>
             </div>
             <PageBody pageKey={pageKey} m={m} hinban={hinban} proc={proc} onScan={setScan} allMaster={master} />
@@ -3659,6 +3682,22 @@ function PageContent({
     color: '#2A3340'
   }}><BiText value={s} /></div> : none;
   const L = (o, k) => dv(o, k, lang);
+  if (pageKey === 'sheet') {
+    const sheet = m.sheets?.[proc.id] || {};
+    const kosu = Number(sheet.kosu) || 0;
+    const capacity = capacityOf(m, proc.id);
+    return <div className="info-sheet">
+      <P><H><BiText value="要領書・工数" />：<BiText value={proc.ja} /></H><Body>
+        <div className="info-sheet-metrics">
+          <div><span><BiText value="1箱工数" /></span><strong>{kosu > 0 ? <>{kosu} <BiText value="分" /></> : <BiText value="未登録" />}</strong></div>
+          <div><span><BiText value="収容数" /></span><strong>{capacity > 0 ? <>{capacity} <BiText value="個" /></> : <BiText value="未登録" />}</strong></div>
+        </div>
+      </Body></P>
+      <h3><BiText value="作業手順を確認してください" /></h3>
+      <SheetSteps sheet={sheet} lang={lang} />
+      <WarnBox items={dva(sheet, 'notes', lang)} translations={hasProcessLanguages(proc.id) ? sheet : undefined} />
+    </div>;
+  }
   if (pageKey === 'product') {
     return <>
       <div className="responsive-grid info-overview-grid" style={{
@@ -7636,7 +7675,7 @@ function WorkPlanScreen({
             </div>)} />
         </div>
         {/* 次の作業（大きく強調） */}
-        <BiText value={nextRow && <div className="next-work" style={{
+        <BiText value={nextRow && <div className="next-work plan-next-card" style={{
         background: '#F2F6FD',
         border: '2px solid ' + NAVY,
         borderRadius: 12,
