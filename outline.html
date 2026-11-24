@@ -1987,7 +1987,7 @@ const INDIVIDUAL_LABELS = {
   '応援予定は最大5回までです。':['Maksimal 5 kali bantuan.','São permitidos até 5 apoios.','Tối đa 5 lần hỗ trợ.'],
   '応援の開始時刻と時間を確認してください。':['Periksa jam mulai dan durasi bantuan.','Confira o início e a duração do apoio.','Kiểm tra giờ bắt đầu và thời gian hỗ trợ.'],
   '応援予定の時間が重複しています。':['Jadwal bantuan bertumpang tindih.','Os horários de apoio se sobrepõem.','Các lịch hỗ trợ bị trùng giờ.'],
-  '製品切替は3分':['Pergantian produk: 3 menit','Troca de produto: 3 minutos','Đổi sản phẩm: 3 phút'],
+  '製品切替は5分':['Pergantian produk: 5 menit','Troca de produto: 5 minutos','Đổi sản phẩm: 5 phút'],
   '1箱工数（分・任意）':['Waktu per kotak (menit, opsional)','Tempo por caixa (minutos, opcional)','Thời gian mỗi thùng (phút, tùy chọn)'],
   '製品・作業の指定':['Penentuan produk / pekerjaan','Definição do produto / trabalho','Chọn sản phẩm / công việc'],
   '登録済み製品から選択':['Pilih produk terdaftar','Selecionar produto cadastrado','Chọn sản phẩm đã đăng ký'],
@@ -6589,7 +6589,7 @@ function buildTimeline(rows, settings) {
       return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks),_planSupportMin:lineSupportMinutes(plan.start,end,plan.breaks,supports)};
     }
     const previous=rows[i-1];
-    const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?3:0;
+    const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?5:0;
     const dur = rowPlanMin(o);
     const blocks=[...(st.breaks||[]),...supports];
     const a = addWork(cur+changeover, 0, blocks);
@@ -7354,7 +7354,7 @@ function LineSupportSchedule({proc,date,settings}) {
     } catch(e) {setError(e.message);} finally {setBusy(false);}
   }
   return <section className="individual-card individual-editor" aria-label="ライン応援予定時間">
-    <div className="individual-header"><strong><BiText value="ライン応援予定時間"/>　{date}</strong><strong><BiText value="製品切替は3分"/></strong></div>
+    <div className="individual-header"><strong><BiText value="ライン応援予定時間"/>　{date}</strong><strong><BiText value="製品切替は5分"/></strong></div>
     <small><BiText value="選択した日付・工程の予定に反映します。応援は最大5回まで設定できます。"/></small>
     {slots.map((slot,i)=><div key={i} className="individual-periods">
       <strong>{i+1}</strong>
