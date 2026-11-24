@@ -550,7 +550,7 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 
 function qrStamp(value){return value&&typeof value.toMillis==='function'?value.toMillis():value&&typeof value.seconds==='number'?value.seconds*1000:typeof value==='number'?value:0;}
 function qrCooldownEnd(order){return qrStamp(order&&order.qrLastCountAt)+(Number(order&&order.qrCooldownMs)||0);}
-function qrInterval(order,m){const minutes=Number(order.kosu)||Number(m.sheets&&m.sheets[order.procId]&&m.sheets[order.procId].kosu)||0;return minutes>0?Math.ceil(minutes*60000*.3):0;}
+function qrInterval(order,m){const minutes=Number(withMasterKosu(order,{[order.hinban]:m}).kosu)||0;return minutes>0?Math.ceil(minutes*60000*.3):0;}
 function qrSeconds(until,now=Date.now()){return Math.max(0,Math.ceil((until-now)/1000));}
 function qrClock(seconds){return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');}
 function qrLocalKey(orderId){return 'outline-qr-block-v1:'+orderId;}
@@ -694,7 +694,7 @@ async function countVerifiedKanban({orderId,hinban,procId,raw,eventId,master,wor
     const done=Number(order.doneBoxes)||0,target=Number(order.targetBoxes)||0;if(target>0&&done>=target)throw new Error('目標箱数に達しています。計画表を確認してください。');
     const used=order.qrUsedBoxKeys||[],key=checked.serial?JSON.stringify([hinban,checked.serial]):'';if(key&&used.includes(key))throw new Error('この箱のQRはすでに完了登録されています。');
     const event={id:eventId,at:Date.now(),code:checked.code,ruleIndex:checked.ruleIndex,serial:checked.serial||'',doneAfter:done+1};
-    const patch={qrMode:'kanban-v1',kosu:Number(order.kosu)||Number(current.sheets&&current.sheets[order.procId]&&current.sheets[order.procId].kosu),doneBoxes:done+1,qrLastCheck:event,qrCountEvents:[...oldEvents,event],qrLastCountAt:qrServerStamp(),qrCooldownMs:interval};if(key)patch.qrUsedBoxKeys=[...used,key];
+    const patch={qrMode:'kanban-v1',kosu:Number(order.kosu)||0,doneBoxes:done+1,qrLastCheck:event,qrCountEvents:[...oldEvents,event],qrLastCountAt:qrServerStamp(),qrCooldownMs:interval};if(key)patch.qrUsedBoxKeys=[...used,key];
     tx.update(orderRef,patch);history={order,event:workOperationEvent(order,'box_done',event.at,{source:'qr',refId:event.id,doneAfter:done+1,previous:done})};return {count:done+1,until:Date.now()+interval};
   });
   if(history)recordQrHistory(orderId,history.order,[history.event]);return result;
@@ -732,6 +732,20 @@ function workStartErrorMessage(error) {
   const message = error?.message;
   return HAS_JAPANESE.test(message || '') ? message : '作業を開始できませんでした。計画表を確認し、再度お試しください。';
 }
+// Pending product plans follow the master; a started order keeps its recorded standard.
+function withMasterKosu(order, master) {
+  if (!order || order.status!=='pending' || order.startAt!=null || order.endAt!=null ||
+      order.kind==='task' || order.individualPlan?.freeText) return order;
+  const item=master?.[order.hinban];
+  if (!item) return order;
+  const value=Number(item.sheets?.[order.procId]?.kosu);
+  const kosu=Number.isFinite(value)&&value>=0 ? value : 0;
+  return Number(order.kosu)===kosu ? order : {...order,kosu};
+}
+function ordersWithMasterKosu(orders, master) {
+  return Object.fromEntries(Object.entries(orders).map(([id,order])=>[id,withMasterKosu(order,master)]));
+}
+
 async function startWorkOrder({order,hinban,procId,payload}){
   const isTask=order.kind==='task';
   const ref=db.collection('workOrders').doc(order.id);
@@ -755,7 +769,9 @@ async function startWorkOrder({order,hinban,procId,payload}){
       if(!guard.exists||guard.data().enabled!==true||guard.data().protocol!==1)
         throw new Error('管理者解除の初期設定が必要です。管理者に確認してください。');
     }
-    tx.update(ref,{...payload,workerId:worker.id,workerName:worker.name,...(usesQr?{qrMode:'kanban-v1'}:{})});
+    const standard=!isTask&&!current.individualPlan?.freeText&&ms?.exists ?
+      {kosu:Number(withMasterKosu(current,{[hinban]:ms.data()}).kosu)||0} : {};
+    tx.update(ref,{...payload,...standard,workerId:worker.id,workerName:worker.name,...(usesQr?{qrMode:'kanban-v1'}:{})});
   });
 }
 function TranslationStatus() {
@@ -2069,7 +2085,7 @@ const HISTORY_LABELS={
   '記録の行、または「詳細」を押すと、操作の記録を確認できます。':['Ketuk baris catatan atau Rincian untuk melihat riwayat operasi.','Toque na linha ou em Detalhes para ver o histórico de operações.','Nhấn vào dòng bản ghi hoặc Chi tiết để xem lịch sử thao tác.']
 };
 for(const [label,[id,pt,vi]] of Object.entries(HISTORY_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
-const PRODUCT_INFO_LABELS={"ロケ番号":["Nomor lokasi","Localização","Mã vị trí"],"登録中のQR照合設定": ["Pengaturan pengecekan QR terdaftar", "Configurações de QR cadastradas", "Cài đặt đối chiếu QR đã đăng ký"], "かんばんの登録内容と連動しています。設定はマスターの「かんばん」で変更できます。": ["Terhubung dengan data kanban. Ubah pengaturan di Master → Kanban.", "Vinculado ao cadastro de kanban. Altere em Cadastro → Kanban.", "Liên kết với dữ liệu kanban. Thay đổi tại Danh mục → Kanban."], "QR照合テスト": ["Tes pengecekan QR", "Teste de conferência QR", "Kiểm tra đối chiếu QR"], "テストでは箱数は増えず、作業停止や解除の記録も変更しません。": ["Tes tidak menambah jumlah kotak atau mengubah catatan penghentian dan pembukaan kunci.", "O teste não aumenta as caixas nem altera os registros de parada ou desbloqueio.", "Kiểm tra không tăng số thùng hoặc thay đổi bản ghi dừng và mở khóa."], "ロケ番号を登録・変更": ["Daftar / ubah nomor lokasi", "Cadastrar / alterar localização", "Đăng ký / đổi mã vị trí"], "入力例：1-01、A-01（前1文字・後2桁）": ["Contoh: 1-01, A-01 (1 karakter, tanda hubung, 2 digit)", "Ex.: 1-01, A-01 (1 caractere, hífen, 2 dígitos)", "Ví dụ: 1-01, A-01 (1 ký tự, gạch nối, 2 chữ số)"], "ロケ番号は1-01の形式で入力してください。": ["Masukkan nomor lokasi dalam format 1-01.", "Digite a localização no formato 1-01.", "Nhập mã vị trí theo dạng 1-01."]};
+const PRODUCT_INFO_LABELS={"マスターの工数を使用します。":["Menggunakan waktu standar dari master.","Usa o tempo padrão do cadastro.","Sử dụng thời gian chuẩn từ danh mục."],"ロケ番号":["Nomor lokasi","Localização","Mã vị trí"],"登録中のQR照合設定": ["Pengaturan pengecekan QR terdaftar", "Configurações de QR cadastradas", "Cài đặt đối chiếu QR đã đăng ký"], "かんばんの登録内容と連動しています。設定はマスターの「かんばん」で変更できます。": ["Terhubung dengan data kanban. Ubah pengaturan di Master → Kanban.", "Vinculado ao cadastro de kanban. Altere em Cadastro → Kanban.", "Liên kết với dữ liệu kanban. Thay đổi tại Danh mục → Kanban."], "QR照合テスト": ["Tes pengecekan QR", "Teste de conferência QR", "Kiểm tra đối chiếu QR"], "テストでは箱数は増えず、作業停止や解除の記録も変更しません。": ["Tes tidak menambah jumlah kotak atau mengubah catatan penghentian dan pembukaan kunci.", "O teste não aumenta as caixas nem altera os registros de parada ou desbloqueio.", "Kiểm tra không tăng số thùng hoặc thay đổi bản ghi dừng và mở khóa."], "ロケ番号を登録・変更": ["Daftar / ubah nomor lokasi", "Cadastrar / alterar localização", "Đăng ký / đổi mã vị trí"], "入力例：1-01、A-01（前1文字・後2桁）": ["Contoh: 1-01, A-01 (1 karakter, tanda hubung, 2 digit)", "Ex.: 1-01, A-01 (1 caractere, hífen, 2 dígitos)", "Ví dụ: 1-01, A-01 (1 ký tự, gạch nối, 2 chữ số)"], "ロケ番号は1-01の形式で入力してください。": ["Masukkan nomor lokasi dalam format 1-01.", "Digite a localização no formato 1-01.", "Nhập mã vị trí theo dạng 1-01."]};
 for(const [label,[id,pt,vi]] of Object.entries(PRODUCT_INFO_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
 const START_SCREEN_LABELS={
   "アウトライン工程": [
@@ -8115,12 +8131,14 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const freeText=productSource==='text';
   const instructionName=freeText ? workName.trim() : hinban;
   const item = freeText ? {} : master[hinban] || {};
+  const standardOrder=withMasterKosu({hinban,procId:proc.id,kosu,individualPlan:{freeText},status:assigned?'running':'pending'},master);
+  const effectiveKosu=standardOrder.kosu;
   const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null,freeText};
   const dateRows=Object.values(orders).filter(o=>o.date===instructionDate&&o.procId===proc.id&&o.id!==existing?.id);
   const destinationOrder=(dateRows.length?Math.max(...dateRows.map(o=>Number(o.order)||0)):0)+10;
   const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?nextOrder:destinationOrder,
     hinban:instructionName,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
-    kosu:Number(kosu),capacity:freeText?1:capacityOf(item,proc.id),individualPlan:plan};
+    kosu:Number(effectiveKosu),capacity:freeText?1:capacityOf(item,proc.id),individualPlan:plan};
   const people = Object.values(workers).filter(w=>w.name?.trim()).sort((a,b)=>(a.order||0)-(b.order||0));
   const start = instructionMinute(from),end = instructionMinute(to);
   const breaks = instructionBreaks(plan);
@@ -8190,7 +8208,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
       {mode==='quantity'&&<IndividualField label="残り箱数"><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
         setRemaining(e.target.value);setQuantityChanged(true);
       }}/></IndividualField>}
-      <IndividualField label={freeText?'1箱工数（分・任意）':'1箱工数（分）'}><LocalizedInput type="number" min="0.01" step="any" disabled={assigned} value={kosu} onChange={e=>setKosu(e.target.value)}/></IndividualField>
+      <IndividualField label={freeText?'1箱工数（分・任意）':'1箱工数（分）'}><LocalizedInput type="number" min="0.01" step="any" disabled={assigned||!freeText} value={effectiveKosu} onChange={e=>setKosu(e.target.value)}/>{!assigned&&!freeText&&<small><BiText value="マスターの工数を使用します。"/></small>}</IndividualField>
     </div>
     <fieldset>
       <legend><BiText value="本人の休憩開始時刻"/></legend>
@@ -8904,7 +8922,7 @@ function WorkOrderWorkerPicker({workers,value,onChange,disabled,exclude,label='�
 }
 function WorkSheetScreen({
   proc,
-  order,
+  order: savedOrder,
   worker,
   workers,
   master,
@@ -8919,6 +8937,7 @@ function WorkSheetScreen({
     t,
     b
   } = useLang();
+  const order=withMasterKosu(savedOrder,master);
   const isTask=order.kind==='task';
   const hinban = order.hinban;
   const m = order.individualPlan?.freeText ? {} : master[hinban] || {};
@@ -11018,7 +11037,8 @@ function App() {
   const [err, setErr] = useState(null);
   const [master, setMaster] = useState({});
   const [workers, setWorkers] = useState({});
-  const [orders, setOrders] = useState({});
+  const [storedOrders, setOrders] = useState({});
+  const orders=React.useMemo(()=>ordersWithMasterKosu(storedOrders,master),[storedOrders,master]);
   const [procSettings, setProcSettings] = useState({});
   const [view, setView] = useState({
     name: 'proc'
