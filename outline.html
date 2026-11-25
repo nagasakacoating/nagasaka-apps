@@ -6641,7 +6641,12 @@ function rowPlanMin(o) {
   return (Number(o && o.kosu) || 0) * (Number(o && o.targetBoxes) || 0);
 }
 /* 計画行に _planStart/_planEnd/_planMin を付与して返す */
-function buildTimeline(rows, settings) {
+function workerScheduleBreaks(rows, order, settings) {
+  const worker=order.assignedWorkerId;
+  const personal=worker&&rows.filter(r=>r.date===order.date&&r.assignedWorkerId===worker&&r.individualPlan).at(-1);
+  return personal?instructionBreaks(personal.individualPlan):(settings||DEFAULT_SETTINGS).breaks||[];
+}
+function buildTimeline(rows, settings, restRows=rows) {
   const st = settings || DEFAULT_SETTINGS;
   let cur = hm2min(st.startTime || '08:00');
   return rows.map((o,i) => {
@@ -6654,14 +6659,16 @@ function buildTimeline(rows, settings) {
     const previous=rows[i-1];
     const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?5:0;
     const dur = rowPlanMin(o);
-    const blocks=[...(st.breaks||[]),...supports];
+    const rests=workerScheduleBreaks(restRows,o,st);
+    const blocks=[...rests,...supports];
     const a = addWork(cur+changeover, 0, blocks);
     const e = addWork(a, dur, blocks);
-    const supportMin=lineSupportMinutes(a,e,st.breaks,supports);
+    const supportMin=lineSupportMinutes(a,e,rests,supports);
     cur = e;
     return {
       ...o,
       _planMin: dur+supportMin,
+      _planBreaks:rests,
       _planSupportMin:supportMin,
       _planChangeoverMin:changeover,
       _planStart: a,
@@ -6731,7 +6738,7 @@ function plannedBreakTarget(order, settings, now) {
   const start=order._planStart, end=order._planEnd;
   if (end<=start) return null;
 
-  const schedule=order.individualPlan ? instructionBreaks(order.individualPlan) : (settings || DEFAULT_SETTINGS).breaks || [];
+  const schedule=order.individualPlan ? instructionBreaks(order.individualPlan) : order._planBreaks || (settings || DEFAULT_SETTINGS).breaks || [];
   const spans=schedule.map(rest=>({from:hm2min(rest.from),to:hm2min(rest.to)}))
     .filter(rest=>rest.to>rest.from).sort((a,b)=>a.from-b.from);
   const rests=[];
@@ -8152,7 +8159,7 @@ function WorkPlanScreen({
 function IndividualField({label, children}) {
   return <label className="individual-field"><BiText value={label}/>{children}</label>;
 }
-function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose, onSaved}) {
+function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose, onSaved, onDraftRest}) {
   const {lang} = useLang();
   const current = orders[existing?.id] || existing;
   const assigned = current?.status && current.status !== 'pending';
@@ -8167,6 +8174,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const [to,setTo] = useState(saved?.to || '');
   const [kosu,setKosu] = useState(existing?.kosu || '');
   const [breakStarts,setBreakStarts] = useState(saved?.breakStarts || INDIVIDUAL_BREAK_STARTS);
+  useEffect(()=>{onDraftRest?.({id:existing?.id,date:instructionDate,workerId,breakStarts});},[instructionDate,workerId,breakStarts,existing?.id]);
   const [remaining,setRemaining] = useState('');
   const [quantityChanged,setQuantityChanged] = useState(false);
   const [error,setError] = useState('');
@@ -8183,6 +8191,11 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const effectiveKosu=standardOrder.kosu;
   const plan = {mode,from,to:mode==='time'?to:'',breakStarts,hasQuantity:actualRemaining!==null,freeText};
   const dateRows=Object.values(orders).filter(o=>o.date===instructionDate&&o.procId===proc.id&&o.id!==existing?.id);
+  const priorRows=dateRows.filter(o=>o.status!=='archived').sort((a,b)=>(a.order||0)-(b.order||0));
+  const personalRows=[...priorRows,{date:instructionDate,assignedWorkerId:workerId,individualPlan:{breakStarts}}];
+  const priorTimeline=buildTimeline(priorRows,settings,personalRows);
+  const previous=workerId&&priorTimeline.filter(o=>o.assignedWorkerId===workerId).at(-1);
+  const nextStart=previous?addWork(Math.ceil(previous._planEnd)+5,0,[...instructionBreaks({breakStarts}),...lineSupportBreaks(settings,instructionDate)]):null;
   const destinationOrder=(dateRows.length?Math.max(...dateRows.map(o=>Number(o.order)||0)):0)+10;
   const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?nextOrder:destinationOrder,
     hinban:instructionName,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
@@ -8251,7 +8264,7 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
         <LocalizedOption value="quantity">数量指定</LocalizedOption>
         <LocalizedOption value="time">終了時刻指定</LocalizedOption>
       </LocalizedSelect></IndividualField>
-      <IndividualField label="開始予定"><LocalizedInput type="time" value={from} onChange={e=>setFrom(e.target.value)}/></IndividualField>
+      <IndividualField label="開始予定"><LocalizedInput type="time" value={from} onChange={e=>setFrom(e.target.value)}/>{!existing&&nextStart!==null&&nextStart<1440&&<button type="button" onClick={()=>setFrom(min2hm(nextStart))}>前の作業の後から開始　{min2hm(nextStart)}</button>}</IndividualField>
       {mode==='time'&&<IndividualField label="終了時刻"><LocalizedInput type="time" value={to} onChange={e=>setTo(e.target.value)}/></IndividualField>}
       {mode==='quantity'&&<IndividualField label="残り箱数"><LocalizedInput type="number" min="0" step="1" value={boxes} onChange={e=>{
         setRemaining(e.target.value);setQuantityChanged(true);
@@ -8332,10 +8345,13 @@ function SchedulePlanner({
   const [addDur, setAddDur] = useState('');
   const [shiftOpen, setShiftOpen] = useState(false);
   const [individualEditor, setIndividualEditor] = useState(null);
+  const [individualDraft,setIndividualDraft]=useState(null);
   const plannerNow = useNow();
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
   const raw = Object.values(orders || {}).filter((o) => o.procId === proc.id && o.date === date).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const rows = buildTimeline(raw, settings);
+  const draftRest=individualEditor&&individualDraft?.workerId&&individualDraft.date===date?individualDraft:null;
+  const previewRows=draftRest?[...raw.filter(o=>o.id!==draftRest.id),{id:'__draft_rest',date,assignedWorkerId:draftRest.workerId,individualPlan:{breakStarts:draftRest.breakStarts}}]:raw;
+  const rows = buildTimeline(raw, settings, previewRows);
   const col = db.collection('workOrders');
   async function run(fn) {
     if (busy) return;
@@ -8692,8 +8708,8 @@ function SchedulePlanner({
         <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings}/>
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
-          onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);}}
-          nextOrder={(rows.length?Math.max(...rows.map(r=>r.order||0)):0)+10} onClose={()=>setIndividualEditor(null)}/>}
+          onDraftRest={setIndividualDraft} onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);setIndividualDraft(null);}}
+          nextOrder={(rows.length?Math.max(...rows.map(r=>r.order||0)):0)+10} onClose={()=>{setIndividualEditor(null);setIndividualDraft(null);}}/>}
         <div style={{
         fontSize: 13,
         color: '#5A6472',
@@ -8713,7 +8729,7 @@ function SchedulePlanner({
           color: '#8A93A0',
           marginTop: 3
         }}>
-            <BiText value={b('休憩')} />：<BiText value={((settings || DEFAULT_SETTINGS).breaks || []).map((x) => `${x.label} ${x.from}-${x.to}`).join('　') || 'なし'} />
+            <BiText value={b('休憩')} />：<BiText value={(draftRest?instructionBreaks({breakStarts:draftRest.breakStarts}):mergeWorkBreaks([...((settings || DEFAULT_SETTINGS).breaks||[]),...raw.flatMap(o=>o.individualPlan?instructionBreaks(o.individualPlan):[])])).map(x=>`${x.from}-${x.to}`).join('　') || 'なし'} />
           </div>
         </div>
         <div style={{
