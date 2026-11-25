@@ -244,6 +244,20 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .work-dialog-header{min-width:0;flex-wrap:wrap}.work-dialog-header>div{flex:1 1 140px;min-width:0;overflow-wrap:break-word}
 .work-dialog-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .work-dialog-close{flex:none;margin-left:auto;min-width:64px;min-height:44px;padding:6px 12px;border:1px solid #ffffff99;border-radius:8px;color:#fff;font-size:14px;font-weight:700}
+.history-cleanup-form{display:grid;gap:12px;color:#172c4d;line-height:1.6}
+.history-cleanup-form>label{display:grid;gap:5px;font-weight:700}
+.history-cleanup-form fieldset{display:grid;gap:10px;border:1px solid #b9c7dd;border-radius:8px;padding:12px;min-width:0}
+.history-cleanup-form fieldset label{display:flex;align-items:center;gap:10px}
+.history-cleanup-form input[type=radio]{width:22px;height:22px;flex:none}
+.history-cleanup-form p{margin:0;font-size:14px}
+.history-cleanup-actions{display:flex;flex-wrap:wrap;gap:10px;position:sticky;bottom:-16px;background:#fff;padding:10px 0}
+.history-cleanup-actions>button{flex:1 1 160px;margin:0!important;min-height:48px}
+.history-cleanup-actions>button:last-child{background:#12306b!important;color:#fff!important;font-weight:800}.history-cleanup-actions>button:disabled{opacity:.55}
+.history-active-record,.history-cleanup-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.history-active-record>strong{flex:1 1 220px}.history-active-record>details{flex-basis:100%}
+.history-cleanup-toolbar{margin:10px 0;font-size:14px}.history-cleanup-toolbar>p{width:100%;color:#216e3c;font-weight:700}
+.history-archived-list{margin:12px 0;padding:12px;border:1px solid #b9c7dd;background:#f4f6fa;border-radius:10px}.history-archived-list .history-active-record{padding:8px 0;border-bottom:1px solid #d7dfe9}
+.history-admin-badge{display:block;margin-top:5px;padding:4px 7px;background:#fff2d3;color:#734500;border-radius:5px;font-size:12px;font-weight:700}
 .work-dialog-footer{background:#fff;border-top:1px solid #E3E7ED;padding:10px 16px!important}
 .work-result-row{gap:8px 16px;flex-wrap:wrap}.work-result-row>span:last-child{margin-left:auto;text-align:right}
 @media(max-height:600px){.work-dialog-header{padding:10px 16px!important}.work-result-summary{margin:12px 16px 0!important;padding:12px!important}.work-result-summary>div:nth-child(2){font-size:42px!important}.work-dialog-footer>button{min-height:48px!important}}
@@ -615,7 +629,7 @@ async function qrGuardReady(){
 async function lockKanbanOrder(orderId,lockId,code=''){
   const ref=db.collection('workOrders').doc(orderId);return db.runTransaction(async tx=>{
     const snap=await tx.get(ref);if(!snap.exists)throw new Error('作業またはマスターが見つかりません。');const order=snap.data();
-    if(order.status==='done')throw new Error('作業状態が変わりました。計画表を確認してください。');
+    if(['done','archived'].includes(order.status))throw new Error('作業状態が変わりました。計画表を確認してください。');
     if(order.qrBlocked)return order.qrLockId;
     tx.update(ref,{qrMode:'kanban-v1',qrBlocked:true,qrLockId:lockId,qrBlockedAt:qrServerStamp(),qrBlockCode:String(code).slice(0,160)});return lockId;
   });
@@ -6839,7 +6853,7 @@ function bucketOf(o, mode) {
   return mode === 'day' ? String(o.date || '') : mode === 'month' ? ymKey(o.date) : yKey(o.date);
 }
 function summarize(list) {
-  return list.reduce((a, o) => {
+  return list.filter(o=>!o.excludeFromEvaluation).reduce((a, o) => {
     a.n++;
     a.boxes += Number(o.doneBoxes) || 0;
     a.target += Number(o.targetBoxes) || 0;
@@ -6885,6 +6899,7 @@ function currentWorkerSegment(order, end, notes = {}, fraction = 0) {
   };
 }
 function workerEvaluationRows(order) {
+  if(order.excludeFromEvaluation)return [];
   const changes = order.workerChanges || [];
   if (!changes.length) return order.status === 'done' ? [order] : [];
   const entries = changes.map(change=>change.segment);
@@ -7710,7 +7725,7 @@ function WorkPlanScreen({
   const doneCnt = rows.filter((o) => o.status === 'done').length;
   const planMin = rows.reduce((a, o) => a + o._planMin, 0);
   const endEta = rows.reduce((latest,o)=>Math.max(latest,o._planEnd),hm2min((settings || DEFAULT_SETTINGS).startTime));
-  const diffSum = rows.filter((o) => o.status === 'done').reduce((a, o) => a + effDiff(o), 0);
+  const diffSum = rows.filter((o) => o.status === 'done'&&!o.excludeFromEvaluation).reduce((a, o) => a + effDiff(o), 0);
   function resolveWorker(text) {
     const v = (text || '').trim();
     const w = wlist.find((x) => x.qr && (x.qr === v || v.includes(x.qr))) || wlist.find((x) => x.name === v);
@@ -10089,7 +10104,7 @@ function evaluationBoxCycles(order) {
   return cycles;
 }
 function evaluationPrepare(orders) {
-  return orders.filter(order=>order.status==='done').map(order=>{
+  return orders.filter(order=>order.status==='done'&&!order.excludeFromEvaluation).map(order=>{
     const changes=order.workerChanges||[];let cycleCache;const getCycles=()=>cycleCache||(cycleCache=evaluationBoxCycles(order));
     const source=changes.length?[...changes.map(c=>c.segment),currentWorkerSegment(order,order.endAt,{},Number(order.fraction)||0)]:[order];
     let baseline=0;
@@ -10193,7 +10208,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
       if(active)setRows(snap.docs.map(d=>({id:d.id,...d.data()})));
     }).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};
   },[start,end]);
-  const orders=React.useMemo(()=>(rows||[]).filter(o=>o.status==='done'&&(all||o.procId===proc.id)),[rows,all,proc.id]);
+  const orders=React.useMemo(()=>(rows||[]).filter(o=>o.status==='done'&&!o.excludeFromEvaluation&&(all||o.procId===proc.id)),[rows,all,proc.id]);
   const prepared=React.useMemo(()=>evaluationPrepare(orders),[orders]);
   const workerOptions=[...new Map([...Object.values(workers||{}).map(w=>[w.id,w.name]),...prepared.flatMap(e=>e.segments).map(s=>[s.key,s.name])]).entries()].filter(([key])=>key);
   const root={...range,from:Math.max(range.from,evaluationMidnight(start))};
@@ -10685,18 +10700,18 @@ function historyNoteSnapshots(order) {
 }
 const HISTORY_EVENT_LABELS={start:'作業開始',box_done:'1箱完了',box_undo:'1つ戻す',break:'休憩',support:'ライン応援',pause:'中断',
   resume:'再開',completion_pause:'完了後の停止',pause_end:'停止終了（作業終了）',anomaly:'異常',worker_change:'担当者変更',notes_saved:'不良数・コメント保存',
-  qr_blocked:'QR不一致・管理者解除待ち',qr_unlocked:'管理者解除',finish:'作業終了',adjust:'評価を調整'};
+  qr_blocked:'QR不一致・管理者解除待ち',qr_unlocked:'管理者解除',finish:'作業終了',adjust:'評価を調整',history_finish:'管理者が終了扱いに変更（評価対象外）',history_archive:'管理者が非表示に変更',history_restore:'管理者が非表示を解除'};
 function WorkHistoryDetail({order,onClose}) {
   const {lang}=useLang();
   const [filter,setFilter]=useState('all');
   const [now,setNow]=useState(Date.now);
-  useEffect(()=>{if(order.status==='done')return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[order.status]);
+  useEffect(()=>{if(['done','archived'].includes(order.status))return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[order.status]);
   const timeline=React.useMemo(()=>workHistoryTimeline(order),[order]);
   const groups={boxes:['box_done','box_undo'],pauses:['break','support','pause','resume','pause_end'],
     reports:['anomaly','qr_blocked','qr_unlocked'],notes:['notes_saved'],workers:['worker_change']};
   const rows=filter==='all'?timeline:timeline.filter(event=>groups[filter]?.includes(event.type));
   const snapshots=historyNoteSnapshots(order);
-  const metrics=calcLog(order,order.endAt||now);
+  const metrics=calcLog(order,order.endAt||order.historyArchive?.at||now);
   const number=value=>Math.round((Number(value)||0)*10)/10;
   const stamp=value=>value?new Date(qrStamp(value)).toLocaleString('ja-JP',{
     timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
@@ -10709,6 +10724,7 @@ function WorkHistoryDetail({order,onClose}) {
     ['実働',number(finished?order.actMin??metrics.actMin:metrics.actMin)],['停止',number(finished?order.pausedMin??metrics.paused/60000:metrics.paused/60000)],
     ['不良数',order.kind==='task'?'—':snapshots.some(n=>n.defectCount!==undefined)?orderDefectTotal(order):'—']];
   function eventContent(event) {
+    if(event.type.startsWith('history_'))return <><span>{event.by||'—'}</span>{event.reason&&<div className="history-comment">{event.reason}</div>}</>;
     if(event.type==='box_done'||event.type==='box_undo')return <>
       <span><BiText value="完了箱数"/>：{event.previous!==undefined&&<>{event.previous} → </>}{event.doneAfter} <BiText value="箱"/></span>
       <span className="history-secondary">{event.source==='qr'?'QR':<BiText value="手動"/>}</span>
@@ -10735,7 +10751,8 @@ function WorkHistoryDetail({order,onClose}) {
       <div className="history-detail-identity"><strong>{order.hinban||order.taskName||'—'}</strong><span>{order.partNo||''}</span><span>{order.procName||''}</span></div>
       <div className="history-detail-period"><BiText value="開始"/> {stamp(order.startAt)}　<BiText value="終了"/> {stamp(order.endAt)}</div>
       <div className="history-detail-metrics">{totals.map(([label,value])=><div key={label}><BiText value={label}/><strong>{value}{['標準','実働','停止'].includes(label)&&value!=='—'&&<> <BiText value="分"/></>}</strong></div>)}</div>
-      {hasKosu&&<div className="history-detail-diff"><BiText value="先行・遅れ"/>：{difference>=0?'+':''}{number(difference)} <BiText value="分"/>
+      {order.excludeFromEvaluation&&<p className="history-admin-badge">管理者による整理のため、評価集計から除外しています。</p>}
+      {hasKosu&&!order.excludeFromEvaluation&&<div className="history-detail-diff"><BiText value="先行・遅れ"/>：{difference>=0?'+':''}{number(difference)} <BiText value="分"/>
         {!!Number(order.adjustMin)&&<>　<BiText value="調整時間"/>：{Number(order.adjustMin)>0?'+':''}{order.adjustMin} <BiText value="分"/></>}</div>}
       {order.kind!=='task'&&<section className="history-notes"><h3><BiText value="不良数・コメント（担当者ごとの最終保存内容）"/></h3>
         {snapshots.map((note,i)=><div key={i} className="history-note"><strong>{note.workerName||'—'}</strong>
@@ -10764,11 +10781,119 @@ function WorkHistoryDetail({order,onClose}) {
   </QrDialog>;
 }
 
+/* 管理者による古い未終了記録の整理。実記録は削除しない。 */
+function historyCleanupVersion(order) {
+  return JSON.stringify([order.status,order.startAt,order.endAt,order.workerId,order.workerName,
+    order.doneBoxes,order.fraction,order.defectCount,order.workerComment,order.pauses,
+    order.workerChanges,order.operationEvents,order.qrCountEvents,order.manualBoxEvents,
+    order.qrBlocked,order.qrLockId,order.historyArchive]);
+}
+function historyLastActivity(order) {
+  const stamps=[order.startAt,...(order.pauses||[]).flatMap(p=>[p.from,p.to]),
+    ...(order.workerChanges||[]).map(e=>e.at),...(order.anomalies||[]).map(e=>e.at),
+    ...(order.qrCountEvents||[]).map(e=>e.at),...(order.manualBoxEvents||[]).map(e=>e.at),
+    ...(order.operationEvents||[]).filter(e=>!e.type?.startsWith('history_')).map(e=>e.at)];
+  return Math.max(0,...stamps.map(qrStamp).filter(Number.isFinite));
+}
+function historyCleanupPatch(order,{action,endAt,reason=''},user,now=Date.now()) {
+  const actor=user?.email||user?.uid||'';
+  if(!actor)throw new Error('ログインを確認してください。');
+  if(!['finish','archive','restore'].includes(action))throw new Error('操作を選択してください。');
+  const by={by:actor,byUid:user?.uid||'',reason:String(reason).trim().slice(0,1000)};
+  let patch;
+  if(action==='restore'){
+    const previous=order.historyArchive?.previousStatus;
+    if(order.status!=='archived'||!['running','paused'].includes(previous))throw new Error('この記録は元に戻せません。');
+    const pauses=[...(order.pauses||[])];
+    if(previous==='running')pauses.push({type:'completion',from:order.historyArchive.at,to:now});
+    patch={status:previous,pauses,historyArchive:null};
+  }else{
+    if(!['running','paused'].includes(order.status)||!order.date||order.date>=todayKeyFor(new Date(now)))
+      throw new Error('整理できるのは、前日以前の未終了記録です。');
+    if(action==='archive'){
+      patch={status:'archived',historyArchive:{previousStatus:order.status,at:now,...by}};
+    }else{
+      const last=historyLastActivity(order),requested=Number(endAt),end=Math.max(requested,last);
+      if(!qrStamp(order.startAt)||!Number.isFinite(requested)||requested<last-999||end>now)
+        throw new Error('終了日時は最終記録時刻以降、現在時刻以前で指定してください。');
+      const pauses=(order.pauses||[]).map(p=>p.to?p:{...p,to:end});
+      const totals=calcLog({...order,endAt:end,pauses},end);
+      const stdMin=order.kind==='task'?Number(order.durMin)||0:totals.stdMin;
+      patch={status:'done',endAt:end,pauses,stdMin,actMin:totals.actMin,
+        diffMin:stdMin-totals.actMin,pausedMin:totals.paused/60000,
+        excludeFromEvaluation:true,adminClosed:{at:now,...by}};
+    }
+  }
+  return withWorkOperations(order,patch,[workOperationEvent(order,'history_'+action,now,
+    {...by,...(action==='finish'?{endedAt:patch.endAt}:{})})]);
+}
+async function cleanupHistoryOrder(order,options,user) {
+  const ref=db.collection('workOrders').doc(order.id);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref),current=snap.exists&&snap.data();
+    if(!current||historyCleanupVersion(current)!==historyCleanupVersion(order))
+      throw new Error('記録が更新されています。履歴を再検索してから操作してください。');
+    const patch=historyCleanupPatch(current,options,user);
+    tx.update(ref,patch);
+    return {...current,...patch,id:order.id};
+  });
+}
+function HistoryCleanupDialog({order,user,adminUnlocked,onAdminAction,onClose,onSaved}) {
+  const context=useLang();
+  const archived=order.status==='archived';
+  const [action,setAction]=useState(archived?'restore':'finish');
+  const [reason,setReason]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const last=historyLastActivity(order);
+  const localDate=value=>{if(!value)return '';const d=new Date(value);return todayKeyFor(d)+'T'+fmtHM(d)+':'+String(d.getSeconds()).padStart(2,'0');};
+  const [end,setEnd]=useState(()=>localDate(last));
+  const saving=useRef(false);
+  async function save(){
+    if(saving.current)return;
+    saving.current=true;setBusy(true);setError('');
+    try{
+      const saved=await cleanupHistoryOrder(order,{action,endAt:new Date(end).getTime(),reason},user);
+      onSaved(saved,action);
+    }catch(e){setError(e.message||String(e));}
+    finally{saving.current=false;setBusy(false);}
+  }
+  return <LangCtx.Provider value={{...context,...makeT('ja'),lang:'ja',singleLanguage:true}}>
+    <QrDialog title="管理者：古い記録の整理" onClose={onClose} busy={busy}>
+      <div className="history-cleanup-form">
+        <strong>{order.hinban||order.taskName||'—'}</strong>
+        <p>{order.date}　{order.workerName||'担当者未登録'}　完了 {Number(order.doneBoxes)||0} 箱</p>
+        {!adminUnlocked&&<p role="status">管理者ロック中です。保存時に管理者コードを確認します。</p>}
+        {archived?<p>非表示にした記録を、整理前の作業状態に戻します。</p>:<fieldset disabled={busy}>
+          <legend>操作を選択</legend>
+          <label><input type="radio" name="cleanup-action" checked={action==='finish'} onChange={()=>setAction('finish')}/>終了扱いにする（評価集計から除外）</label>
+          <label><input type="radio" name="cleanup-action" checked={action==='archive'} onChange={()=>setAction('archive')}/>一覧から非表示にする（元に戻せます）</label>
+        </fieldset>}
+        {action==='finish'&&<>
+          <label>終了日時<input type="datetime-local" step="1" value={end} min={localDate(last)} max={localDate(Date.now())} onChange={e=>setEnd(e.target.value)} disabled={busy}/></label>
+          <p>初期値は最後に記録された操作時刻です。実際の終了日時を確認してください。不明な場合は「非表示」を選べます。</p>
+          <p>箱数・不良数・コメントは残ります。この整理で確定した記録は評価集計に含めません。</p>
+        </>}
+        {action==='archive'&&<p>作業中一覧・計画表から外します。記録は削除せず、「非表示記録」から元に戻せます。</p>}
+        <label>整理の理由（任意）<textarea rows={2} maxLength={1000} value={reason} disabled={busy} onChange={e=>setReason(e.target.value)}/></label>
+        {error&&<p role="alert" style={{color:'#b3261e'}}>{error}</p>}
+        <div className="history-cleanup-actions">
+          <button type="button" disabled={busy} onClick={onClose}>キャンセル</button>
+          <button type="button" disabled={busy||action==='finish'&&!end} onClick={()=>onAdminAction(save)}>
+            {busy?'保存中…':action==='finish'?'終了扱いにする':action==='archive'?'非表示にする':'元に戻す'}
+          </button>
+        </div>
+      </div>
+    </QrDialog>
+  </LangCtx.Provider>;
+}
+
+
 /* ── 履歴（期間検索・過去10年対応） ── */
 function WorkHistory({
   proc,
   logs,
   user,
+  onAdminAction,
+  adminUnlocked=false,
   onBack
 }) {
   const {
@@ -10778,6 +10903,7 @@ function WorkHistory({
   } = useLang();
   const reportStart=useReportStart();
   const [all, setAll] = useState(false);
+  const [manage,setManage]=useState(null),[overrides,setOverrides]=useState({}),[showArchived,setShowArchived]=useState(false),[cleanupNotice,setCleanupNotice]=useState('');
   const [adj, setAdj] = useState(null);
   const [detail,setDetail]=useState(null);
   const [fromDate,setFromDate]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
@@ -10790,11 +10916,13 @@ function WorkHistory({
     if(!fromDate||!toDate||fromDate>toDate){setHistoryError('開始日と終了日を確認してください。');return;}
     if(reportStart.start&&toDate<reportStart.start){setHistoryRows([]);setHistoryError('指定期間は記録開始日より前です。');return;}
     setHistoryBusy(true);setHistoryError('');
-    try{const snap=await db.collection('workOrders').where('date','>=',reportStart.start&&reportStart.start>fromDate?reportStart.start:fromDate).where('date','<=',toDate).get();setHistoryRows(snap.docs.map(d=>({id:d.id,...d.data()})));}
+    try{const snap=await db.collection('workOrders').where('date','>=',reportStart.start&&reportStart.start>fromDate?reportStart.start:fromDate).where('date','<=',toDate).get();setHistoryRows(snap.docs.map(d=>({id:d.id,...d.data()})));setOverrides({});}
     catch(e){setHistoryError('履歴を取得できません: '+e.message);}
     finally{setHistoryBusy(false);}
   }
-  const historySource=historyRows||Object.values(logs||{});
+  const historySource=Object.values({...Object.fromEntries((historyRows||Object.values(logs||{})).map(l=>[l.id,l])),...overrides});
+  const archivedRecords=historySource.filter(l=>l.status==='archived'&&l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&(!query||[l.hinban,l.taskName,l.workerName].join(' ').toLowerCase().includes(query.toLowerCase())));
+  const openCleanup=record=>onAdminAction(()=>{setManage(record);setCleanupNotice('');});
   const activeRecords=historySource.filter(l=>['running','paused'].includes(l.status)&&
     l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
     (!query||[l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
@@ -10816,7 +10944,7 @@ function WorkHistory({
   };
   const sum = list.reduce((a, l) => ({
     boxes: a.boxes + (l.doneBoxes || 0),
-    diff: a.diff + effDiff(l),
+    diff: a.diff + (l.excludeFromEvaluation?0:effDiff(l)),
     anom: a.anom + (l.anomalies || []).length
   }), {
     boxes: 0,
@@ -10884,9 +11012,21 @@ function WorkHistory({
           </div>
         </div>
         <p className="history-record-note"><BiText value="記録の行、または「詳細」を押すと、操作の記録を確認できます。"/></p>
-        {activeRecords.map(l=><section key={l.id} style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
+        <div className="history-cleanup-toolbar">
+          <button type="button" className="history-detail-button" aria-pressed={showArchived} onClick={()=>onAdminAction(()=>{setShowArchived(v=>!v);if(!showArchived)searchHistory();})}>🔒 非表示記録{showArchived?'を閉じる':'を表示'}</button>
+          <span>前日以前の未終了記録は「管理者：整理」から整理できます。</span>
+          {cleanupNotice&&<p role="status">{cleanupNotice}</p>}
+        </div>
+        {showArchived&&<section className="history-archived-list"><h3>非表示記録（{archivedRecords.length}件）</h3>
+          {archivedRecords.map(l=><div key={l.id} className="history-active-record"><strong>{l.date}　{l.hinban||l.taskName}　{l.workerName}</strong>
+            <button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 元に戻す</button></div>)}
+          {!archivedRecords.length&&<p>指定期間に非表示記録はありません。</p>}
+        </section>}
+        {activeRecords.map(l=><section key={l.id} className="history-active-record" style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
           <strong>{l.hinban||l.taskName}　<BiText value="作業中"/></strong>
           <button type="button" className="history-detail-button" onClick={()=>setDetail(l)}><BiText value="詳細"/></button>
+          <span>{l.date}　{l.workerName||'—'}</span>
+          {onAdminAction&&l.date<todayKey()&&<button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 管理者：整理</button>}
           <WorkerChangeHistory order={l}/>
         </section>)}
         <div style={{
@@ -10913,7 +11053,7 @@ function WorkHistory({
             <tbody>
               <BiText value={list.map((l, i) => {
               const d = effDiff(l);
-              const hasK = Number(l.kosu) > 0 || l.kind === 'task';
+              const hasK = !l.excludeFromEvaluation&&(Number(l.kosu) > 0 || l.kind === 'task');
               const hasAdj = Number(l.adjustMin) || 0;
               return <tr key={l.id} className="history-result-row" style={{
                 background: i % 2 ? '#F7F9FC' : '#fff'
@@ -10926,7 +11066,7 @@ function WorkHistory({
                     <td style={{
                   ...td,
                   fontWeight: 700
-                }}>{l.hinban||l.taskName}</td>
+                }}>{l.hinban||l.taskName}{l.adminClosed&&<small className="history-admin-badge">管理者終了・評価対象外</small>}</td>
                     <td style={td}><BiText value={l.startAt ? fmtHM(new Date(l.startAt)) : ''} /> → <BiText value={l.endAt ? fmtHM(new Date(l.endAt)) : ''} /></td>
                     <td style={td}><BiText value={l.doneBoxes || 0} />{(!l.individualPlan||l.individualPlan.hasQuantity)&&<> / <BiText value={l.targetBoxes || 0} /></>}<BiText value={l.fraction ? `（+${l.fraction}個）` : ''} /></td>
                     <td style={td}><BiText value={Math.round(l.actMin || 0)} /> <BiText value={t('分')} /></td>
@@ -10955,7 +11095,7 @@ function WorkHistory({
                   ...td,
                   textAlign: 'center'
                 }}>
-                      <button onClick={() => setAdj(l)} style={{
+                      <button disabled={l.excludeFromEvaluation} onClick={() => setAdj(l)} style={{
                     minHeight: 36,
                     padding: '0 14px',
                     borderRadius: 7,
@@ -10980,6 +11120,10 @@ function WorkHistory({
       </div>
       <FooterBar left={<FBtn onClick={onBack}>‹ <BiText value={b('計画表')} /></FBtn>} />
       <BiText value={adj && <AdjustModal order={adj} onClose={() => setAdj(null)} />} />
+      {manage&&<HistoryCleanupDialog key={manage.id} order={manage} user={user} adminUnlocked={adminUnlocked} onAdminAction={onAdminAction} onClose={()=>setManage(null)} onSaved={(saved,action)=>{
+        setOverrides(v=>({...v,[saved.id]:saved}));setManage(null);
+        setCleanupNotice(action==='finish'?'終了扱いにしました（評価集計から除外）。':action==='archive'?'非表示にしました。「非表示記録」から元に戻せます。':'記録を元に戻しました。');
+      }}/>}
       {detail&&<WorkHistoryDetail order={historySource.find(l=>l.id===detail.id)||detail} onClose={()=>setDetail(null)}/>}
     </div>;
 }
@@ -11062,7 +11206,7 @@ function App() {
   const [master, setMaster] = useState({});
   const [workers, setWorkers] = useState({});
   const [storedOrders, setOrders] = useState({});
-  const orders=React.useMemo(()=>ordersWithMasterKosu(storedOrders,master),[storedOrders,master]);
+  const orders=React.useMemo(()=>ordersWithMasterKosu(Object.fromEntries(Object.entries(storedOrders).filter(([,o])=>o.status!=='archived')),master),[storedOrders,master]);
   const [procSettings, setProcSettings] = useState({});
   const [view, setView] = useState({
     name: 'proc'
@@ -11286,7 +11430,7 @@ function App() {
       name: 'work',
       proc: view.proc
     })} /> : <LoadingScreen />;
-  } else if (view.name === 'workhist') screen = <WorkHistory proc={view.proc} logs={orders} user={user} onBack={() => setView({
+  } else if (view.name === 'workhist') screen = <WorkHistory proc={view.proc} logs={storedOrders} user={user} onAdminAction={adminGuard} adminUnlocked={adminOpen} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;else if (view.name === 'analytics') screen = <AnalyticsScreen proc={view.proc} master={master} workers={workers} user={user} onBack={() => setView({
