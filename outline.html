@@ -10783,10 +10783,17 @@ function WorkHistoryDetail({order,onClose}) {
 
 /* 管理者による古い未終了記録の整理。実記録は削除しない。 */
 function historyCleanupVersion(order) {
-  return JSON.stringify([order.status,order.startAt,order.endAt,order.workerId,order.workerName,
+  // Firestore map key order is not a record change.
+  const canonical=value=>{
+    if(value==null||typeof value!=='object')return value;
+    if(typeof value.toMillis==='function')return {timestampMillis:value.toMillis(),nanoseconds:value.nanoseconds};
+    if(Array.isArray(value))return value.map(canonical);
+    return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));
+  };
+  return JSON.stringify(canonical([order.status,order.date,order.startAt,order.endAt,order.workerId,order.workerName,
     order.doneBoxes,order.fraction,order.defectCount,order.workerComment,order.pauses,
     order.workerChanges,order.operationEvents,order.qrCountEvents,order.manualBoxEvents,
-    order.qrBlocked,order.qrLockId,order.historyArchive]);
+    order.qrBlocked,order.qrLockId,order.historyArchive]));
 }
 function historyLastActivity(order) {
   const stamps=[order.startAt,...(order.pauses||[]).flatMap(p=>[p.from,p.to]),
@@ -10922,7 +10929,18 @@ function WorkHistory({
   }
   const historySource=Object.values({...Object.fromEntries((historyRows||Object.values(logs||{})).map(l=>[l.id,l])),...overrides});
   const archivedRecords=historySource.filter(l=>l.status==='archived'&&l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&(!query||[l.hinban,l.taskName,l.workerName].join(' ').toLowerCase().includes(query.toLowerCase())));
-  const openCleanup=record=>onAdminAction(()=>{setManage(record);setCleanupNotice('');});
+  const openCleanup=record=>onAdminAction(async ()=>{
+    setCleanupNotice('');
+    try{
+      const snap=await db.collection('workOrders').doc(record.id).get({source:'server'});
+      if(!snap.exists)throw new Error('記録が見つかりません。');
+      const fresh={...snap.data(),id:snap.id};
+      if(!['running','paused','archived'].includes(fresh.status)||!fresh.date||fresh.date>=todayKeyFor(new Date()))
+        throw new Error('この記録は整理対象ではありません。');
+      setOverrides(v=>({...v,[fresh.id]:fresh}));
+      setManage(fresh);
+    }catch(e){setCleanupNotice(e.message||String(e));}
+  });
   const activeRecords=historySource.filter(l=>['running','paused'].includes(l.status)&&
     l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
     (!query||[l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
