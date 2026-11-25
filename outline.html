@@ -7412,7 +7412,7 @@ function HinbanPicker({
     </div>;
 }
 
-function LineSupportSchedule({proc,date,settings}) {
+function LineSupportSchedule({proc,date,settings,onEditBreaks}) {
   const saved=JSON.stringify(settings?.lineSupportByDate?.[date]||[]);
   const initial=()=>JSON.parse(saved).map(s=>({...s}));
   const [slots,setSlots]=useState(initial);
@@ -7432,6 +7432,7 @@ function LineSupportSchedule({proc,date,settings}) {
     } catch(e) {setError(e.message);} finally {setBusy(false);}
   }
   return <section className="individual-card individual-editor" aria-label="ライン応援予定時間">
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,340px),1fr))",gap:16,alignItems:"start"}}><div style={{minWidth:0}}>
     <div className="individual-header"><strong><BiText value="ライン応援予定時間"/>　{date}</strong><strong><BiText value="製品切替は5分"/></strong></div>
     <small><BiText value="選択した日付・工程の予定に反映します。応援は最大5回まで設定できます。"/></small>
     {slots.map((slot,i)=><div key={i} className="individual-periods">
@@ -7446,6 +7447,11 @@ function LineSupportSchedule({proc,date,settings}) {
     </div>
     {error&&<p role="alert" className="individual-error"><BiText value={error}/></p>}
     {notice&&<p role="status"><BiText value={notice}/></p>}
+    </div><div style={{border:"1px solid "+LINE,borderRadius:10,padding:12,minWidth:0}}>
+      <div className="individual-header"><strong><BiText value="休憩時間"/></strong><button type="button" onClick={onEditBreaks}><BiText value="始業・休憩設定"/></button></div>
+      <small><BiText value="工程共通の休憩時間"/></small>
+      {((settings||DEFAULT_SETTINGS).breaks||[]).length===0?<p><BiText value="休憩設定なし"/></p>:((settings||DEFAULT_SETTINGS).breaks||[]).map((rest,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"12px 0",borderBottom:"1px solid "+LINE}}><BiText value={rest.label||"休憩"}/><strong>{rest.from}〜{rest.to}</strong><span>{hm2min(rest.to)-hm2min(rest.from)} <BiText value="分"/></span></div>)}
+    </div></div>
   </section>;
 }
 
@@ -8728,7 +8734,7 @@ function SchedulePlanner({
           whiteSpace: 'normal'
         }}>⏰ <BiText value={t('始業・休憩設定')} /></button>
         </div>
-        <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings}/>
+        <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings} onEditBreaks={()=>setShiftOpen(true)}/>
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
           onDraftRest={setIndividualDraft} onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);setIndividualDraft(null);}}
