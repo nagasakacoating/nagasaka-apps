@@ -7747,6 +7747,7 @@ function WorkPlanScreen({
     finally{confirmingWorker.current=false;setWorkerBusy(false);}
   }
   const [scanW, setScanW] = useState(false);
+  useEffect(()=>{outlinePlanUpdateSafe=!startOrder&&!unlockOrder&&!reopenOrder&&!workerBusy&&!reopenBusy&&!scanW;return()=>{outlinePlanUpdateSafe=false;};},[startOrder,unlockOrder,reopenOrder,workerBusy,reopenBusy,scanW]);
   const [date, setDate] = useState(todayKey());
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -9437,6 +9438,10 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   /* 今日・同一工程の完了分の累計（リザルトに表示） */
   const todaySum = summarize(Object.values(orders || {}).filter((o) => o.status === 'done' && o.procId === proc.id && o.date === log.date));
   const paused = log.status === 'paused';
+  useEffect(()=>{
+    outlineRunUpdateSafe=paused&&['break','support'].includes(c.cur?.type)&&!busy&&!noteBusy&&!workerBusy&&!changingWorker&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!anom&&!out&&!result&&!showSteps&&!showOperationHelp&&defectDraft===String(log.defectCount??0)&&workerCommentDraft===(log.workerComment||'');
+    return()=>{outlineRunUpdateSafe=false;};
+  },[paused,c.cur?.type,busy,noteBusy,workerBusy,changingWorker,qrBlocked,qrGate.busy,qrGate.flash,anom,out,result,showSteps,showOperationHelp,defectDraft,workerCommentDraft,log.defectCount,log.workerComment]);
   async function w(fn) {
     if (workerMissing||busy||changingWorker||qrGate.busy||qrGate.flash) return;if(qrBlocked){document.getElementById('workrun-camera')?.scrollIntoView({block:'nearest',behavior:'smooth'});return;}
     setBusy(true);
@@ -11265,6 +11270,12 @@ function AdminSessionLock({locked,children}) {
     style={{position:'fixed',inset:0,width:'100%',maxWidth:'none',height:'100dvh',maxHeight:'none',margin:0,padding:0,border:0,background:'#f5f6f8'}}>{children}</dialog>;
 }
 
+// Reload only at safe checkpoints; compare original source, not live UI.
+let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
+function outlineSourceSignature(doc){
+  return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
+}
+const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
     try {
@@ -11294,8 +11305,9 @@ function App() {
   const [storedOrders, setOrders] = useState({});
   const orders=React.useMemo(()=>ordersWithMasterKosu(Object.fromEntries(Object.entries(storedOrders).filter(([,o])=>o.status!=='archived')),master),[storedOrders,master]);
   const [procSettings, setProcSettings] = useState({});
-  const [view, setView] = useState({
-    name: 'proc'
+  const [view, setView] = useState(()=>{
+    try {const saved=sessionStorage.getItem('outline-update-view');sessionStorage.removeItem('outline-update-view');if(saved){const v=JSON.parse(saved);if(['proc','work','workrun'].includes(v.name))return v;}}catch(e){}
+    return {name:'proc'};
   });
   const [scanHome, setScanHome] = useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
@@ -11398,6 +11410,40 @@ function App() {
       u2();
     };
   }, [user]);
+  const updateContext=useRef(null);
+  updateContext.current={view,user,ready,adminOpen,adminRequest,scanHome};
+  useEffect(()=>{
+    let stopped=false, checking=false, available=false, lastActivity=Date.now();
+    const activity=()=>{lastActivity=Date.now();};
+    const safe=()=>{
+      const c=updateContext.current;
+      if(!c?.ready||!c.user||c.adminOpen||c.adminRequest||c.scanHome||document.hidden||biDialog||Date.now()-lastActivity<3000||!navigator.onLine)return false;
+      return c.view.name==='proc'||(c.view.name==='work'&&outlinePlanUpdateSafe)||(c.view.name==='workrun'&&outlineRunUpdateSafe);
+    };
+    async function check(){
+      if(stopped||checking)return;
+      checking=true;
+      try{
+        const url=new URL(location.href);url.searchParams.set('_outline_update_check',String(Date.now()));
+        const response=await fetch(url.href,{cache:'no-store'});
+        if(!response.ok)return;
+        const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+        if(!doc.querySelector('script[type="text/babel"]'))return;
+        available=outlineSourceSignature(doc)!==outlineLoadedSource;
+        if(!available||!safe())return;
+        await db.waitForPendingWrites();
+        if(stopped||!safe())return;
+        sessionStorage.setItem('outline-update-view',JSON.stringify(updateContext.current.view));
+        const target=new URL(location.href);target.searchParams.set('_outline_version',String(Date.now()));
+        location.replace(target.href);
+      }catch(e){console.warn('Outline update check:',e.message);}finally{checking=false;}
+    }
+    const visible=()=>{if(!document.hidden)check();};
+    document.addEventListener('pointerdown',activity,true);document.addEventListener('keydown',activity,true);document.addEventListener('input',activity,true);
+    document.addEventListener('visibilitychange',visible);
+    const timer=setInterval(check,60000);check();
+    return()=>{stopped=true;clearInterval(timer);document.removeEventListener('pointerdown',activity,true);document.removeEventListener('keydown',activity,true);document.removeEventListener('input',activity,true);document.removeEventListener('visibilitychange',visible);};
+  },[]);
   indexBi(master);
   masterTranslations.clear();
   const displayProduct=view.hinban||orders[view.orderId]?.hinban||orders[view.logId]?.hinban;
