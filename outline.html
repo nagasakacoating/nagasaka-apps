@@ -10838,8 +10838,12 @@ async function cleanupHistoryOrder(order,options,user) {
   const ref=db.collection('workOrders').doc(order.id);
   return db.runTransaction(async tx=>{
     const snap=await tx.get(ref),current=snap.exists&&snap.data();
-    if(!current||historyCleanupVersion(current)!==historyCleanupVersion(order))
-      throw new Error('記録が更新されています。履歴を再検索してから操作してください。');
+    if(!current)throw new Error('整理対象の記録が見つかりません。');
+    if(historyCleanupVersion(current)!==historyCleanupVersion(order)){
+      const fields=['status','date','startAt','endAt','workerId','workerName','doneBoxes','fraction','defectCount','workerComment','pauses','workerChanges','operationEvents','qrCountEvents','manualBoxEvents','qrBlocked','qrLockId','historyArchive'];
+      const changed=fields.filter(k=>historyCleanupVersion({[k]:current[k]})!==historyCleanupVersion({[k]:order[k]}));
+      throw new Error('整理確認 v3：記録が変更されました（'+(changed.join(', ')||'詳細不明')+'）。閉じて整理画面を開き直してください。');
+    }
     const patch=historyCleanupPatch(current,options,user);
     tx.update(ref,patch);
     return {...current,...patch,id:order.id};
@@ -10864,7 +10868,7 @@ function HistoryCleanupDialog({order,user,adminUnlocked,onAdminAction,onClose,on
     finally{saving.current=false;setBusy(false);}
   }
   return <LangCtx.Provider value={{...context,...makeT('ja'),lang:'ja',singleLanguage:true}}>
-    <QrDialog title="管理者：古い記録の整理" onClose={onClose} busy={busy}>
+    <QrDialog title="管理者：古い記録の整理 v3" onClose={onClose} busy={busy}>
       <div className="history-cleanup-form">
         <strong>{order.hinban||order.taskName||'—'}</strong>
         <p>{order.date}　{order.workerName||'担当者未登録'}　完了 {Number(order.doneBoxes)||0} 箱</p>
