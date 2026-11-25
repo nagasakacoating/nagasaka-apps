@@ -1820,6 +1820,7 @@ const PROCESS_LABELS = {
   "未登録": ["Não cadastrado", "Chưa đăng ký"],
   "全画面": ["Tela cheia", "Toàn màn hình"],
   "更新": ["Atualizar", "Tải lại"],
+  "更新する": ["Atualizar", "Tải lại"],
   "アプリのアドレス": ["Endereço do aplicativo", "Địa chỉ ứng dụng"],
   "Chromeのアドレス欄に、このURLを貼り付けて開いてください。": ["Cole este endereço na barra do Chrome para abrir o aplicativo.", "Dán địa chỉ này vào thanh địa chỉ Chrome để mở ứng dụng."],
   "URLをコピー": ["Copiar URL", "Sao chép URL"],
@@ -2225,6 +2226,7 @@ Object.assign(DICT,{
   '翻訳データを読み込み中…':'Memuat data terjemahan…','保存する（未翻訳分を自動翻訳）':'Simpan dan terjemahkan bagian yang belum diterjemahkan',
   'アプリのアドレス':'Alamat aplikasi','URLをコピー':'Salin URL','URLをコピーしました。':'URL telah disalin.',
   'Chromeのアドレス欄に、このURLを貼り付けて開いてください。':'Tempel URL ini di bilah alamat Chrome untuk membuka aplikasi.',
+  '更新する':'Muat ulang',
   'ページを更新しますか？未保存の入力は消えます。':'Muat ulang halaman? Isian yang belum disimpan akan hilang.',
   '担当者を確定':'Konfirmasi petugas','担当者を選択してください。':'Silakan pilih petugas.','担当者を登録':'Daftarkan petugas',
   '登録する':'Daftarkan','選択を解除':'Batalkan pilihan',
@@ -3051,7 +3053,7 @@ function BrowserControls() {
   const addressInput=useRef(null);
   const address=new URL(window.location.pathname,window.location.origin).href;
   async function refresh() {
-    if(await showBiDialog('confirm','ページを更新しますか？未保存の入力は消えます。'))refreshOutlinePage();
+    if(await showBiDialog('confirm','ページを更新しますか？未保存の入力は消えます。','',{confirmLabel:'更新する'}))refreshOutlinePage();
   }
   async function copyAddress() {
     try{
@@ -8483,7 +8485,7 @@ function SchedulePlanner({
   }
   async function del(o) {
     if (o.individualPlan) {
-      if (o.status!=='pending' || !(await showBiDialog('confirm',`${o.hinban} の行を削除しますか？`))) return;
+      if (o.status!=='pending' || !(await showBiDialog('confirm',`${o.hinban} の行を削除しますか？`,'',{confirmLabel:'削除する',destructive:true}))) return;
       const ref=col.doc(o.id);
       await run(()=>db.runTransaction(async tx=>{
         const latest=await tx.get(ref);
