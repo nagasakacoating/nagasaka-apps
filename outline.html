@@ -139,8 +139,8 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
  .footer-actions{flex:1 1 100%;margin-left:0}
  .plan-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch!important}
  .plan-actions>button{min-width:0}
- .worksheet-screen>div,.workrun-screen>div,.info-screen>div{flex-direction:column}
- .worksheet-screen>div>div,.workrun-screen>div>div{flex:auto!important;min-width:0;max-width:100%;overflow-y:visible!important}
+ .worksheet-screen>div,.info-screen>div{flex-direction:column}
+ .worksheet-screen>div>div{flex:auto!important;min-width:0;max-width:100%;overflow-y:visible!important}
  .info-screen>div>div:first-child{width:100%!important;max-height:220px;flex:none;display:flex;gap:8px;overflow-x:auto!important;padding:10px!important;border-bottom:1px solid #E3E7ED}
  .info-screen>div>div:first-child>div{display:none}
  .info-screen>div>div:first-child>button{width:200px!important;flex:0 0 200px;margin-bottom:0!important}
@@ -227,6 +227,20 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 @media(max-width:600px){.qr-config-row{grid-template-columns:minmax(0,1fr)}.kanban-qr-body{padding:10px}.kanban-info-detail>div{grid-template-columns:minmax(0,1fr)}.qr-selected strong{font-size:18px}}
 
 .workrun-screen{height:100dvh!important;min-height:0!important;overflow:hidden}.workrun-screen .workrun-layout{flex:1 1 0!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(360px,1.15fr);gap:0;overflow:hidden;min-height:0}
+/* Work status rows must not inherit the stacked worksheet layout. */
+.workrun-worker-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:5px 12px;flex:none;max-height:20dvh;overflow:auto}
+.workrun-worker-row:empty{display:none}
+.workrun-pause{display:flex;align-items:center;flex-wrap:wrap;gap:10px 20px;flex:none;padding:10px 16px;background:#FDE68A;color:#7A5A00;font-size:18px;font-weight:800;line-height:1.4}
+.workrun-pause-status{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;flex:1 1 260px;min-width:0}
+.workrun-pause-label{display:inline-flex;align-items:center;gap:8px}
+.workrun-pause-reason{display:inline-flex;align-items:center;gap:6px}
+.workrun-pause-time{font-size:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.workrun-pause-resume{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;flex:0 0 auto;margin-left:auto;padding:8px 26px;border-radius:10px;background:#2E7D4F;color:#fff;font-size:18px;font-weight:800}
+.workrun-pause-resume:disabled{opacity:.55}
+.workrun-screen .workrun-controls .responsive-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.workrun-screen .workrun-controls .workrun-time-grid,.workrun-screen .workrun-controls .workrun-action-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.workrun-screen .workrun-controls .workrun-action-grid.is-task{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.workrun-screen .workrun-controls .responsive-grid>*{min-width:0}
 /* Wrap translated controls without squeezing the product/worker into a zero-width grid column. */
 .workrun-screen>.app-topbar{
  height:auto!important;min-height:0!important;max-height:30vh;
@@ -267,6 +281,15 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .workrun-screen>.app-footer{flex-direction:row!important;flex-wrap:nowrap;gap:8px;padding:6px 12px;min-height:54px}.workrun-screen>.app-footer>.footer-context{flex:1 1 auto!important;overflow:visible!important}.workrun-screen>.app-footer>.footer-actions{flex:0 1 auto!important;overflow:visible!important;margin-left:auto}.workrun-screen .app-footer .footer-button{padding:5px 12px!important;font-size:13px;min-height:40px}
 @media(min-width:761px) and (max-height:700px){.workrun-screen>.app-topbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto;gap:10px;min-height:64px;padding:6px 12px}.workrun-screen .topbar-context{grid-column:1;grid-row:1}.workrun-screen .topbar-title{grid-column:2;grid-row:1;text-align:center;font-size:18px}.workrun-screen .app-topbar>.lang-user{grid-column:3;grid-row:1;flex-wrap:nowrap;gap:6px;max-width:none}}
 @media(max-width:760px){.workrun-screen .workrun-layout{display:flex!important;flex-direction:column!important;overflow:auto!important}.workrun-screen .workrun-layout>.workrun-observe,.workrun-screen .workrun-layout>.workrun-controls{flex:none!important;overflow:visible!important}.workrun-camera-card .qr-camera-video{height:clamp(180px,28dvh,280px)}}
+@media(max-width:520px){
+ .workrun-pause{gap:8px;padding:8px 12px;font-size:16px}
+ .workrun-pause-status{flex-basis:100%;gap:6px 10px}.workrun-pause-time{font-size:22px}
+ .workrun-pause-resume{width:100%;min-height:44px}
+ .workrun-screen>.app-footer{flex-wrap:wrap;gap:6px}.workrun-screen>.app-footer>.footer-context,.workrun-screen>.app-footer>.footer-actions{flex:1 1 140px!important}
+ .workrun-screen .app-footer .footer-button{width:100%;font-size:12px}
+ .workrun-screen .workrun-controls .workrun-time-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .workrun-time-grid>div:last-child{grid-column:1/-1}
+}
 
 
 /* Shape photos and descriptions stay in one numbered card. */
@@ -9314,7 +9337,7 @@ const [showSteps,setShowSteps]=useState(false),[qrGate,setQrGate]=useState({bloc
   const isTask = log.kind === 'task';
   const m = log.individualPlan?.freeText ? {} : master[log.hinban] || {};
   const sheet = m.sheets?.[proc.id] || {};
-const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked);const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)||qrGate.blocked),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
+const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.qrBlocked));const qrBlocked=!!(log.qrBlocked||qrReadLocal(log.id)||qrGate.blocked),qrRemaining=qrSeconds(qrCooldownEnd(log),now);
 
   const c = calcLog(log, now);
   const individual=log.individualPlan;
@@ -9435,7 +9458,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
-      <div style={{display:'flex',alignItems:'center',gap:10,padding:'5px 12px',flexWrap:'wrap'}}>
+      <div className="workrun-worker-row">
         {!individual&&<button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
           className="workrun-worker-change">
@@ -9453,28 +9476,16 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         {workerError&&<p role="alert"><BiText value={workerError}/></p>}
         <button type="button" disabled={!nextWorkerId||workerBusy} onClick={confirmWorkerChange}><BiText value={workerMissing?"登録する":"交代を確定"}/></button>
       </QrDialog>}
-      <BiText value={paused && <div style={{
-      background: '#FDE68A',
-      color: '#7A5A00',
-      padding: '10px 20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      fontWeight: 800,
-      fontSize: 17
-    }}>
-          ⏸ <BiText value={t('一時停止中')} />（<BiText value={curType} />）　<BiText value={c.cur && fmtDur(now - c.cur.from)} />
-          <button onClick={resume} disabled={workerUnavailable||qrBlocked||busy||qrGate.busy||qrGate.flash} style={{
-        marginLeft: 'auto',
-        minHeight: 44,
-        padding: '0 26px',
-        borderRadius: 10,
-        background: '#2E7D4F',
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 800
-      }}>▶ <BiText value={t('再開')} /></button>
-        </div>} />
+      {paused&&<section className="workrun-pause" aria-label={t('一時停止中')}>
+        <div className="workrun-pause-status" role="status">
+          <span className="workrun-pause-label"><span aria-hidden="true">⏸</span><BiText value="一時停止中"/></span>
+          {curType&&<span className="workrun-pause-reason">（<BiText value={curType}/>）</span>}
+          <strong className="workrun-pause-time">{c.cur?fmtDur(now-c.cur.from):'—'}</strong>
+        </div>
+        <button type="button" className="workrun-pause-resume" onClick={resume} disabled={workerUnavailable||qrBlocked||busy||qrGate.busy||qrGate.flash}>
+          <span aria-hidden="true">▶</span><BiText value="再開"/>
+        </button>
+      </section>}
       {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
       <div className="workrun-layout" data-has-qr={needsQr} style={{
       flex: 1,
@@ -9501,7 +9512,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
         overflowY: 'auto'
       }}>
           {individual&&<IndividualInstructionNotice order={log} now={new Date(now)} settings={settings} showCheckpoint={!breakProgress} showNextBreak={!breakProgress?.rest}/>}
-          <div className="responsive-grid" style={{
+          <div className="responsive-grid workrun-time-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: 8
@@ -9620,7 +9631,7 @@ const needsQr=!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||log.q
           {needsQr&&<div className={'workrun-qr-state '+(qrBlocked?'is-blocked':'')} role="status"><BiText value={qrBlocked?'管理者解除待ち・作業停止':paused?'一時停止中':target>0&&done>=target?'予定箱数に達しました。作業終了してください。':qrRemaining>0?'二度読み防止・照合は継続中':'QR自動照合中'}/>{qrRemaining>0&&<strong>{qrClock(qrRemaining)}</strong>}</div>}<BiText value={!isTask && !needsQr && bigBtn(<><span style={{
             fontSize: 34
           }}>📦</span><BiText value={qrBlocked?'管理者解除待ち':needsQr?'QR照合して1箱完了':t('1箱完了')} /></>, addBox, qrBlocked?'#b3261e':'#2E7D4F', !qrBlocked&&(paused||(needsQr&&qrRemaining>0)), 112)} />
-          <div className="responsive-grid" style={{
+          <div className={"responsive-grid workrun-action-grid"+(isTask?" is-task":"")} style={{
           display: 'grid',
           gridTemplateColumns: isTask ? '1fr 1fr' : '1fr 1fr 1fr',
           gap: 8
