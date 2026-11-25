@@ -8191,21 +8191,21 @@ function WorkPlanScreen({
 function IndividualField({label, children}) {
   return <label className="individual-field"><BiText value={label}/>{children}</label>;
 }
-function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose, onSaved, onDraftRest}) {
+function IndividualInstructionEditor({existing, date, proc, settings, master, workers, orders, nextOrder, user, onClose, onSaved, onDraftRest, gap}) {
   const {lang} = useLang();
   const current = orders[existing?.id] || existing;
   const assigned = current?.status && current.status !== 'pending';
   const saved = existing?.individualPlan;
   const [instructionDate,setInstructionDate] = useState(existing?.date || date);
-  const [mode,setMode] = useState(saved?.mode || 'quantity');
+  const [mode,setMode] = useState(saved?.mode || (gap?'time':'quantity'));
   const [hinban,setHinban] = useState(existing?.hinban || '');
   const [productSource,setProductSource] = useState(saved?.freeText ? 'text' : 'master');
   const [workName,setWorkName] = useState(saved?.freeText ? existing?.hinban || '' : '');
-  const [workerId,setWorkerId] = useState(existing?.assignedWorkerId || '');
-  const [from,setFrom] = useState(saved?.from || settings?.startTime || DEFAULT_SETTINGS.startTime);
-  const [to,setTo] = useState(saved?.to || '');
+  const [workerId,setWorkerId] = useState(existing?.assignedWorkerId || gap?.workerId || '');
+  const [from,setFrom] = useState(saved?.from || gap?.from || settings?.startTime || DEFAULT_SETTINGS.startTime);
+  const [to,setTo] = useState(saved?.to || gap?.to || '');
   const [kosu,setKosu] = useState(existing?.kosu || '');
-  const [breakStarts,setBreakStarts] = useState(saved?.breakStarts || INDIVIDUAL_BREAK_STARTS);
+  const [breakStarts,setBreakStarts] = useState(saved?.breakStarts || gap?.breakStarts || INDIVIDUAL_BREAK_STARTS);
   useEffect(()=>{onDraftRest?.({id:existing?.id,date:instructionDate,workerId,breakStarts});},[instructionDate,workerId,breakStarts,existing?.id]);
   const [remaining,setRemaining] = useState('');
   const [quantityChanged,setQuantityChanged] = useState(false);
@@ -8226,10 +8226,16 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
   const priorRows=dateRows.filter(o=>o.status!=='archived').sort((a,b)=>(a.order||0)-(b.order||0));
   const personalRows=[...priorRows,{date:instructionDate,assignedWorkerId:workerId,individualPlan:{breakStarts}}];
   const priorTimeline=buildTimeline(priorRows,settings,personalRows);
-  const previous=workerId&&priorTimeline.filter(o=>o.assignedWorkerId===workerId&&(!existing||Number(o.order)<Number(existing.order))).at(-1);
+  const workerTimeline=priorTimeline.filter(o=>o.assignedWorkerId===workerId).sort((a,b)=>a._planStart-b._planStart);
+  const requestedStart=instructionMinute(from);
+  const previous=workerTimeline.filter(o=>o._planEnd<=requestedStart).at(-1);
+  const following=workerTimeline.find(o=>o._planStart>=requestedStart);
+  const insertionNext=priorTimeline.find(o=>o._planStart>=requestedStart);
+  const insertionIndex=priorTimeline.indexOf(insertionNext);
+  const insertionOrder=insertionNext?((Number(insertionNext.order)||0)+(insertionIndex>0?Number(priorTimeline[insertionIndex-1].order)||0:(Number(insertionNext.order)||0)-10))/2:null;
   const nextStart=previous?addWork(Math.ceil(previous._planEnd)+5,0,[...instructionBreaks({breakStarts}),...lineSupportBreaks(settings,instructionDate)]):null;
   const destinationOrder=(dateRows.length?Math.max(...dateRows.map(o=>Number(o.order)||0)):0)+10;
-  const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?nextOrder:destinationOrder,
+  const draft = {date:instructionDate,procId:proc.id,procName:proc.ja,order:existing&&instructionDate===existing.date?(existing.order??nextOrder):instructionDate===date&&!existing?(insertionOrder??nextOrder):destinationOrder,
     hinban:instructionName,hinbanName:item.name||'',partNo:item.partNo||'',assignedWorkerId:workerId,assignedWorkerName:workers[workerId]?.name||'',
     kosu:Number(effectiveKosu),capacity:freeText?1:capacityOf(item,proc.id),individualPlan:plan};
   const people = Object.values(workers).filter(w=>w.name?.trim()).sort((a,b)=>(a.order||0)-(b.order||0));
@@ -8248,7 +8254,9 @@ function IndividualInstructionEditor({existing, date, proc, settings, master, wo
     if (freeText ? !instructionName : !hinban || !master[hinban]) return setError(freeText?'製品名・作業内容を入力してください。':'製品を選択してください。');
     if (!workers[workerId]?.name?.trim()) return setError(WORKER_REQUIRED);
     if (!timesValid) return setError('作業の開始・終了時刻を確認してください。');
-    if(!assigned&&nextStart!==null&&instructionMinute(from)<nextStart)return setError('前の作業と時間が重複しています。前の作業の後から開始を選択してください。');
+    const planned=instructionForecast({...draft,targetBoxes:(actualRemaining??0)+done},undefined,settings);
+    const plannedEnd=mode==='time'?end:planned.finish;
+    if(!assigned&&(plannedEnd===null||workerTimeline.some(o=>start<Math.ceil(o._planEnd)+5&&plannedEnd+5>o._planStart)))return setError('他の作業と時間が重複しています。切替5分を含めて開始・終了時刻を確認してください。');
     if (!validQuantity || mode==='quantity'&&(actualRemaining===null || !assigned && actualRemaining===0)) return setError('残り箱数を確認してください。');
     if (!validCost) return setError('1箱工数を入力してください。');
     if (!breaksValid) return setError('休憩の順番と時刻を確認してください。');
@@ -8383,6 +8391,7 @@ function SchedulePlanner({
   const draftRest=individualEditor&&individualDraft?.workerId&&individualDraft.date===date?individualDraft:null;
   const previewRows=draftRest?[...raw.filter(o=>o.id!==draftRest.id),{id:'__draft_rest',date,assignedWorkerId:draftRest.workerId,individualPlan:{breakStarts:draftRest.breakStarts}}]:raw;
   const rows = buildTimeline(raw, settings, previewRows);
+  const gaps=wlist.flatMap(w=>{const list=rows.filter(o=>o.assignedWorkerId===w.id).sort((a,b)=>a._planStart-b._planStart);return list.slice(1).flatMap((next,i)=>{const prev=list[i];const rests=prev._planBreaks||[];const blocks=[...rests,...lineSupportBreaks(settings,date)];const start=addWork(Math.ceil(prev._planEnd)+5,0,blocks);const end=Math.floor(next._planStart)-5;return end>start&&instructionWorkMins(start,end,blocks)>0?[{workerId:w.id,name:w.name,from:min2hm(start),to:min2hm(end),breakStarts:rests.slice(0,3).map(b=>b.from)}]:[];});});
   const col = db.collection('workOrders');
   async function run(fn) {
     if (busy) return;
@@ -8737,7 +8746,8 @@ function SchedulePlanner({
         }}>⏰ <BiText value={t('始業・休憩設定')} /></button>
         </div>
         <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings} onEditBreaks={()=>setShiftOpen(true)}/>
-        {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null}
+        {!individualEditor&&gaps.map(g=><div key={g.workerId+g.from} style={{padding:10,margin:'8px 0',border:'1px solid #d6a64c',borderRadius:8}}><strong>{g.name}　{g.from}〜{g.to}</strong>　<BiText value="空き時間があります。作業を追加してください。"/> <button type="button" onClick={()=>{setIndividualEditor({gap:g});requestAnimationFrame(()=>document.getElementById('individual-instruction-editor')?.scrollIntoView({block:'start'}));}}><BiText value="作業を追加"/></button></div>)}
+        {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null} gap={individualEditor.gap}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
           onDraftRest={setIndividualDraft} onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);setIndividualDraft(null);}}
           nextOrder={(rows.length?Math.max(...rows.map(r=>r.order||0)):0)+10} onClose={()=>{setIndividualEditor(null);setIndividualDraft(null);}}/>}
