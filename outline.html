@@ -6646,6 +6646,10 @@ function workerScheduleBreaks(rows, order, settings) {
   const personal=worker&&rows.filter(r=>r.date===order.date&&r.assignedWorkerId===worker&&r.individualPlan).at(-1);
   return personal?instructionBreaks(personal.individualPlan):(settings||DEFAULT_SETTINGS).breaks||[];
 }
+function scheduleOverlaps(start,end,blocks) {
+  return mergeWorkBreaks(blocks).filter(b=>hm2min(b.from)<end&&hm2min(b.to)>start)
+    .map(b=>({from:min2hm(Math.max(start,hm2min(b.from))),to:min2hm(Math.min(end,hm2min(b.to)))}));
+}
 function buildTimeline(rows, settings, restRows=rows) {
   const st = settings || DEFAULT_SETTINGS;
   let cur = hm2min(st.startTime || '08:00');
@@ -6654,7 +6658,8 @@ function buildTimeline(rows, settings, restRows=rows) {
     if (o.individualPlan) {
       const plan=instructionForecast(o,undefined,st);
       const end=o.individualPlan.mode==='time' ? plan.end : plan.finish ?? plan.start;
-      return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks),_planSupportMin:lineSupportMinutes(plan.start,end,plan.breaks,supports)};
+      cur=Math.max(cur,end);
+      return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks),_planBreaks:plan.breaks,_planSupportMin:lineSupportMinutes(plan.start,end,plan.breaks,supports)};
     }
     const previous=rows[i-1];
     const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?5:0;
@@ -8785,6 +8790,8 @@ function SchedulePlanner({
               const individual = o.individualPlan;
               const forecast = individual&&instructionForecast(o,new Date(plannerNow),settings);
               const isTask = o.kind === 'task';
+              const visibleRests=scheduleOverlaps(o._planStart,o._planEnd,o._planBreaks||[]);
+              const visibleSupports=scheduleOverlaps(o._planStart,o._planEnd,lineSupportBreaks(settings,o.date));
               return <tr key={o.id} style={{
                 background: i % 2 ? '#F7F9FC' : '#fff'
               }}>
@@ -8838,7 +8845,8 @@ function SchedulePlanner({
                     color: '#6B7480'
                   }}>→ <BiText value={min2hm(o._planEnd)} /></div>
                       {forecast&&o.status!=='done'&&forecast.finish!==null&&<small><BiText value="終了見込み"/>　{min2hm(forecast.finish)}</small>}
-                      {forecast&&<small><BiText value="休憩"/>　{forecast.breaks.map(rest=>rest.from+'〜'+rest.to).join('　')||'—'}</small>}
+                      {visibleRests.length>0&&<small style={{display:'block'}}><BiText value="休憩"/>　{visibleRests.map(rest=>rest.from+'〜'+rest.to).join('　')}</small>}
+                      {visibleSupports.length>0&&<small style={{display:'block'}}><BiText value="ライン応援"/>　{visibleSupports.map(rest=>rest.from+'〜'+rest.to).join('　')}</small>}
                     </td>
                     <td style={td}>
                       <BiText value={locked || individual ? o.workerName || o.assignedWorkerName || t('未割当') : <LocalizedSelect value={o.assignedWorkerId || ''} onChange={(e) => setAssign(o, e.target.value)} style={{
