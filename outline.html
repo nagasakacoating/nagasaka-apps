@@ -7500,24 +7500,38 @@ function ShiftSettingsModal({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24
+    padding: 8,
+    boxSizing: 'border-box',
+    height: '100dvh',
+    overflow: 'hidden'
   }}>
       <div style={{
       background: '#fff',
       borderRadius: 16,
       width: '100%',
       maxWidth: 560,
+      maxHeight: '100%',
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
       overflow: 'hidden'
     }}>
         <div style={{
         background: NAVY,
-        padding: '14px 20px',
+        padding: '8px 16px',
+        flexShrink: 0,
         color: '#fff',
         fontSize: 17,
         fontWeight: 800
       }}>⏰ <BiText value={b('始業・休憩設定')} /></div>
         <div style={{
-        padding: 20
+        padding: 12,
+        flex: '1 1 auto',
+        minHeight: 0,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        touchAction: 'pan-y',
+        WebkitOverflowScrolling: 'touch'
       }}>
           <div style={{
           fontSize: 12.5,
@@ -7591,7 +7605,10 @@ function ShiftSettingsModal({
         }}><BiText value={"\uFF0B \u4F11\u61A9\u3092\u8FFD\u52A0"} /></button>
         </div>
         <div style={{
-        padding: '0 20px 20px',
+        padding: '8px 12px',
+        flexShrink: 0,
+        background: '#fff',
+        borderTop: '1px solid ' + LINE,
         display: 'flex',
         gap: 10
       }}>
