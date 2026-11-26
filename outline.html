@@ -7696,6 +7696,8 @@ function PlanBreakTarget({target, compact=false}) {
 
 function WorkPlanScreen({
   proc,
+  planWorkerId,
+  planDate,
   master,
   workers,
   orders,
@@ -7780,7 +7782,7 @@ function WorkPlanScreen({
   }
   const [scanW, setScanW] = useState(false);
   useEffect(()=>{outlinePlanUpdateSafe=!startOrder&&!unlockOrder&&!reopenOrder&&!workerBusy&&!reopenBusy&&!scanW;return()=>{outlinePlanUpdateSafe=false;};},[startOrder,unlockOrder,reopenOrder,workerBusy,reopenBusy,scanW]);
-  const [date, setDate] = useState(todayKey());
+  const [date, setDate] = useState(planDate||todayKey());
   const changeoverNow=useNow();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -7791,7 +7793,7 @@ function WorkPlanScreen({
   const stamp = `${now.getFullYear()}/${pad2(now.getMonth() + 1)}/${pad2(now.getDate())} (${wd}) ${fmtHM(now)}`;
   const stamp_id = stamp.replace('(' + wd + ')', '(' + ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][now.getDay()] + ')');
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const rows=workPlanTimeline(orders,proc.id,date,settings);
+  const rows=workPlanTimeline(orders,proc.id,date,settings).filter(o=>!planWorkerId||(o.individualPlan?(o.assignedWorkerId===planWorkerId):(o.workerId===planWorkerId)));
   const nextRow = rows.filter(o=>['pending','running','paused'].includes(o.status))
     .sort((a,b)=>a._planStart-b._planStart)[0];
   const showBreakTargets=supportsIndividualPlan(proc.id);
@@ -7844,7 +7846,7 @@ function WorkPlanScreen({
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
-    }}>🏭 <BiText value={proc.ja} /></div>} />
+    }}>🏭 <BiText value={proc.ja} />{planWorkerId&&<>　｜ 👤 {workers[planWorkerId]?.name||''}</>}</div>} />
       <div style={{
       flex: 1,
       overflowY: 'auto',
@@ -7863,7 +7865,7 @@ function WorkPlanScreen({
       }}>
           ⏰ <BiText value={b('始業時刻')} /> <BiText value={(settings || DEFAULT_SETTINGS).startTime} />　/　<BiText value={b('休憩')} /> <BiText value={((settings || DEFAULT_SETTINGS).breaks || []).map((x) => `${x.label} ${x.from}-${x.to}`).join('　')} />
         </div>
-        {date===todayKey()&&pendingChangeoverNotices(orders,proc.id,date,settings,changeoverNow).map(n=><div key={n.key}><strong>{n.workerName}</strong><ChangeoverNotice notice={n}/></div>)}
+        {date===todayKey()&&pendingChangeoverNotices(planWorkerId?Object.fromEntries(Object.entries(orders).filter(([k,o])=>o.workerId===planWorkerId||o.assignedWorkerId===planWorkerId)):orders,proc.id,date,settings,changeoverNow).map(n=><div key={n.key}><strong>{n.workerName}</strong><ChangeoverNotice notice={n}/></div>)}
         <div className="responsive-grid plan-summary" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))',
@@ -11749,7 +11751,7 @@ function App() {
   })} />;else if(view.name==='location') screen=<LocationEditScreen key={view.hinban} hinban={view.hinban} m={master[view.hinban]||{}} user={user} onBack={()=>setView(view.backTo)}/>;else if (view.name === 'master') screen = <MasterAdmin master={master} proc={view.proc} workers={workers} user={user} onBack={() => setView({
     name: 'work',
     proc: view.proc
-  })} />;else if (view.name === 'work') screen = <WorkPlanScreen proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
+  })} />;else if (view.name === 'work') screen = <WorkPlanScreen planWorkerId={view.planWorkerId} planDate={view.planDate} proc={view.proc} master={master} workers={workers} orders={orders} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
     name: 'proc'
   })} onQR={() => setScanHome(true)} onSearch={() => setView({
     name: 'search',
@@ -11788,7 +11790,9 @@ function App() {
     const log = orders[view.logId];
     screen = log ? <WorkRunScreen key={log.id} proc={view.proc} workers={workers} log={log} master={master} orders={orders} settings={procSettings[view.proc.id]} user={user} onExit={() => setView({
       name: 'work',
-      proc: view.proc
+      proc: view.proc,
+      planWorkerId: log.individualPlan?(log.assignedWorkerId||log.workerId):undefined,
+      planDate: log.date
     })} onInfo={(h) => setView({
       name: 'info',
       proc: view.proc,
@@ -11796,7 +11800,9 @@ function App() {
       backTo: view
     })} onDone={() => setView({
       name: 'work',
-      proc: view.proc
+      proc: view.proc,
+      planWorkerId: log.individualPlan?(log.assignedWorkerId||log.workerId):undefined,
+      planDate: log.date
     })} /> : <LoadingScreen />;
   } else if (view.name === 'workhist') screen = <WorkHistory proc={view.proc} logs={storedOrders} user={user} onAdminAction={adminGuard} adminUnlocked={adminOpen} onBack={() => setView({
     name: 'work',
