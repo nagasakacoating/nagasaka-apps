@@ -7793,6 +7793,9 @@ function WorkPlanScreen({
       whiteSpace: 'normal'
     }}><BiText value={txt} /></span>;
   };
+  const todayRows=Object.values(logs||{}).filter(l=>l.date===todayKeyFor(new Date())&&l.status!=='archived'&&(all||l.procId===proc.id));
+  const processGroups=Object.values(todayRows.reduce((acc,l)=>{(acc[l.procId]??=[]).push(l);return acc;},{}));
+  const pauseTotals=list.reduce((a,l)=>{const p=actualPauseTotals(l);return {rest:a.rest+p.rest,support:a.support+p.support,other:a.other+p.other};},{rest:0,support:0,other:0});
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -10345,10 +10348,10 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
   const breakdown={years:'年別',year:'月別',month:'週別',days:'日別',day:'時間帯別',hour:'10分ごと'};
   const text=(key,values)=><EvaluationText text={key} values={values}/>;
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
-  function summary(m,title,adjust=false){return <section className="evaluation-summary">
+  function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
     <h3>{text(title)}</h3><div className="evaluation-metrics">
       {[[text('達成率'),rateText(m)],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
-        [text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
+        [text('休憩'),evaluationNumber(p.rest)+' '+t('分')],[text('ライン応援'),evaluationNumber(p.support)+' '+t('分')],[text('その他停止'),evaluationNumber(p.other)+' '+t('分')],[text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
         .map(([label,value],i)=><div key={i}><span>{label}</span><strong style={i===0?{color:color(m)}:undefined}>{value}</strong></div>)}
     </div><div className="evaluation-auto"><strong>{text('アプリの自動評価')}</strong><p>{auto(m)}</p>
       {title!=='期間合計'&&trend&&<p><EvaluationText {...trend}/></p>}
@@ -11014,6 +11017,7 @@ function HistoryCleanupDialog({order,user,adminUnlocked,onAdminAction,onClose,on
 
 
 /* ── 履歴（期間検索・過去10年対応） ── */
+function actualPauseTotals(order,from=0,to=Date.now()){const result={rest:0,support:0,other:0};for(const p of order.pauses||[]){const a=Number(p.from),b=Number(p.to||order.endAt||Date.now());if(!a||!b)continue;const key=p.type==='break'?'rest':p.type==='support'?'support':'other';result[key]+=Math.max(0,Math.min(b,to)-Math.max(a,from))/60000;}return result;}
 function WorkHistory({
   proc,
   logs,
@@ -11160,6 +11164,7 @@ function WorkHistory({
             <button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 元に戻す</button></div>)}
           {!archivedRecords.length&&<p>指定期間に非表示記録はありません。</p>}
         </section>}
+        <h2 style={{fontSize:19,color:NAVY}}>本日の工程別稼働状況</h2>{processGroups.map(group=>{const active=group.filter(l=>['running','paused'].includes(l.status)),next=group.filter(l=>l.status==='pending').sort((a,b)=>(a.order||0)-(b.order||0))[0];const status=active.some(l=>l.status==='running')?'作業中':active.length?active.map(l=>l.pauses?.at(-1)?.type==='break'?'休憩中':l.pauses?.at(-1)?.type==='support'?'ライン応援中':'休止中').join(' / '):next?'次の作業開始待ち':'本日の全作業終了';return <div key={group[0].procId} style={{padding:12,marginBottom:6,borderRadius:8,background:active.length?'#e9f8ee':next?'#e8f1ff':'#f1f5f9'}}><strong>{group[0].procName||group[0].procId}　／　{status}</strong>{next&&<div>次の作業：{next.hinban||next.taskName}</div>}</div>;})}
         <h2 style={{background:'#166534',color:'#fff',padding:'10px 14px',borderRadius:8,fontSize:19}}>● 現在作業中・休止中（{activeRecords.filter(l=>l.date===todayKeyFor(new Date())).length}件）</h2>
         {!activeRecords.some(l=>l.date===todayKeyFor(new Date()))&&<p>現在作業中の記録はありません。</p>}
         {activeRecords.slice().sort((a,b)=>b.date.localeCompare(a.date)||String(a.procName||a.procId).localeCompare(String(b.procName||b.procId))).map(l=><section key={l.id} className="history-active-record" style={{padding:14,marginBottom:8,background:l.date!==todayKeyFor(new Date())?'#fff7ed':l.status==='paused'?'#fff8db':'#e9f8ee',border:'1px solid #a7cbb0',borderRadius:8}}>
@@ -11169,7 +11174,7 @@ function WorkHistory({
           {onAdminAction&&l.date<todayKey()&&<button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 管理者：整理</button>}
           <WorkerChangeHistory order={l}/>
         </section>)}
-        <h2 style={{fontSize:19,color:NAVY,marginTop:20}}>終了済み作業履歴（{list.length}件）</h2>
+        <h2 style={{fontSize:19,color:NAVY,marginTop:20}}>終了済み作業履歴（{list.length}件）</h2><div style={{display:'flex',gap:16,flexWrap:'wrap',padding:12,background:'#f1f5f9',marginBottom:8,fontWeight:700}}><span>休憩 {Math.round(pauseTotals.rest)} 分</span><span>ライン応援 {Math.round(pauseTotals.support)} 分</span><span>その他停止 {Math.round(pauseTotals.other)} 分</span></div>
         <div style={{
         border: '1px solid ' + LINE,
         borderRadius: 10,
@@ -11211,7 +11216,7 @@ function WorkHistory({
                     <td style={td}><BiText value={l.startAt ? fmtHM(new Date(l.startAt)) : ''} /> → <BiText value={l.endAt ? fmtHM(new Date(l.endAt)) : ''} /></td>
                     <td style={td}><BiText value={l.doneBoxes || 0} />{(!l.individualPlan||l.individualPlan.hasQuantity)&&<> / <BiText value={l.targetBoxes || 0} /></>}<BiText value={l.fraction ? `（+${l.fraction}個）` : ''} /></td>
                     <td style={td}><BiText value={Math.round(l.actMin || 0)} /> <BiText value={t('分')} /></td>
-                    <td style={td}><BiText value={Math.round(l.pausedMin || 0)} /> <BiText value={t('分')} /></td>
+                    <td style={td}><div>休憩 {Math.round(actualPauseTotals(l).rest)}分</div><div>応援 {Math.round(actualPauseTotals(l).support)}分</div><div>その他 {Math.round(actualPauseTotals(l).other)}分</div><small>停止計 {Math.round(l.pausedMin||0)}分</small></td>
                     <td style={{
                   ...td,
                   fontWeight: 800,
@@ -11325,7 +11330,7 @@ let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
 function outlineSourceSignature(doc){
   return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
 }
-const OUTLINE_BUILD='2026-11-26-history-5';
+const OUTLINE_BUILD='2026-11-26-history-6';
 const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
