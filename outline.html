@@ -7793,9 +7793,6 @@ function WorkPlanScreen({
       whiteSpace: 'normal'
     }}><BiText value={txt} /></span>;
   };
-  const todayRows=Object.values(logs||{}).filter(l=>l.date===todayKeyFor(new Date())&&l.status!=='archived'&&(all||l.procId===proc.id));
-  const processGroups=Object.values(todayRows.reduce((acc,l)=>{(acc[l.procId]??=[]).push(l);return acc;},{}));
-  const pauseTotals=list.reduce((a,l)=>{const p=actualPauseTotals(l);return {rest:a.rest+p.rest,support:a.support+p.support,other:a.other+p.other};},{rest:0,support:0,other:0});
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -11069,6 +11066,9 @@ function WorkHistory({
     l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
     (!query||[l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
   const list = historySource.filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || [l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
+  const todayRows=Object.values(logs||{}).filter(l=>l.date===todayKeyFor(new Date())&&l.status!=='archived'&&(all||l.procId===proc.id));
+  const processGroups=Object.values(todayRows.reduce((acc,l)=>{(acc[l.procId]??=[]).push(l);return acc;},{}));
+  const pauseTotals=list.reduce((a,l)=>{const p=actualPauseTotals(l);return {rest:a.rest+p.rest,support:a.support+p.support,other:a.other+p.other};},{rest:0,support:0,other:0});
   const th = {
     padding: '7px 8px',
     fontSize: 12,
@@ -11330,7 +11330,7 @@ let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
 function outlineSourceSignature(doc){
   return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
 }
-const OUTLINE_BUILD='2026-11-26-history-6';
+const OUTLINE_BUILD='2026-11-26-history-7';
 const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
