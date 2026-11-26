@@ -6672,7 +6672,7 @@ function buildTimeline(rows, settings, restRows=rows) {
     const rests=o.scheduleOverride?.breaks??workerScheduleBreaks(restRows,o,st);
     const blocks=[...rests,...supports];
     const gapStart=cur;
-    const a = addWork(Math.max(cur+changeover,instructionMinute(o.scheduleOverride?.from||'')??0), 0, blocks);
+    const a = addWork(Math.max(addWork(cur,changeover,blocks),instructionMinute(o.scheduleOverride?.from||'')??0), 0, blocks);
     const e = o.scheduleOverride?.mode==='time'?Math.max(a,instructionMinute(o.scheduleOverride.to)??a):addWork(a, dur, blocks);
     const supportMin=lineSupportMinutes(a,e,rests,supports);
     curs.set(key,e);
