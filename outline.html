@@ -6757,7 +6757,8 @@ function instructionForecast(order, now, settings) {
   const status = now ? order.status : 'pending';
   const done = now ? Number(order.doneBoxes) || 0 : 0;
   const remaining = plan.hasQuantity ? Math.max(0, (Number(order.targetBoxes)||0)-done) : null;
-  const breaks = instructionBreaks(plan);
+  const customBreaks = instructionBreaks(plan);
+  const breaks = customBreaks.length ? customBreaks : (settings || DEFAULT_SETTINGS).breaks || [];
   const workBreaks=mergeWorkBreaks([...breaks,...lineSupportBreaks(settings,order.date)]);
   const from = Math.min(end,Math.max(start, now ? clock : start));
   const minutes = Number(order.kosu) || 0;
@@ -6785,7 +6786,7 @@ function plannedBreakTarget(order, settings, now) {
   const start=order._planStart, end=order._planEnd;
   if (end<=start) return null;
 
-  const schedule=order.individualPlan ? instructionBreaks(order.individualPlan) : order._planBreaks || (settings || DEFAULT_SETTINGS).breaks || [];
+  const schedule=order._planBreaks || (order.individualPlan ? instructionForecast(order,undefined,settings).breaks : (settings || DEFAULT_SETTINGS).breaks || []);
   const spans=schedule.map(rest=>({from:hm2min(rest.from),to:hm2min(rest.to)}))
     .filter(rest=>rest.to>rest.from).sort((a,b)=>a.from-b.from);
   const rests=[];
