@@ -577,6 +577,31 @@ button.return-japanese{flex-shrink:0;min-height:44px;padding:5px 9px;border:1px 
 .start-language-buttons>button[aria-pressed=true]{background:#dbeafe;border-color:#75b6ff;color:#0d2450}
 .start-language-buttons>button:focus-visible{outline:3px solid #facc15;outline-offset:2px}
 @media(max-width:600px){.start-language-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Compact fixed work header on landscape tablets; keep the scrolling controls tall. */
+@media (orientation:landscape) and (min-width:600px){
+.workrun-screen>.app-topbar{padding:4px 8px!important;gap:3px 8px!important;max-height:none;align-content:center}
+.workrun-screen>.app-topbar>.topbar-context{flex:1 1 160px}
+.workrun-screen>.app-topbar>.topbar-title{flex:1 1 170px}
+.workrun-screen>.app-topbar>.lang-user{flex:1 1 360px;gap:3px!important;justify-content:flex-end}
+.workrun-screen .active-product-title{padding:2px 6px!important;line-height:1.1!important}
+.workrun-screen .active-product-title>div:first-child{font-size:10px!important}
+.workrun-screen .active-product-title>div:nth-child(2){font-size:22px!important}
+.workrun-screen .active-product-title>div:last-child{font-size:13px!important}
+.workrun-screen>.daily-changeover-loss{padding:2px 6px!important;font-size:14px;line-height:1.2}
+.workrun-screen>.daily-changeover-loss>span{font-size:19px!important}
+.workrun-screen>.workrun-worker-row{padding:2px 8px;gap:4px}
+.workrun-screen .workrun-worker-change{min-height:40px;padding:3px 12px;font-size:15px;gap:5px;min-width:min(100%,180px)}
+.workrun-screen>.workrun-break-progress{margin:2px 8px;padding:3px 6px;gap:3px 8px;border-radius:8px}
+.workrun-screen>.workrun-break-progress>.workrun-break-heading{flex:1 1 190px;font-size:13px;gap:2px 5px}
+.workrun-screen>.workrun-break-progress>.workrun-break-values{flex:1 1 240px;gap:3px}
+.workrun-screen>.workrun-break-progress .workrun-break-values>div{display:flex;align-items:center;justify-content:center;gap:4px;padding:3px 2px}
+.workrun-screen>.workrun-break-progress .workrun-break-heading strong,.workrun-screen>.workrun-break-progress .workrun-break-values strong{font-size:21px}
+.workrun-screen>.workrun-break-progress .workrun-break-values small{font-size:12px}
+.workrun-screen>.app-footer{min-height:44px;padding:2px 8px}
+.workrun-screen .app-footer .footer-button{min-height:38px}
+.workrun-screen .workrun-layout>.workrun-controls,.workrun-screen .workrun-layout>.workrun-observe{padding:6px!important;gap:6px!important}
+}
 </style>
 
 <link rel="icon" href="./outline-favicon.ico?v=20261028b" sizes="any">
@@ -9438,7 +9463,7 @@ function dailyChangeoverLoss(orders,procId,date,workerId,settings,now) {
   return total;
 }
 function DailyChangeoverLoss({seconds}) {
-  return <div style={{flexShrink:0,textAlign:'center',padding:'8px 12px',background:'#eef4fc',color:'#12306b',fontWeight:800,border:'1px solid #b9c7dd'}}><BiText value="本日の累計切替ロス"/>　<span style={{fontSize:24,color:seconds>0?'#b91c1c':'#12306b'}}>{Math.floor(seconds/60)} <BiText value="分"/> {pad2(seconds%60)} <BiText value="秒"/></span></div>;
+  return <div className="daily-changeover-loss" style={{flexShrink:0,textAlign:'center',padding:'8px 12px',background:'#eef4fc',color:'#12306b',fontWeight:800,border:'1px solid #b9c7dd'}}><BiText value="本日の累計切替ロス"/>　<span style={{fontSize:24,color:seconds>0?'#b91c1c':'#12306b'}}>{Math.floor(seconds/60)} <BiText value="分"/> {pad2(seconds%60)} <BiText value="秒"/></span></div>;
 }
 function ChangeoverNotice({notice}) {
   const {lang}=useLang();
@@ -9682,7 +9707,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar productTitle={!isTask&&<div style={{background:'#ffeb75',color:'#12306b',border:'2px solid #e0b52b',borderRadius:8,padding:'4px 10px',textAlign:'center',lineHeight:1.25,overflowWrap:'anywhere'}}><div style={{fontSize:12,fontWeight:700}}>{({'ja':'作業中の品番','id':'Nomor produk yang dikerjakan','pt-BR':'Código do produto em produção','vi':'Mã sản phẩm đang làm'})[lang]||'作業中の品番'}</div><div style={{fontSize:25,fontWeight:900}}>{String(log.hinban||'').replace(/^ミヤマ(?=[・\s]|$)/,'MIYAMA')}</div><div style={{fontSize:15,fontWeight:700}}><BiText value={dv(m,'name',lang)||''} other={m.name_id} translations={Object.fromEntries(['pt-BR','vi'].map(l=>[l,m.displayTranslations?.find(e=>e.ja===dv(m,'name',lang))?.translations?.[l]|| (l==='pt-BR'?m.name_pt:m.name_vi)||singleLanguageText(dv(m,'name',lang)||'',l)]))}/></div></div>} title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} onBack={onExit} left={<div style={{
+      <TopBar productTitle={!isTask&&<div className="active-product-title" style={{background:'#ffeb75',color:'#12306b',border:'2px solid #e0b52b',borderRadius:8,padding:'4px 10px',textAlign:'center',lineHeight:1.25,overflowWrap:'anywhere'}}><div style={{fontSize:12,fontWeight:700}}>{({'ja':'作業中の品番','id':'Nomor produk yang dikerjakan','pt-BR':'Código do produto em produção','vi':'Mã sản phẩm đang làm'})[lang]||'作業中の品番'}</div><div style={{fontSize:25,fontWeight:900}}>{String(log.hinban||'').replace(/^ミヤマ(?=[・\s]|$)/,'MIYAMA')}</div><div style={{fontSize:15,fontWeight:700}}><BiText value={dv(m,'name',lang)||''} other={m.name_id} translations={Object.fromEntries(['pt-BR','vi'].map(l=>[l,m.displayTranslations?.find(e=>e.ja===dv(m,'name',lang))?.translations?.[l]|| (l==='pt-BR'?m.name_pt:m.name_vi)||singleLanguageText(dv(m,'name',lang)||'',l)]))}/></div></div>} title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} onBack={onExit} left={<div style={{
       color: '#fff',
       fontSize: 14,
       fontWeight: 600,
