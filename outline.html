@@ -2028,6 +2028,9 @@ const PHOTO_STEP_LABELS=new Map([
   'ハンガーの1番下の段の、左側から製品を掛けていく。※手のひらと指で掛け穴を前方に向けながら掛ける事！！'
 ].map(text=>[normalizeStepTranslation(text),PROCESS_LABELS[text]]));
 const PART_NAME_TRANSLATIONS = new Map([
+  ['スライダーASSY',['Conjunto deslizante','Cụm con trượt']],
+  ['スライダー',['Deslizador','Con trượt']],
+  ['ミヤマ',['MIYAMA','MIYAMA']],
   ["ステーアッパーRH",["Suporte superior (RH)","Giá đỡ trên (RH)"]],
   ["ステーアッパーLH",["Suporte superior (LH)","Giá đỡ trên (LH)"]],
   ["プレートアンカー",["Placa de ancoragem","Tấm neo"]],
@@ -3104,14 +3107,14 @@ function LangUser({ user, showFullscreen = false }) {
     {user && <div className="user-name">👤 <span>{user.displayName || user.email?.split('@')[0] || 'ユーザー'}</span></div>}
   </div>;
 }
-function TopBar({ title, left, onBack, user }) {
+function TopBar({ title, left, onBack, user, productTitle }) {
   const { t } = useLang();
   return <header className="app-topbar">
     <div className="topbar-context">
       {onBack && <button className="topbar-back" onClick={onBack}>‹ <BiText value={t('戻る')} /></button>}
       {left && <div className="topbar-process">{left}</div>}
     </div>
-    <div className="topbar-title"><BiText value={title} /></div>
+    <div className="topbar-title">{productTitle || <BiText value={title} />}</div>
     <LangUser user={user} showFullscreen />
   </header>;
 }
@@ -9679,7 +9682,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
     display: 'flex',
     flexDirection: 'column'
   }}>
-      <TopBar title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} onBack={onExit} left={<div style={{
+      <TopBar productTitle={!isTask&&<div style={{background:'#ffeb75',color:'#12306b',border:'2px solid #e0b52b',borderRadius:8,padding:'4px 10px',textAlign:'center',lineHeight:1.25,overflowWrap:'anywhere'}}><div style={{fontSize:12,fontWeight:700}}>{({'ja':'作業中の品番','id':'Nomor produk yang dikerjakan','pt-BR':'Código do produto em produção','vi':'Mã sản phẩm đang làm'})[lang]||'作業中の品番'}</div><div style={{fontSize:25,fontWeight:900}}>{String(log.hinban||'').replace(/^ミヤマ(?=[・\s]|$)/,'MIYAMA')}</div><div style={{fontSize:15,fontWeight:700}}><BiText value={dv(m,'name',lang)||''} other={m.name_id} translations={Object.fromEntries(['pt-BR','vi'].map(l=>[l,m.displayTranslations?.find(e=>e.ja===dv(m,'name',lang))?.translations?.[l]|| (l==='pt-BR'?m.name_pt:m.name_vi)||singleLanguageText(dv(m,'name',lang)||'',l)]))}/></div></div>} title={isTask ? '🔧 ' + (log.taskName || '作業') : log.hinban + '　' + (dv(m, 'name', lang) || '')} user={user} onBack={onExit} left={<div style={{
       color: '#fff',
       fontSize: 14,
       fontWeight: 600,
