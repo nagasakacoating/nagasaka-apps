@@ -9394,6 +9394,21 @@ function WorkRunBreakProgress({order, plannedStart, target}) {
 }
 
 /* ── 実行画面（作業中） ── */
+function changeoverPopupInfo(log,orders,settings) {
+  const target=Number(log.targetBoxes)||0;
+  if(log.kind==='task'||log.status==='done'||target<=0||Number(log.doneBoxes)<target||(log.individualPlan&&!log.individualPlan.hasQuantity))return null;
+  const worker=log.workerId||log.assignedWorkerId;
+  if(!worker)return null;
+  const rows=Object.values(orders||{}).filter(o=>o.date===log.date&&o.procId===log.procId);
+  const next=rows.filter(o=>o.id!==log.id&&o.kind!=='task'&&o.status==='pending'&&o.hinban&&o.hinban!==log.hinban&&(o.assignedWorkerId||o.workerId)===worker&&Number(o.order)>Number(log.order)).sort((a,b)=>Number(a.order)-Number(b.order))[0];
+  if(!next)return null;
+  const at=Math.max(0,...[...(log.qrCountEvents||[]),...(log.manualBoxEvents||[])].filter(e=>Number(e.doneAfter)===target).map(e=>Number(e.at)||0));
+  if(!at)return null;
+  const d=new Date(at);
+  const blocks=[...(log.scheduleOverride?.breaks??workerScheduleBreaks(rows,log,settings)),...(log.scheduleOverride?.supports??lineSupportBreaks(settings,log.date))];
+  const deadline=addWork(d.getHours()*60+d.getMinutes()+d.getSeconds()/60,5,blocks);
+  return {key:log.id+':'+at,deadline:min2hm(Math.ceil(deadline))};
+}
 function WorkRunScreen({
   proc,
   workers,
@@ -9568,6 +9583,9 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   }
   const done = log.doneBoxes || 0,
     target = log.targetBoxes || 0;
+  const changeoverNotice=changeoverPopupInfo(log,orders,settings);
+  const [dismissedChangeover,setDismissedChangeover]=useState('');
+  const showChangeover=!!changeoverNotice&&dismissedChangeover!==changeoverNotice.key&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!paused&&!out&&!result&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
@@ -9598,6 +9616,14 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
+      {showChangeover&&<QrDialog title="品番切替" onClose={()=>setDismissedChangeover(changeoverNotice.key)}>
+        <div style={{textAlign:'center',padding:20,fontWeight:800,fontSize:26}}>
+          <p><BiText value="品番を切り替えて下さい。"/></p>
+          <p><BiText value="品番切り替えは5分です。"/></p>
+          <p style={{fontSize:42,color:'#b45309'}}>{changeoverNotice.deadline} <BiText value="まで"/></p>
+          <button type="button" onClick={()=>setDismissedChangeover(changeoverNotice.key)} style={{padding:'14px 32px',fontSize:22}}><BiText value="確認"/></button>
+        </div>
+      </QrDialog>}
       <div className="workrun-worker-row">
         {!individual&&<button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
