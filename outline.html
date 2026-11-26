@@ -9413,9 +9413,10 @@ function changeoverPopupInfo(log,orders,settings,now) {
   const blocks=[...(log.scheduleOverride?.breaks??workerScheduleBreaks(rows,log,settings)),...(log.scheduleOverride?.supports??lineSupportBreaks(settings,log.date))];
   const deadline=addWork(d.getHours()*60+d.getMinutes()+d.getSeconds()/60,5,blocks);
   const start=d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
-  const elapsedEnd=start+Math.max(0,now-at)/60000;
+  const completedAt=log.changeoverCompletion?.key===log.id+':'+at && log.changeoverCompletion?.nextId===next.id ? Number(log.changeoverCompletion.at)||0 : 0;
+  const elapsedEnd=start+Math.max(0,(completedAt>=at?Math.min(now,completedAt):now)-at)/60000;
   const elapsed=Math.max(0,instructionWorkMins(start,elapsedEnd,blocks));
-  return {key:log.id+':'+at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds:Math.max(0,Math.floor((elapsed-5)*60+1e-6)),over:elapsed>5};
+  return {key:log.id+':'+at,previousId:log.id,completed:completedAt>=at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds:Math.max(0,Math.floor((elapsed-5)*60+1e-6)),over:elapsed>5};
 }
 function dailyChangeoverLoss(orders,procId,date,workerId,settings,now) {
   if(!workerId)return 0;
@@ -9436,9 +9437,35 @@ function DailyChangeoverLoss({seconds}) {
   return <div style={{flexShrink:0,textAlign:'center',padding:'8px 12px',background:'#eef4fc',color:'#12306b',fontWeight:800,border:'1px solid #b9c7dd'}}><BiText value="本日の累計切替ロス"/>　<span style={{fontSize:24,color:seconds>0?'#b91c1c':'#12306b'}}>{Math.floor(seconds/60)} <BiText value="分"/> {pad2(seconds%60)} <BiText value="秒"/></span></div>;
 }
 function ChangeoverNotice({notice}) {
-  if(!notice)return null;
+  const {lang}=useLang();
+  const [savedKey,setSavedKey]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState(false);
+  if(!notice||notice.completed||savedKey===notice.key)return null;
+  const label=({'ja':'切り替え終了','id':'Selesai Pergantian Produk','pt-BR':'Concluir troca de produto','vi':'Hoàn tất chuyển đổi sản phẩm'})[lang]||'切り替え終了';
+  async function complete(){
+    if(busy)return;
+    setBusy(true);setError(false);
+    const at=Date.now();
+    try{
+      const ref=db.collection('workOrders').doc(notice.previousId);
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(ref);
+        if(!snap.exists)throw new Error('Order missing');
+        const current=snap.data();
+        const target=Number(current.targetBoxes)||0;
+        const last=Math.max(0,...[...(current.qrCountEvents||[]),...(current.manualBoxEvents||[])].filter(e=>Number(e.doneAfter)===target).map(e=>Number(e.at)||0));
+        if(!last||notice.key!==notice.previousId+':'+last||Number(current.doneBoxes)<target)throw new Error('Order changed');
+        if(current.changeoverCompletion?.key===notice.key&&current.changeoverCompletion?.nextId===notice.nextId)return;
+        tx.update(ref,{changeoverCompletion:{key:notice.key,nextId:notice.nextId,at:Math.max(at,last)}});
+      });
+      setSavedKey(notice.key);
+    }catch(e){setError(true);}finally{setBusy(false);}
+  }
   return <div role="status" style={{flexShrink:0,textAlign:'center',padding:12,fontWeight:800,fontSize:22,background:notice.over?'#fee2e2':'#fff7ed',color:notice.over?'#b91c1c':'#92400e',border:'2px solid currentColor'}}>
         {notice.over?<><div><BiText value="品番切替ロス時間"/></div><div style={{fontSize:36}}>{Math.floor(notice.lossSeconds/60)} <BiText value="分"/> {pad2(notice.lossSeconds%60)} <BiText value="秒"/></div></>:<><div><BiText value="品番を切り替えて下さい。"/></div><div><BiText value="品番切り替えは5分です。"/>　<span style={{fontSize:32}}>{notice.deadline} <BiText value="まで"/></span></div></>}
+        <button type="button" disabled={busy} onClick={complete} style={{display:'block',margin:'12px auto 0',width:'90%',padding:12,fontSize:22,fontWeight:800,background:'#16803d',color:'#fff',border:0,borderRadius:8}}>{label}</button>
+        {error&&<div role="alert">{({'ja':'保存できません。再度押してください。','id':'Gagal menyimpan. Coba lagi.','pt-BR':'Falha ao salvar. Tente novamente.','vi':'Không lưu được. Hãy thử lại.'})[lang]||'保存できません。再度押してください。'}</div>}
       </div>;
 }
 function pendingChangeoverNotices(orders,procId,date,settings,now,workerId,nextId) {
@@ -9449,7 +9476,7 @@ function pendingChangeoverNotices(orders,procId,date,settings,now,workerId,nextI
     if(!worker||seen.has(worker))continue;
     seen.add(worker);
     const notice=changeoverPopupInfo(row,orders,settings,now);
-    if(notice&&(!nextId||notice.nextId===nextId))out.push({...notice,workerName:row.workerName||worker});
+    if(notice&&!notice.completed&&(!nextId||notice.nextId===nextId))out.push({...notice,workerName:row.workerName||worker});
   }
   return out;
 }
@@ -9628,7 +9655,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   const done = log.doneBoxes || 0,
     target = log.targetBoxes || 0;
   const changeoverNotice=changeoverPopupInfo(log,orders,settings,now);
-  const showChangeover=!!changeoverNotice&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
+  const showChangeover=!!changeoverNotice&&!changeoverNotice.completed&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
