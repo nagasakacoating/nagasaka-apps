@@ -9142,7 +9142,7 @@ function WorkSheetScreen({
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>🏭 <BiText value={proc.ja} /></div>} />
-      {useWorker&&<ChangeoverNotice notice={sheetChangeover}/>}
+      {useWorker&&<><ChangeoverNotice notice={sheetChangeover}/><DailyChangeoverLoss seconds={dailyChangeoverLoss(orders,proc.id,order.date,useWorker.id,settings,noticeNow)}/></>}
       <div style={{
       flex: 1,
       display: 'flex',
@@ -9417,6 +9417,24 @@ function changeoverPopupInfo(log,orders,settings,now) {
   const elapsed=Math.max(0,instructionWorkMins(start,elapsedEnd,blocks));
   return {key:log.id+':'+at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds:Math.max(0,Math.floor((elapsed-5)*60+1e-6)),over:elapsed>5};
 }
+function dailyChangeoverLoss(orders,procId,date,workerId,settings,now) {
+  if(!workerId)return 0;
+  const rows=Object.values(orders||{}).filter(o=>o.procId===procId&&o.date===date&&(o.workerId||o.assignedWorkerId)===workerId&&o.kind!=='task'&&o.hinban).sort((a,b)=>Number(a.order)-Number(b.order));
+  let total=0;
+  for(let i=0;i<rows.length-1;i++){
+    const prev=rows[i],next=rows[i+1];
+    if(!['done','running','paused'].includes(prev.status)||prev.hinban===next.hinban)continue;
+    const end=next.status==='pending'?now:Number(next.startAt);
+    if(!Number.isFinite(end)||end<=0)continue;
+    if(next.status==='pending'&&rows.slice(i+2).some(o=>Number(o.startAt)>0))continue;
+    const notice=changeoverPopupInfo(prev,{...orders,[next.id]:{...next,status:'pending'}},settings,end);
+    if(notice&&notice.nextId===next.id)total+=notice.lossSeconds;
+  }
+  return total;
+}
+function DailyChangeoverLoss({seconds}) {
+  return <div style={{flexShrink:0,textAlign:'center',padding:'8px 12px',background:'#eef4fc',color:'#12306b',fontWeight:800,border:'1px solid #b9c7dd'}}><BiText value="本日の累計切替ロス"/>　<span style={{fontSize:24,color:seconds>0?'#b91c1c':'#12306b'}}>{Math.floor(seconds/60)} <BiText value="分"/> {pad2(seconds%60)} <BiText value="秒"/></span></div>;
+}
 function ChangeoverNotice({notice}) {
   if(!notice)return null;
   return <div role="status" style={{flexShrink:0,textAlign:'center',padding:12,fontWeight:800,fontSize:22,background:notice.over?'#fee2e2':'#fff7ed',color:notice.over?'#b91c1c':'#92400e',border:'2px solid currentColor'}}>
@@ -9642,6 +9660,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
       {showChangeover&&<ChangeoverNotice notice={changeoverNotice}/>}
+      {!workerMissing&&<DailyChangeoverLoss seconds={dailyChangeoverLoss(orders,proc.id,log.date,log.workerId,settings,now)}/>}
       <div className="workrun-worker-row">
         {!individual&&<button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
@@ -9931,7 +9950,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
       setAnom(false);
     }} />} />
       <BiText value={out && <OutModal log={log} calc={c} onClose={() => setOut(false)} onFinish={finish} />} />
-      <BiText value={result && <ResultModal result={result} todaySum={todaySum} changeoverNotice={changeoverNotice} onClose={() => {
+      <BiText value={result && <ResultModal result={result} todaySum={todaySum} changeoverNotice={changeoverNotice} dailyLoss={dailyChangeoverLoss(orders,proc.id,log.date,log.workerId,settings,now)} onClose={() => {
       setResult(null);
       onDone();
     }} />} />
@@ -10652,6 +10671,7 @@ function ResultModal({
   result,
   todaySum,
   changeoverNotice,
+  dailyLoss,
   onClose
 }) {
   const {
@@ -10727,6 +10747,7 @@ function ResultModal({
         </div>
         <div className="work-dialog-body">
         <ChangeoverNotice notice={changeoverNotice}/>
+        <DailyChangeoverLoss seconds={dailyLoss}/>
         {/* 主役：予定差 */}
         <div className="work-result-summary" style={{
         margin: '18px 22px 0',
