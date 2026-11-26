@@ -2193,6 +2193,7 @@ const START_SCREEN_LABELS={
   ]
 };
 for(const [label,[id,pt,vi]] of Object.entries(START_SCREEN_LABELS)){DICT[label]=id;PROCESS_LABELS[label]=[pt,vi];}
+Object.assign(PROCESS_LABELS,{"品番を切り替えて下さい。":["Troque a referência do produto.","Vui lòng chuyển sang mã sản phẩm khác."],"品番切り替えは5分です。":["O tempo para troca de produto é de 5 minutos.","Thời gian chuyển đổi mã sản phẩm là 5 phút."],"まで":["até","đến"],"品番切替ロス時間":["Tempo perdido na troca de produto","Thời gian tổn thất khi chuyển đổi mã sản phẩm"],"本日の累計切替ロス":["Tempo perdido acumulado nas trocas de hoje","Tổng thời gian tổn thất do chuyển đổi hôm nay"],"分":["min","phút"],"秒":["s","giây"]});
 const PROCESS_LABEL_PARTS = Object.keys(PROCESS_LABELS).sort((a,b)=>b.length-a.length);
 function singleLanguageText(text, lang, useRegistered = true) {
   if (typeof text !== 'string' || lang === 'ja') return text;
@@ -9463,7 +9464,7 @@ function ChangeoverNotice({notice}) {
     }catch(e){setError(true);}finally{setBusy(false);}
   }
   return <div role="status" style={{flexShrink:0,textAlign:'center',padding:12,fontWeight:800,fontSize:22,background:notice.over?'#fee2e2':'#fff7ed',color:notice.over?'#b91c1c':'#92400e',border:'2px solid currentColor'}}>
-        {notice.over?<><div><BiText value="品番切替ロス時間"/></div><div style={{fontSize:36}}>{Math.floor(notice.lossSeconds/60)} <BiText value="分"/> {pad2(notice.lossSeconds%60)} <BiText value="秒"/></div></>:<><div><BiText value="品番を切り替えて下さい。"/></div><div><BiText value="品番切り替えは5分です。"/>　<span style={{fontSize:32}}>{notice.deadline} <BiText value="まで"/></span></div></>}
+        {notice.over?<><div><BiText value="品番切替ロス時間"/></div><div style={{fontSize:36}}>{Math.floor(notice.lossSeconds/60)} <BiText value="分"/> {pad2(notice.lossSeconds%60)} <BiText value="秒"/></div></>:<><div><BiText value="品番を切り替えて下さい。"/></div><div><BiText value="品番切り替えは5分です。"/>　<span style={{fontSize:32}}>{lang==='pt-BR'?`até ${notice.deadline}`:lang==='vi'?`đến ${notice.deadline}`:<>{notice.deadline} <BiText value="まで"/></>}</span></div></>}
         <button type="button" disabled={busy} onClick={complete} style={{display:'block',margin:'12px auto 0',width:'90%',padding:12,fontSize:22,fontWeight:800,background:'#16803d',color:'#fff',border:0,borderRadius:8}}>{label}</button>
         {error&&<div role="alert">{({'ja':'保存できません。再度押してください。','id':'Gagal menyimpan. Coba lagi.','pt-BR':'Falha ao salvar. Tente novamente.','vi':'Không lưu được. Hãy thử lại.'})[lang]||'保存できません。再度押してください。'}</div>}
       </div>;
