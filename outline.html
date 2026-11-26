@@ -10374,7 +10374,39 @@ function evaluationTrendComment(children,scope) {
     (last>first?'期間の後半は前半より達成率が{points}ポイント上がっています。':'期間の後半は前半より達成率が{points}ポイント下がっています。');
   return {text,values:{points}};
 }
-function AnalyticsScreen({proc,master,workers,user,onBack}) {
+function adminChangeoverRows(rows,settingsByProc) {
+  const groups=new Map();
+  for(const o of rows||[]){
+    const worker=o.workerId||o.assignedWorkerId;
+    if(!worker||o.kind==='task'||!o.hinban)continue;
+    const key=JSON.stringify([o.date,o.procId,worker]);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(o);
+  }
+  const out=[];
+  for(const group of groups.values()){
+    group.sort((a,b)=>Number(a.order)-Number(b.order));
+    const orders=Object.fromEntries(group.map(o=>[o.id,o]));
+    for(let i=0;i<group.length-1;i++){
+      const prev=group[i],next=group[i+1],to=Number(next.startAt);
+      if(prev.status!=='done'||prev.excludeFromEvaluation||next.excludeFromEvaluation||!to)continue;
+      const settings=settingsByProc?.[prev.procId];
+      const notice=changeoverPopupInfo(prev,{...orders,[next.id]:{...next,status:'pending'}},settings,to);
+      if(!notice||notice.nextId!==next.id)continue;
+      const from=Number(notice.key.slice(notice.key.lastIndexOf(':')+1));
+      if(!(to>=from))continue;
+      out.push({key:prev.workerId||prev.assignedWorkerId,procId:prev.procId,date:prev.date,previous:prev.hinban,next:next.hinban,from,to,seconds:notice.lossSeconds,prev,nextOrder:next,orders,settings});
+    }
+  }
+  return out;
+}
+function adminChangeoverScopeSeconds(row,scope){
+  const a=Math.max(row.from,scope.from),b=Math.min(row.to,scope.to);
+  if(b<=a)return 0;
+  const orders={...row.orders,[row.nextOrder.id]:{...row.nextOrder,status:'pending'}};
+  return Math.max(0,(changeoverPopupInfo(row.prev,orders,row.settings,b)?.lossSeconds||0)-(changeoverPopupInfo(row.prev,orders,row.settings,a)?.lossSeconds||0));
+}
+function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
   const {lang,b,t}=useLang(),report=useReportStart();
   const today=evaluationDay(Date.now());
   const [mode,setMode]=useState('day'),[date,setDate]=useState(today),[path,setPath]=useState([]),[worker,setWorker]=useState(''),[all,setAll]=useState(false);
@@ -10394,6 +10426,9 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
   const gapRows=React.useMemo(()=>{const groups=new Map();for(const e of prepared)for(const seg of e.segments){if(!seg.key||!(seg.from>0&&seg.to>seg.from))continue;const k=seg.key+'|'+e.order.date;const arr=groups.get(k)||[];arr.push({...seg,procId:e.order.procId,product:e.order.hinban||e.order.taskName});groups.set(k,arr);}const out=[];for(const arr of groups.values()){arr.sort((a,b)=>a.from-b.from);let prev=null;for(const cur of arr){if(prev&&cur.from>prev.to&&prev.procId===cur.procId){const from=prev.to,to=cur.from;out.push({key:cur.key,name:cur.name,from,to,previous:prev.product,next:cur.product,base:Math.min(5,(to-from)/60000),excess:Math.max(0,(to-from)/60000-5)});}if(!prev||cur.to>prev.to)prev=cur;}}return out;},[prepared]);
   const visibleGaps=gapRows.filter(g=>(!worker||g.key===worker)&&g.from<scope.to&&g.to>scope.from);
   const gapExcess=visibleGaps.reduce((sum,g)=>sum+Math.max(0,Math.min(g.to,scope.to)-Math.max(g.from+300000,scope.from))/60000,0);
+  const changeoverRows=React.useMemo(()=>adminChangeoverRows((rows||[]).filter(o=>all||o.procId===proc.id),settingsByProc),[rows,all,proc.id,settingsByProc]);
+  const scopedChangeovers=changeoverRows.filter(g=>(!worker||g.key===worker)&&g.from<scope.to&&g.to>scope.from).map(g=>({...g,scopeSeconds:adminChangeoverScopeSeconds(g,scope)}));
+  const changeoverTotal=scopedChangeovers.reduce((sum,g)=>sum+g.scopeSeconds,0);
   const children=evaluationChildren(scope).map(child=>({...child,metric:evaluationMetric(prepared,child,worker)}));
   const visible=scope.kind==='day'?children.filter(c=>c.metric.count):children;
   const trend=evaluationTrendComment(children,scope),maxRate=Math.max(120,...visible.map(c=>c.metric.rate||0));
@@ -10444,7 +10479,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
     {error&&<p role="alert">{error}</p>}{rows===null&&!error?<p><BiText value="読込中…"/></p>:rows!==null&&<>
       <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('集計全体に戻る')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
       {path.length>0&&<button onClick={reset}>{text('合計の評価に戻る')}</button>}
-      {summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}<section className="evaluation-summary"><h3>製品間の空白時間・切り替え確認</h3><div style={{background:'#fff1e2',padding:12,borderRadius:8}}><strong>基準5分を超えた未確認時間：{evaluationNumber(gapExcess)} 分</strong><p>製品間の休憩・応援・材料待ちが未記録の場合も含まれます。確認前は確定ロスや個人評価に加算しません。</p></div><details><summary>製品間の詳細（{visibleGaps.length}件）</summary><div style={{overflowX:'auto'}}><table className="evaluation-table"><thead><tr>{['日付','担当者','前製品','次製品','終了','開始','空白（分）','基準超過（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{visibleGaps.slice().sort((a,b)=>a.from-b.from).map((g,i)=><tr key={i}><td>{evaluationDay(g.from)}</td><td>{g.name}</td><td>{g.previous}</td><td>{g.next}</td><td>{evaluationClock(g.from,true)}</td><td>{evaluationClock(g.to,true)}</td><td>{evaluationNumber((g.to-g.from)/60000)}</td><td style={{color:g.excess>0?'#b91c1c':'#166534'}}>{evaluationNumber(g.excess)}</td></tr>)}</tbody></table></div></details></section>
+      {summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}<section className="evaluation-summary"><h3>品番切替ロス（次品番開始済み）</h3><div style={{background:'#fee2e2',padding:12,borderRadius:8,color:'#b91c1c'}}><strong style={{fontSize:25}}>{Math.floor(changeoverTotal/60)} 分 {pad2(changeoverTotal%60)} 秒</strong><p>予定箱数到達から次品番開始までの5分超過分。予定休憩・ライン応援を除外。評価点には未加算。</p></div><details><summary>切替ロス詳細（{scopedChangeovers.length}件）</summary><div style={{overflowX:'auto'}}><table className="evaluation-table"><thead><tr>{['日付','担当者','工程','前品番','次品番','箱数到達','次開始','対象範囲ロス（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{scopedChangeovers.map((g,i)=><tr key={i}><td>{g.date}</td><td>{workers?.[g.key]?.name||g.key}</td><td>{g.prev.procName||g.procId}</td><td>{g.previous}</td><td>{g.next}</td><td>{evaluationClock(g.from,true)}</td><td>{evaluationClock(g.to,true)}</td><td>{evaluationNumber(g.scopeSeconds/60)}</td></tr>)}</tbody></table></div></details></section><section className="evaluation-summary"><h3>製品間の空白時間・切り替え確認</h3><div style={{background:'#fff1e2',padding:12,borderRadius:8}}><strong>基準5分を超えた未確認時間：{evaluationNumber(gapExcess)} 分</strong><p>製品間の休憩・応援・材料待ちが未記録の場合も含まれます。確認前は確定ロスや個人評価に加算しません。</p></div><details><summary>製品間の詳細（{visibleGaps.length}件）</summary><div style={{overflowX:'auto'}}><table className="evaluation-table"><thead><tr>{['日付','担当者','前製品','次製品','終了','開始','空白（分）','基準超過（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{visibleGaps.slice().sort((a,b)=>a.from-b.from).map((g,i)=><tr key={i}><td>{evaluationDay(g.from)}</td><td>{g.name}</td><td>{g.previous}</td><td>{g.next}</td><td>{evaluationClock(g.from,true)}</td><td>{evaluationClock(g.to,true)}</td><td>{evaluationNumber((g.to-g.from)/60000)}</td><td style={{color:g.excess>0?'#b91c1c':'#166534'}}>{evaluationNumber(g.excess)}</td></tr>)}</tbody></table></div></details></section>
       <section className="evaluation-detail-section"><h3>作業時間の内訳・詳細</h3><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>{[['active','実働時間','#e5f5e9','#166534'],['rest','休憩時間','#fff1c2','#805500'],['support','ライン応援時間','#e1edff','#174ea6'],['other','その他停止時間','#fce8e8','#a32626']].map(([key,label,bg,fg])=>{let sum=key==='active'?metric.active:0;const details=[];for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(scope.from,seg.from),b=Math.min(scope.to,seg.to);if(b<=a)continue;if(key==='active'){details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from:a,to:b,min:Math.max(0,(b-a)/60000-Object.values(actualPauseTotals(entry.order,a,b)).reduce((x,y)=>x+y,0))});continue;}for(const p of entry.order.pauses||[]){const k=p.type==='break'?'rest':p.type==='support'?'support':'other';if(k!==key)continue;const from=Math.max(a,Number(p.from)),to=Math.min(b,Number(p.to||entry.order.endAt||Date.now()));if(!(to>from))continue;const min=(to-from)/60000;sum+=min;details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from,to,min});}}}return <React.Fragment key={key}><button type="button" aria-expanded={timeDetail===key} onClick={()=>setTimeDetail(timeDetail===key?'':key)} style={{background:bg,color:fg,border:'1px solid '+fg,borderRadius:10,padding:12,textAlign:'left'}}><strong>{label}</strong><div style={{fontSize:25,fontWeight:700}}>{evaluationNumber(sum)} 分</div><div>詳細を見る {timeDetail===key?'▲':'▼'}</div></button>{timeDetail===key&&<div style={{gridColumn:'1 / -1',overflowX:'auto',padding:8}}><strong>{label}の記録</strong><table className="evaluation-table"><thead><tr>{['日付','担当者','呼称','開始','終了','実績（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{details.sort((a,b)=>a.from-b.from).map((d,i)=><tr key={i}><td>{evaluationDay(d.from)}</td><td>{d.name}</td><td>{d.product}</td><td>{evaluationClock(d.from,true)}</td><td>{evaluationClock(d.to,true)}</td><td>{evaluationNumber(d.min)}</td></tr>)}</tbody></table>{!details.length&&<p>該当する記録はありません。</p>}{key==='active'&&<small>開始・終了は集計対象区間、実績は停止時間を除いた時間です。</small>}</div>}</React.Fragment>;})}</div></section>
       {path.length===0&&trend&&<div className="evaluation-auto"><EvaluationText {...trend}/></div>}
       {!!total.adjust&&<p className="evaluation-note">{text('管理者の調整時間は、全期間合計の先行・遅れに反映します。')}</p>}
@@ -11705,7 +11740,7 @@ function App() {
   } else if (view.name === 'workhist') screen = <WorkHistory proc={view.proc} logs={storedOrders} user={user} onAdminAction={adminGuard} adminUnlocked={adminOpen} onBack={() => setView({
     name: 'work',
     proc: view.proc
-  })} />;else if (view.name === 'analytics') screen = <AnalyticsScreen proc={view.proc} master={master} workers={workers} user={user} onBack={() => setView({
+  })} />;else if (view.name === 'analytics') screen = <AnalyticsScreen proc={view.proc} master={master} workers={workers} user={user} settingsByProc={procSettings} onBack={() => setView({
     name: 'work',
     proc: view.proc
   })} />;
