@@ -6654,16 +6654,19 @@ function scheduleOverlaps(start,end,blocks) {
 }
 function buildTimeline(rows, settings, restRows=rows) {
   const st = settings || DEFAULT_SETTINGS;
-  let cur = hm2min(st.startTime || '08:00');
+  const curs=new Map(), previousRows=new Map();
   return rows.map((o,i) => {
+    const key=o.assignedWorkerId||o.workerId||'__unassigned';
+    let cur=curs.get(key)??hm2min(st.startTime || '08:00');
+    const previous=previousRows.get(key);
+    previousRows.set(key,o);
     const supports=lineSupportBreaks(st,o.date);
     if (o.individualPlan) {
       const plan=instructionForecast(o,undefined,st);
       const end=o.individualPlan.mode==='time' ? plan.end : plan.finish ?? plan.start;
-      cur=Math.max(cur,end);
+      curs.set(key,Math.max(cur,end));
       return {...o,_planStart:plan.start,_planEnd:end,_planMin:instructionWorkMins(plan.start,end,plan.breaks),_planBreaks:plan.breaks,_planSupportMin:lineSupportMinutes(plan.start,end,plan.breaks,supports)};
     }
-    const previous=rows[i-1];
     const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?5:0;
     const dur = rowPlanMin(o);
     const rests=workerScheduleBreaks(restRows,o,st);
@@ -6672,7 +6675,7 @@ function buildTimeline(rows, settings, restRows=rows) {
     const a = addWork(cur+changeover, 0, blocks);
     const e = addWork(a, dur, blocks);
     const supportMin=lineSupportMinutes(a,e,rests,supports);
-    cur = e;
+    curs.set(key,e);
     return {
       ...o,
       _planMin: dur+supportMin,
@@ -8385,6 +8388,11 @@ function SchedulePlanner({
   const [addDur, setAddDur] = useState('');
   const [shiftOpen, setShiftOpen] = useState(false);
   const [individualEditor, setIndividualEditor] = useState(null);
+  const [regularEdit,setRegularEdit]=useState(null);
+  const [regularValue,setRegularValue]=useState('');
+  const [regularName,setRegularName]=useState('');
+  const [regularWorker,setRegularWorker]=useState('');
+  const [regularError,setRegularError]=useState('');
   const [individualDraft,setIndividualDraft]=useState(null);
   const plannerNow = useNow();
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -8507,6 +8515,30 @@ function SchedulePlanner({
     if (o.status !== 'pending' && !(await showBiDialog("confirm", '開始済みの行です。削除すると実績も消えます。よろしいですか？'))) return;
     if (o.status === 'pending' && !(await showBiDialog("confirm", `${o.hinban} の行を削除しますか？`))) return;
     await run(() => col.doc(o.id).delete());
+  }
+  function openRegularEdit(o){
+    setRegularEdit(o);setRegularValue(String(o.kind==='task'?o.durMin:o.targetBoxes));setRegularName(o.taskName||'');setRegularWorker(o.assignedWorkerId||'');setRegularError('');
+  }
+  async function saveRegularEdit(){
+    if(busy||!regularEdit)return;
+    const value=Number(regularValue);
+    if(!Number.isSafeInteger(value)||value<=0){setRegularError('正しい数量または所要時間を入力してください。');return;}
+    setBusy(true);setRegularError('');
+    try{
+      const ref=col.doc(regularEdit.id);
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(ref),current=snap.exists&&snap.data();
+        if(!current||current.individualPlan||current.status==='done'||current.status==='archived')throw new Error('作業状態が変わりました。');
+        if(current.kind!=='task'&&value<(Number(current.doneBoxes)||0))throw new Error('完了箱数より少ない数量には変更できません。');
+        const patch=current.kind==='task'?{durMin:value}:{targetBoxes:value};
+        if(current.status==='pending'){
+          if(current.kind==='task'){if(!regularName.trim())throw new Error('作業名を入力してください。');patch.taskName=regularName.trim();}
+          patch.assignedWorkerId=regularWorker||null;patch.assignedWorkerName=workers[regularWorker]?.name||'';
+        }
+        tx.update(ref,patch);
+      });
+      setRegularEdit(null);
+    }catch(e){setRegularError(e.message);}finally{setBusy(false);}
   }
   async function setQty(o, v) {
     const q = parseInt(v, 10) || 0;
@@ -8748,6 +8780,14 @@ function SchedulePlanner({
         </div>
         <LineSupportSchedule key={proc.id+'-'+date} proc={proc} date={date} settings={settings} onEditBreaks={()=>setShiftOpen(true)}/>
         {!individualEditor&&gaps.map(g=><div key={g.workerId+g.from} style={{padding:10,margin:'8px 0',border:'1px solid #d6a64c',borderRadius:8}}><strong>{g.name}　{g.from}〜{g.to}</strong>　<BiText value="空き時間があります。作業を追加してください。"/> <button type="button" onClick={()=>{setIndividualEditor({gap:g});requestAnimationFrame(()=>document.getElementById('individual-instruction-editor')?.scrollIntoView({block:'start'}));}}><BiText value="作業を追加"/></button></div>)}
+        {regularEdit&&<section className="individual-card individual-editor">
+          <div className="individual-header"><strong><BiText value="作業指示を編集"/>　{regularEdit.taskName||regularEdit.hinban}</strong><button type="button" disabled={busy} onClick={()=>setRegularEdit(null)}><BiText value="閉じる"/></button></div>
+          <div className="individual-grid">
+          {regularEdit.kind==='task'&&<IndividualField label="作業名"><LocalizedInput value={regularName} disabled={regularEdit.status!=='pending'||busy} onChange={e=>setRegularName(e.target.value)}/></IndividualField>}
+          <IndividualField label={regularEdit.kind==='task'?'所要時間（分）':'指示数量（合計箱数）'}><LocalizedInput type="number" min="1" step="1" value={regularValue} disabled={busy} onChange={e=>setRegularValue(e.target.value)}/></IndividualField>
+          <IndividualField label="担当者"><LocalizedSelect value={regularWorker} disabled={regularEdit.status!=='pending'||busy} onChange={e=>setRegularWorker(e.target.value)}><LocalizedOption value="">未割当</LocalizedOption>{wlist.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</LocalizedSelect></IndividualField>
+          </div>{regularError&&<p role="alert">{regularError}</p>}<button type="button" className="individual-primary" disabled={busy} onClick={saveRegularEdit}><BiText value="保存する"/></button>
+        </section>}
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null} gap={individualEditor.gap}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
           onDraftRest={setIndividualDraft} onSaved={savedDate=>{setDate(savedDate);setIndividualEditor(null);setIndividualDraft(null);}}
@@ -8922,6 +8962,7 @@ function SchedulePlanner({
                   }}>
                         {individual&&<button type="button" onClick={()=>{setIndividualDraft(null);setIndividualEditor(o);requestAnimationFrame(()=>document.getElementById("individual-instruction-editor")?.scrollIntoView({block:"start",behavior:"smooth"}));}} disabled={busy||o.status==='done'}
                           style={{padding:'5px 8px',borderRadius:6,background:'#EAF2FF',color:NAVY,fontWeight:700}}><BiText value="編集"/></button>}
+                        {!individual&&<button type="button" disabled={busy||!!individualEditor||!!regularEdit||o.status==='done'} onClick={()=>{openRegularEdit(o);requestAnimationFrame(()=>document.querySelector('.individual-editor')?.scrollIntoView({block:'start'}));}} style={{padding:'5px 8px',borderRadius:6,background:'#EAF2FF',color:NAVY,fontWeight:700}}><BiText value="編集"/></button>}
                         {!individual&&<button onClick={() => move(i, -1)} disabled={busy || !rows.slice(0,i).some(row=>!row.individualPlan)} style={{
                       width: 30,
                       height: 32,
