@@ -10726,6 +10726,7 @@ function ResultModal({
           <button type="button" className="work-dialog-close" onClick={onClose}><BiText value="閉じる"/></button>
         </div>
         <div className="work-dialog-body">
+        <ChangeoverNotice notice={changeoverNotice}/>
         {/* 主役：予定差 */}
         <div className="work-result-summary" style={{
         margin: '18px 22px 0',
