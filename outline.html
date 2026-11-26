@@ -7752,6 +7752,7 @@ function WorkPlanScreen({
   const [scanW, setScanW] = useState(false);
   useEffect(()=>{outlinePlanUpdateSafe=!startOrder&&!unlockOrder&&!reopenOrder&&!workerBusy&&!reopenBusy&&!scanW;return()=>{outlinePlanUpdateSafe=false;};},[startOrder,unlockOrder,reopenOrder,workerBusy,reopenBusy,scanW]);
   const [date, setDate] = useState(todayKey());
+  const changeoverNow=useNow();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30000);
@@ -7833,6 +7834,7 @@ function WorkPlanScreen({
       }}>
           ⏰ <BiText value={b('始業時刻')} /> <BiText value={(settings || DEFAULT_SETTINGS).startTime} />　/　<BiText value={b('休憩')} /> <BiText value={((settings || DEFAULT_SETTINGS).breaks || []).map((x) => `${x.label} ${x.from}-${x.to}`).join('　')} />
         </div>
+        {date===todayKey()&&pendingChangeoverNotices(orders,proc.id,date,settings,changeoverNow).map(n=><div key={n.key}><strong>{n.workerName}</strong><ChangeoverNotice notice={n}/></div>)}
         <div className="responsive-grid plan-summary" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))',
@@ -9082,6 +9084,7 @@ function WorkOrderWorkerPicker({workers,value,onChange,disabled,exclude,label='�
 function WorkSheetScreen({
   proc,
   order: savedOrder,
+  orders,
   worker,
   workers,
   master,
@@ -9112,6 +9115,7 @@ function WorkSheetScreen({
   const noticeNow=useNow();
   const [workerId,setWorkerId]=useState(worker?.id || order.assignedWorkerId || '');
   const useWorker=workers?.[individual?order.assignedWorkerId:workerId];
+  const sheetChangeover=pendingChangeoverNotices(orders,proc.id,order.date,settings,noticeNow,useWorker?.id,order.id)[0];
   const canStart=!!(useWorker?.name?.trim() && qrReady && (isTask || ack));
   async function start(){
     if(starting||!canStart)return;
@@ -9138,6 +9142,7 @@ function WorkSheetScreen({
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>🏭 <BiText value={proc.ja} /></div>} />
+      {useWorker&&<ChangeoverNotice notice={sheetChangeover}/>}
       <div style={{
       flex: 1,
       display: 'flex',
@@ -9396,12 +9401,12 @@ function WorkRunBreakProgress({order, plannedStart, target}) {
 /* ── 実行画面（作業中） ── */
 function changeoverPopupInfo(log,orders,settings,now) {
   const target=Number(log.targetBoxes)||0;
-  if(log.kind==='task'||log.status==='done'||target<=0||Number(log.doneBoxes)<target||(log.individualPlan&&!log.individualPlan.hasQuantity))return null;
+  if(log.kind==='task'||target<=0||Number(log.doneBoxes)<target||(log.individualPlan&&!log.individualPlan.hasQuantity))return null;
   const worker=log.workerId||log.assignedWorkerId;
   if(!worker)return null;
   const rows=Object.values(orders||{}).filter(o=>o.date===log.date&&o.procId===log.procId);
-  const next=rows.filter(o=>o.id!==log.id&&o.kind!=='task'&&o.status==='pending'&&o.hinban&&o.hinban!==log.hinban&&(o.assignedWorkerId||o.workerId)===worker&&Number(o.order)>Number(log.order)).sort((a,b)=>Number(a.order)-Number(b.order))[0];
-  if(!next)return null;
+  const next=rows.filter(o=>o.id!==log.id&&o.kind!=='task'&&o.hinban&&(o.assignedWorkerId||o.workerId)===worker&&Number(o.order)>Number(log.order)).sort((a,b)=>Number(a.order)-Number(b.order))[0];
+  if(!next||next.status!=='pending'||next.hinban===log.hinban)return null;
   const at=Math.max(0,...[...(log.qrCountEvents||[]),...(log.manualBoxEvents||[])].filter(e=>Number(e.doneAfter)===target).map(e=>Number(e.at)||0));
   if(!at)return null;
   const d=new Date(at);
@@ -9410,7 +9415,25 @@ function changeoverPopupInfo(log,orders,settings,now) {
   const start=d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
   const elapsedEnd=start+Math.max(0,now-at)/60000;
   const elapsed=Math.max(0,instructionWorkMins(start,elapsedEnd,blocks));
-  return {key:log.id+':'+at,deadline:min2hm(Math.ceil(deadline)),lossSeconds:Math.max(0,Math.floor((elapsed-5)*60+1e-6)),over:elapsed>5};
+  return {key:log.id+':'+at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds:Math.max(0,Math.floor((elapsed-5)*60+1e-6)),over:elapsed>5};
+}
+function ChangeoverNotice({notice}) {
+  if(!notice)return null;
+  return <div role="status" style={{flexShrink:0,textAlign:'center',padding:12,fontWeight:800,fontSize:22,background:notice.over?'#fee2e2':'#fff7ed',color:notice.over?'#b91c1c':'#92400e',border:'2px solid currentColor'}}>
+        {notice.over?<><div><BiText value="品番切替ロス時間"/></div><div style={{fontSize:36}}>{Math.floor(notice.lossSeconds/60)} <BiText value="分"/> {pad2(notice.lossSeconds%60)} <BiText value="秒"/></div></>:<><div><BiText value="品番を切り替えて下さい。"/></div><div><BiText value="品番切り替えは5分です。"/>　<span style={{fontSize:32}}>{notice.deadline} <BiText value="まで"/></span></div></>}
+      </div>;
+}
+function pendingChangeoverNotices(orders,procId,date,settings,now,workerId,nextId) {
+  const rows=Object.values(orders||{}).filter(o=>o.procId===procId&&o.date===date&&o.status==='done'&&(!workerId||(o.workerId||o.assignedWorkerId)===workerId)).sort((a,b)=>(Number(b.endAt)||0)-(Number(a.endAt)||0));
+  const seen=new Set(),out=[];
+  for(const row of rows){
+    const worker=row.workerId||row.assignedWorkerId;
+    if(!worker||seen.has(worker))continue;
+    seen.add(worker);
+    const notice=changeoverPopupInfo(row,orders,settings,now);
+    if(notice&&(!nextId||notice.nextId===nextId))out.push({...notice,workerName:row.workerName||worker});
+  }
+  return out;
 }
 function WorkRunScreen({
   proc,
@@ -9587,7 +9610,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   const done = log.doneBoxes || 0,
     target = log.targetBoxes || 0;
   const changeoverNotice=changeoverPopupInfo(log,orders,settings,now);
-  const showChangeover=!!changeoverNotice&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!result&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
+  const showChangeover=!!changeoverNotice&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
@@ -9618,9 +9641,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
       textOverflow: 'ellipsis',
       whiteSpace: 'normal'
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
-      {showChangeover&&<div role="status" style={{flexShrink:0,textAlign:'center',padding:12,fontWeight:800,fontSize:22,background:changeoverNotice.over?'#fee2e2':'#fff7ed',color:changeoverNotice.over?'#b91c1c':'#92400e',border:'2px solid currentColor'}}>
-        {changeoverNotice.over?<><div><BiText value="品番切替ロス時間"/></div><div style={{fontSize:36}}>{Math.floor(changeoverNotice.lossSeconds/60)} <BiText value="分"/> {pad2(changeoverNotice.lossSeconds%60)} <BiText value="秒"/></div></>:<><div><BiText value="品番を切り替えて下さい。"/></div><div><BiText value="品番切り替えは5分です。"/>　<span style={{fontSize:32}}>{changeoverNotice.deadline} <BiText value="まで"/></span></div></>}
-      </div>}
+      {showChangeover&&<ChangeoverNotice notice={changeoverNotice}/>}
       <div className="workrun-worker-row">
         {!individual&&<button type="button" disabled={busy||noteBusy||qrGate.busy||qrGate.flash||qrBlocked||!workerChoices.length||!['running','paused'].includes(log.status)}
           onClick={()=>{setNextWorkerId('');setWorkerError('');setWorkerChange(log);}}
@@ -9910,7 +9931,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
       setAnom(false);
     }} />} />
       <BiText value={out && <OutModal log={log} calc={c} onClose={() => setOut(false)} onFinish={finish} />} />
-      <BiText value={result && <ResultModal result={result} todaySum={todaySum} onClose={() => {
+      <BiText value={result && <ResultModal result={result} todaySum={todaySum} changeoverNotice={changeoverNotice} onClose={() => {
       setResult(null);
       onDone();
     }} />} />
@@ -10630,6 +10651,7 @@ function AdjustModal({
 function ResultModal({
   result,
   todaySum,
+  changeoverNotice,
   onClose
 }) {
   const {
@@ -11631,7 +11653,7 @@ function App() {
     proc: view.proc
   })} />;else if (view.name === 'worksheet') {
     const o = orders[view.orderId];
-    screen = o ? <WorkSheetScreen key={o.id} proc={view.proc} order={o} worker={view.worker} workers={workers} master={master} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
+    screen = o ? <WorkSheetScreen key={o.id} proc={view.proc} order={o} orders={orders} worker={view.worker} workers={workers} master={master} settings={procSettings[view.proc.id]} user={user} onBack={() => setView({
       name: 'work',
       proc: view.proc
     })} onStart={(id) => setView({
