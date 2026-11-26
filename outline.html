@@ -10345,6 +10345,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
   const breakdown={years:'年別',year:'月別',month:'週別',days:'日別',day:'時間帯別',hour:'10分ごと'};
   const text=(key,values)=><EvaluationText text={key} values={values}/>;
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
+  const [timeDetail,setTimeDetail]=useState('');
   function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
     <h3>{text(title)}</h3><div className="evaluation-metrics">
       {[[text('達成率'),rateText(m)],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
@@ -10375,9 +10376,10 @@ function AnalyticsScreen({proc,master,workers,user,onBack}) {
       <details className="evaluation-settings"><summary><BiText value="記録開始日（本運用開始日）"/></summary><ReportStartEditor report={report}/></details>
     </div><p className="evaluation-note">{text('達成率＝標準時間÷実働時間×100。100％が標準です。')} {text('休憩・ライン応援を除いた時間で評価します。')}</p>
     {error&&<p role="alert">{error}</p>}{rows===null&&!error?<p><BiText value="読込中…"/></p>:rows!==null&&<>
-      <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('期間合計')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
+      <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('集計全体に戻る')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
       {path.length>0&&<button onClick={reset}>{text('合計の評価に戻る')}</button>}
       {summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}
+      <section className="evaluation-detail-section"><h3>作業時間の内訳・詳細</h3><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>{[['active','実働時間','#e5f5e9','#166534'],['rest','休憩時間','#fff1c2','#805500'],['support','ライン応援時間','#e1edff','#174ea6'],['other','その他停止時間','#fce8e8','#a32626']].map(([key,label,bg,fg])=>{let sum=key==='active'?metric.active:0;const details=[];for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(scope.from,seg.from),b=Math.min(scope.to,seg.to);if(b<=a)continue;if(key==='active'){details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from:a,to:b,min:Math.max(0,(b-a)/60000-Object.values(actualPauseTotals(entry.order,a,b)).reduce((x,y)=>x+y,0))});continue;}for(const p of entry.order.pauses||[]){const k=p.type==='break'?'rest':p.type==='support'?'support':'other';if(k!==key)continue;const from=Math.max(a,Number(p.from)),to=Math.min(b,Number(p.to||entry.order.endAt||Date.now()));if(!(to>from))continue;const min=(to-from)/60000;sum+=min;details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from,to,min});}}}return <React.Fragment key={key}><button type="button" aria-expanded={timeDetail===key} onClick={()=>setTimeDetail(timeDetail===key?'':key)} style={{background:bg,color:fg,border:'1px solid '+fg,borderRadius:10,padding:12,textAlign:'left'}}><strong>{label}</strong><div style={{fontSize:25,fontWeight:700}}>{evaluationNumber(sum)} 分</div><div>詳細を見る {timeDetail===key?'▲':'▼'}</div></button>{timeDetail===key&&<div style={{gridColumn:'1 / -1',overflowX:'auto',padding:8}}><strong>{label}の記録</strong><table className="evaluation-table"><thead><tr>{['日付','担当者','呼称','開始','終了','実績（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{details.sort((a,b)=>a.from-b.from).map((d,i)=><tr key={i}><td>{evaluationDay(d.from)}</td><td>{d.name}</td><td>{d.product}</td><td>{evaluationClock(d.from,true)}</td><td>{evaluationClock(d.to,true)}</td><td>{evaluationNumber(d.min)}</td></tr>)}</tbody></table>{!details.length&&<p>該当する記録はありません。</p>}{key==='active'&&<small>開始・終了は集計対象区間、実績は停止時間を除いた時間です。</small>}</div>}</React.Fragment>;})}</div></section>
       {path.length===0&&trend&&<div className="evaluation-auto"><EvaluationText {...trend}/></div>}
       {!!total.adjust&&<p className="evaluation-note">{text('管理者の調整時間は、全期間合計の先行・遅れに反映します。')}</p>}
       {scope.kind!=='ten'&&<section className="evaluation-detail-section"><h3>{text(breakdown[scope.kind])}</h3>
@@ -11330,7 +11332,7 @@ let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
 function outlineSourceSignature(doc){
   return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
 }
-const OUTLINE_BUILD='2026-11-26-history-7';
+const OUTLINE_BUILD='2026-11-26-evaluation-8';
 const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
