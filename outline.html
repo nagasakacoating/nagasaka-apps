@@ -11060,7 +11060,8 @@ function WorkHistory({
       setManage(fresh);
     }catch(e){setCleanupNotice(e.message||String(e));}
   });
-  const activeRecords=historySource.filter(l=>['running','paused'].includes(l.status)&&
+  const liveHistorySource=Object.values({...Object.fromEntries(historySource.map(l=>[l.id,l])),...logs,...overrides});
+  const activeRecords=liveHistorySource.filter(l=>['running','paused'].includes(l.status)&&
     l.date>=fromDate&&l.date<=toDate&&(!reportStart.start||l.date>=reportStart.start)&&(all||l.procId===proc.id)&&
     (!query||[l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase())));
   const list = historySource.filter((l) => l.status === 'done' && (!reportStart.start||l.date>=reportStart.start) && l.date>=fromDate && l.date<=toDate && (all || l.procId === proc.id) && (!query || [l.hinban,l.workerName,...(l.workerChanges||[]).map(x=>x.segment.workerName)].join(' ').toLowerCase().includes(query.toLowerCase()))).sort((a, b) => (b.endAt || 0) - (a.endAt || 0));
@@ -11159,13 +11160,16 @@ function WorkHistory({
             <button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 元に戻す</button></div>)}
           {!archivedRecords.length&&<p>指定期間に非表示記録はありません。</p>}
         </section>}
-        {activeRecords.map(l=><section key={l.id} className="history-active-record" style={{padding:10,marginBottom:8,background:'#eef4fc',borderRadius:8}}>
-          <strong>{l.hinban||l.taskName}　<BiText value="作業中"/></strong>
+        <h2 style={{background:'#166534',color:'#fff',padding:'10px 14px',borderRadius:8,fontSize:19}}>● 現在作業中・休止中（{activeRecords.filter(l=>l.date===todayKeyFor(new Date())).length}件）</h2>
+        {!activeRecords.some(l=>l.date===todayKeyFor(new Date()))&&<p>現在作業中の記録はありません。</p>}
+        {activeRecords.slice().sort((a,b)=>b.date.localeCompare(a.date)||String(a.procName||a.procId).localeCompare(String(b.procName||b.procId))).map(l=><section key={l.id} className="history-active-record" style={{padding:14,marginBottom:8,background:l.date!==todayKeyFor(new Date())?'#fff7ed':l.status==='paused'?'#fff8db':'#e9f8ee',border:'1px solid #a7cbb0',borderRadius:8}}>
+          <div style={{flex:1,minWidth:180}}><strong style={{fontSize:17,color:l.status==='paused'?'#92400e':'#166534'}}>{l.date!==todayKeyFor(new Date())?'前日以前の未終了':l.status==='paused'?'● 休止中':'● 現在作業中'}</strong><div style={{fontWeight:700,fontSize:17}}>{l.procName||l.procId}　／　{l.hinban||l.taskName}</div><div>{l.workerName||l.assignedWorkerName||'—'}　開始 {l.startAt?fmtHM(new Date(l.startAt)):'—'}　{l.kind==='task'?'':`${l.doneBoxes||0}${(!l.individualPlan||l.individualPlan.hasQuantity)?' / '+(l.targetBoxes||0):''} 箱`}</div></div>
           <button type="button" className="history-detail-button" onClick={()=>setDetail(l)}><BiText value="詳細"/></button>
           <span>{l.date}　{l.workerName||'—'}</span>
           {onAdminAction&&l.date<todayKey()&&<button type="button" className="history-detail-button" onClick={()=>openCleanup(l)}>🔒 管理者：整理</button>}
           <WorkerChangeHistory order={l}/>
         </section>)}
+        <h2 style={{fontSize:19,color:NAVY,marginTop:20}}>終了済み作業履歴（{list.length}件）</h2>
         <div style={{
         border: '1px solid ' + LINE,
         borderRadius: 10,
@@ -11321,7 +11325,7 @@ let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
 function outlineSourceSignature(doc){
   return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
 }
-const OUTLINE_BUILD='2026-11-26-support-4';
+const OUTLINE_BUILD='2026-11-26-history-5';
 const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
