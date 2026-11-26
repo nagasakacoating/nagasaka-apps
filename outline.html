@@ -11320,6 +11320,7 @@ let outlineRunUpdateSafe=false, outlinePlanUpdateSafe=false;
 function outlineSourceSignature(doc){
   return JSON.stringify(Array.from(doc.querySelectorAll('style,script[type="text/babel"],script[src]')).map(n=>[n.tagName,n.getAttribute('src'),n.textContent]));
 }
+const OUTLINE_BUILD='2026-11-26-update-diagnostics-1';
 const outlineLoadedSource=outlineSourceSignature(document);
 function App() {
   const [lang, setLang] = useState(() => {
@@ -11455,33 +11456,45 @@ function App() {
       u2();
     };
   }, [user]);
+  const [updateStatus,setUpdateStatus]=useState('更新確認待ち');
   const updateContext=useRef(null);
   updateContext.current={view,user,ready,adminOpen,adminRequest,scanHome};
   useEffect(()=>{
     let stopped=false, checking=false, available=false, lastActivity=Date.now();
     const activity=()=>{lastActivity=Date.now();};
-    const safe=()=>{
+    const reason=()=>{
       const c=updateContext.current;
-      if(!c?.ready||!c.user||c.adminOpen||c.adminRequest||c.scanHome||document.hidden||biDialog||Date.now()-lastActivity<3000||!navigator.onLine)return false;
-      return c.view.name==='proc'||(c.view.name==='work'&&outlinePlanUpdateSafe)||(c.view.name==='workrun'&&outlineRunUpdateSafe);
+      if(!c?.ready||!c.user)return '起動・認証待ち';
+      if(c.adminRequest||c.scanHome||biDialog)return '確認操作中';
+      if(document.hidden||!navigator.onLine)return '画面非表示・通信待ち';
+      if(Date.now()-lastActivity<3000)return '操作中';
+      if(c.view.name==='proc'||(c.view.name==='work'&&outlinePlanUpdateSafe)||(c.view.name==='workrun'&&outlineRunUpdateSafe))return '';
+      return '作業中または管理画面';
     };
+    const safe=()=>!reason();
+    const report=message=>{if(!stopped)setUpdateStatus(new Date().toLocaleTimeString('ja-JP')+' '+message);};
     async function check(){
       if(stopped||checking)return;
       checking=true;
       try{
         const url=new URL(location.href);url.searchParams.set('_outline_update_check',String(Date.now()));
         const response=await fetch(url.href,{cache:'no-store'});
-        if(!response.ok)return;
+        if(!response.ok){report('確認失敗 HTTP '+response.status);return;}
         const doc=new DOMParser().parseFromString(await response.text(),'text/html');
-        if(!doc.querySelector('script[type="text/babel"]'))return;
-        available=outlineSourceSignature(doc)!==outlineLoadedSource;
-        if(!available||!safe())return;
-        await db.waitForPendingWrites();
-        if(stopped||!safe())return;
+        const source=doc.querySelector('script[type="text/babel"]')?.textContent||'';
+        if(!source){report('更新情報取得失敗');return;}
+        const remoteBuild=source.match(/const OUTLINE_BUILD='([^']+)'/)?.[1];
+        available=remoteBuild?remoteBuild!==OUTLINE_BUILD: outlineSourceSignature(doc)!==outlineLoadedSource;
+        if(!available&&remoteBuild===OUTLINE_BUILD)available=outlineSourceSignature(doc)!==outlineLoadedSource;
+        if(!available){report('最新版');return;}
+        if(!safe()){report('更新保留：'+reason());return;}
+        report('保存確認中');
+        await Promise.race([db.waitForPendingWrites(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('保存確認タイムアウト')),10000))]);
+        if(stopped||!safe()){report('更新保留：'+reason());return;}
         sessionStorage.setItem('outline-update-view',JSON.stringify(updateContext.current.view));
         const target=new URL(location.href);target.searchParams.set('_outline_version',String(Date.now()));
         location.replace(target.href);
-      }catch(e){console.warn('Outline update check:',e.message);}finally{checking=false;}
+      }catch(e){report('更新確認失敗：'+e.message);console.warn('Outline update check:',e.message);}finally{checking=false;}
     }
     const visible=()=>{if(!document.hidden)check();};
     document.addEventListener('pointerdown',activity,true);document.addEventListener('keydown',activity,true);document.addEventListener('input',activity,true);
@@ -11617,6 +11630,7 @@ function App() {
   // screen は差し替えず、編集中の品番・タブ・入力・スクロール位置を保持する。
   const adminLocked=['master','planner','analytics','location'].includes(view.name)&&!adminOpen;
   const adminPrompt=<>
+      {['proc','planner','work'].includes(view.name)&&<div style={{fontSize:11,color:'#64748b',padding:'4px 10px',textAlign:'right'}}>Ver. {OUTLINE_BUILD} ／ {updateStatus}</div>}
       {adminRequest==='ready'&&<AdminPinDialog mode={adminMode} onConfirm={confirmAdmin} onCancel={()=>{setAdminRequest(null);adminNextRef.current=null;}} busy={adminBusy} error={adminError}/>}
       {adminRequest==='loading'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog">管理者コードを確認中…</div></div>}
       {adminRequest==='error'&&<div className="admin-pin-backdrop"><div className="admin-pin-dialog"><p className="admin-pin-error">{adminError}</p><button onClick={()=>setAdminRequest(null)}>閉じる</button></div></div>}
