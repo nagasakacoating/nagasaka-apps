@@ -6660,7 +6660,7 @@ function buildTimeline(rows, settings, restRows=rows) {
     let cur=curs.get(key)??hm2min(st.startTime || '08:00');
     const previous=previousRows.get(key);
     previousRows.set(key,o);
-    const supports=lineSupportBreaks(st,o.date);
+    const supports=o.scheduleOverride?.supports??lineSupportBreaks(st,o.date);
     if (o.individualPlan) {
       const plan=instructionForecast(o,undefined,st);
       const end=o.individualPlan.mode==='time' ? plan.end : plan.finish ?? plan.start;
@@ -6669,16 +6669,16 @@ function buildTimeline(rows, settings, restRows=rows) {
     }
     const changeover=previous&&!previous.individualPlan&&previous.kind!=='task'&&o.kind!=='task'&&previous.hinban!==o.hinban?5:0;
     const dur = rowPlanMin(o);
-    const rests=workerScheduleBreaks(restRows,o,st);
+    const rests=o.scheduleOverride?.breaks??workerScheduleBreaks(restRows,o,st);
     const blocks=[...rests,...supports];
     const gapStart=cur;
-    const a = addWork(cur+changeover, 0, blocks);
-    const e = addWork(a, dur, blocks);
+    const a = addWork(Math.max(cur+changeover,instructionMinute(o.scheduleOverride?.from||'')??0), 0, blocks);
+    const e = o.scheduleOverride?.mode==='time'?Math.max(a,instructionMinute(o.scheduleOverride.to)??a):addWork(a, dur, blocks);
     const supportMin=lineSupportMinutes(a,e,rests,supports);
     curs.set(key,e);
     return {
       ...o,
-      _planMin: dur+supportMin,
+      _planMin: o.scheduleOverride?.mode==='time'?instructionWorkMins(a,e,rests):dur+supportMin,
       _planBreaks:rests,
       _planGapStart:gapStart,
       _planSupportMin:supportMin,
@@ -6767,7 +6767,7 @@ function plannedBreakTarget(order, settings, now) {
   const kosu=Number(order.kosu);
   const target=order.individualPlan && !order.individualPlan.hasQuantity ? Infinity : Math.max(0,Number(order.targetBoxes)||0);
   const boxesAt=at=>{
-    const paused=mergeWorkBreaks([...schedule,...lineSupportBreaks(settings,order.date)]).reduce((sum,entry)=>sum+Math.max(0,Math.min(at,hm2min(entry.to))-Math.max(start,hm2min(entry.from))),0);
+    const paused=mergeWorkBreaks([...schedule,...(order.scheduleOverride?.supports??lineSupportBreaks(settings,order.date))]).reduce((sum,entry)=>sum+Math.max(0,Math.min(at,hm2min(entry.to))-Math.max(start,hm2min(entry.from))),0);
     return Math.min(target,Math.floor(Math.max(0,at-start-paused)/kosu+1e-9));
   };
   return {rest,isBreak:!!rest && rest.from<=clock,periodStart,cutoff,boxes:kosu>0 ? boxesAt(cutoff)-boxesAt(periodStart) : null};
@@ -8393,6 +8393,7 @@ function SchedulePlanner({
   const [regularName,setRegularName]=useState('');
   const [regularWorker,setRegularWorker]=useState('');
   const [regularError,setRegularError]=useState('');
+  const [regularMode,setRegularMode]=useState('quantity'),[regularFrom,setRegularFrom]=useState(''),[regularTo,setRegularTo]=useState(''),[regularRests,setRegularRests]=useState([]),[regularSupports,setRegularSupports]=useState([]);
   const [individualDraft,setIndividualDraft]=useState(null);
   const plannerNow = useNow();
   const wlist = Object.values(workers || {}).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -8517,11 +8518,13 @@ function SchedulePlanner({
     await run(() => col.doc(o.id).delete());
   }
   function openRegularEdit(o){
-    setRegularEdit(o);setRegularValue(String(o.kind==='task'?o.durMin:o.targetBoxes));setRegularName(o.taskName||'');setRegularWorker(o.assignedWorkerId||'');setRegularError('');
+    setRegularMode(o.scheduleOverride?.mode||'quantity');setRegularFrom(o.scheduleOverride?.from||min2hm(o._planStart));setRegularTo(o.scheduleOverride?.to||min2hm(o._planEnd));setRegularRests(o.scheduleOverride?.breaks||o._planBreaks||[]);setRegularSupports(o.scheduleOverride?.supports||lineSupportBreaks(settings,o.date));setRegularEdit(o);setRegularValue(String(o.kind==='task'?o.durMin:o.targetBoxes));setRegularName(o.taskName||'');setRegularWorker(o.assignedWorkerId||'');setRegularError('');
   }
   async function saveRegularEdit(){
     if(busy||!regularEdit)return;
     const value=Number(regularValue);
+    const start=instructionMinute(regularFrom),end=instructionMinute(regularTo);
+    if(start===null||(regularMode==='time'&&(end===null||end<=start))||[...regularRests,...regularSupports].some(b=>instructionMinute(b.from)===null||instructionMinute(b.to)===null||hm2min(b.to)<=hm2min(b.from))){setRegularError('予定時刻を確認してください。');return;}
     if(!Number.isSafeInteger(value)||value<=0){setRegularError('正しい数量または所要時間を入力してください。');return;}
     setBusy(true);setRegularError('');
     try{
@@ -8530,7 +8533,7 @@ function SchedulePlanner({
         const snap=await tx.get(ref),current=snap.exists&&snap.data();
         if(!current||current.individualPlan||current.status==='done'||current.status==='archived')throw new Error('作業状態が変わりました。');
         if(current.kind!=='task'&&value<(Number(current.doneBoxes)||0))throw new Error('完了箱数より少ない数量には変更できません。');
-        const patch=current.kind==='task'?{durMin:value}:{targetBoxes:value};
+        const patch={...(current.kind==='task'?{durMin:value}:{targetBoxes:value}),scheduleOverride:{mode:regularMode,from:regularFrom,to:regularTo,breaks:regularRests,supports:regularSupports}};
         if(current.status==='pending'){
           if(current.kind==='task'){if(!regularName.trim())throw new Error('作業名を入力してください。');patch.taskName=regularName.trim();}
           patch.assignedWorkerId=regularWorker||null;patch.assignedWorkerName=workers[regularWorker]?.name||'';
@@ -8786,7 +8789,8 @@ function SchedulePlanner({
           {regularEdit.kind==='task'&&<IndividualField label="作業名"><LocalizedInput value={regularName} disabled={regularEdit.status!=='pending'||busy} onChange={e=>setRegularName(e.target.value)}/></IndividualField>}
           <IndividualField label={regularEdit.kind==='task'?'所要時間（分）':'指示数量（合計箱数）'}><LocalizedInput type="number" min="1" step="1" value={regularValue} disabled={busy} onChange={e=>setRegularValue(e.target.value)}/></IndividualField>
           <IndividualField label="担当者"><LocalizedSelect value={regularWorker} disabled={regularEdit.status!=='pending'||busy} onChange={e=>setRegularWorker(e.target.value)}><LocalizedOption value="">未割当</LocalizedOption>{wlist.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</LocalizedSelect></IndividualField>
-          </div>{regularError&&<p role="alert">{regularError}</p>}<button type="button" className="individual-primary" disabled={busy} onClick={saveRegularEdit}><BiText value="保存する"/></button>
+          <IndividualField label="指示方法"><select value={regularMode} onChange={e=>setRegularMode(e.target.value)}><option value="quantity">数量・所要時間指定</option><option value="time">終了時刻指定</option></select></IndividualField><IndividualField label="開始予定"><input type="time" value={regularFrom} onChange={e=>setRegularFrom(e.target.value)}/></IndividualField>{regularMode==='time'&&<IndividualField label="終了予定"><input type="time" value={regularTo} onChange={e=>setRegularTo(e.target.value)}/></IndividualField>}
+          </div>{[[regularRests,setRegularRests,'休憩予定'],[regularSupports,setRegularSupports,'ライン応援予定']].map(([items,setItems,label])=><fieldset key={label}><legend><BiText value={label}/></legend>{items.map((b,i)=><div key={i} style={{display:'flex',gap:8}}><input type="time" value={b.from} onChange={e=>setItems(items.map((x,j)=>j===i?{...x,from:e.target.value}:x))}/><input type="time" value={b.to} onChange={e=>setItems(items.map((x,j)=>j===i?{...x,to:e.target.value}:x))}/><button type="button" onClick={()=>setItems(items.filter((x,j)=>j!==i))}>×</button></div>)}<button type="button" disabled={items.length>=5} onClick={()=>setItems([...items,{from:'',to:''}])}><BiText value="追加"/></button></fieldset>)}{regularError&&<p role="alert">{regularError}</p>}<button type="button" className="individual-primary" disabled={busy} onClick={saveRegularEdit}><BiText value="保存する"/></button>
         </section>}
         {individualEditor&&<IndividualInstructionEditor key={individualEditor.id||date} existing={individualEditor.id?individualEditor:null} gap={individualEditor.gap}
           date={date} proc={proc} settings={settings} master={master} workers={workers} orders={orders} user={user}
