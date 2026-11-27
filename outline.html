@@ -6695,6 +6695,12 @@ function overdueRestSlots(order, rows, settings, now) {
     return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+((to-from)>=3600000?7200000:1800000)};
   }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
 }
+function pendingRestSlots(order,rows,settings,now){
+  if(!order?.workerId||!order.date||!(Number(order.startAt)>0))return [];
+  const day=Date.parse(order.date+'T00:00:00+09:00');
+  if(!(now>=day&&now<day+86400000))return [];
+  return overdueRestSlots(order,rows,settings,day+86400000-1).filter(slot=>slot.from<now&&!restAlreadyRecorded(rows,slot,order.workerId,now)&&rows.some(o=>o.date===order.date&&restWorkerIntervals(o,order.workerId,now).some(i=>i.from<slot.to)));
+}
 function restWorkerIntervals(order,workerId,at){
   const changes=order.workerChanges||[];
   return [...changes.map(c=>({workerId:c.segment?.workerId,from:Number(c.segment?.startAt),to:Number(c.segment?.endAt||c.at)})),{workerId:order.workerId,from:Number(changes.at(-1)?.at||order.startAt),to:Number(order.endAt||at)}].filter(x=>x.workerId===workerId&&x.from>0&&x.to>x.from);
@@ -9501,8 +9507,10 @@ function confirmedChangeoverBlocks(rows,worker,from,to){
   }
   return merged;
 }
-function confirmedChangeoverLoss(rows,worker,from,to){
-  const excluded=confirmedChangeoverBlocks(rows,worker,from,to).reduce((sum,[a,b])=>sum+b-a,0);
+function confirmedChangeoverLoss(rows,worker,from,to,pending=[]){
+  const blocks=[...confirmedChangeoverBlocks(rows,worker,from,to),...pending.map(p=>[Math.max(from,p.from),Math.min(to,p.to)])].filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+  let last=from,excluded=0;
+  for(const [a,b] of blocks){excluded+=Math.max(0,b-Math.max(a,last));last=Math.max(last,b);}
   return Math.max(0,Math.floor((to-from-excluded-300000)/1000));
 }
 function changeoverPopupInfo(log,orders,settings,now) {
@@ -9522,7 +9530,8 @@ function changeoverPopupInfo(log,orders,settings,now) {
   const completedAt=log.changeoverCompletion?.key===log.id+':'+at && log.changeoverCompletion?.nextId===next.id ? Number(log.changeoverCompletion.at)||0 : 0;
   const elapsedEnd=start+Math.max(0,(completedAt>=at?Math.min(now,completedAt):now)-at)/60000;
   const endAt=at+Math.max(0,elapsedEnd-start)*60000;
-  const lossSeconds=confirmedChangeoverLoss(rows,worker,at,endAt);
+  const pending=pendingRestSlots({...log,workerId:worker},rows,settings,Date.now());
+  const lossSeconds=confirmedChangeoverLoss(rows,worker,at,endAt,pending);
   return {key:log.id+':'+at,previousId:log.id,completed:completedAt>=at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds,over:lossSeconds>0};
 }
 function dailyChangeoverLoss(orders,procId,date,workerId,settings,now) {
@@ -10606,8 +10615,9 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
   const changeoverRows=React.useMemo(()=>adminChangeoverRows((rows||[]).filter(o=>all||o.procId===proc.id),settingsByProc),[rows,all,proc.id,settingsByProc]);
   const prepared=React.useMemo(()=>evaluationPrepare(orders.map(o=>{
     const windows=changeoverRows.filter(g=>g.prev.id===o.id).map(g=>({from:g.from,to:Math.min(g.to,Number(o.endAt))})).filter(g=>g.to>g.from);
-    return windows.length?{...o,evaluationChangeoverWindows:windows}:o;
-  }),settingsByProc),[orders,settingsByProc,changeoverRows]);
+    const pending=pendingRestSlots(o,rows||[],settingsByProc?.[o.procId],evaluationNow).map(p=>({from:p.from,to:Math.min(p.to,evaluationNow)}));
+    return {...o,evaluationChangeoverWindows:[...windows,...pending],evaluationPendingRest:pending};
+  }),settingsByProc),[orders,settingsByProc,changeoverRows,rows,evaluationNow]);
   const confirmedRestRows=React.useMemo(()=>{const map=new Map();for(const o of rows||[]){if(o.excludeFromEvaluation||(!all&&o.procId!==proc.id))continue;for(const r of o.restConfirmations||[]){if(r.key&&r.workerId&&r.to>r.from)map.set(r.key,{...r,procId:o.procId});}}return [...map.values()];},[rows,all,proc.id]);
   const restDetails=interval=>evaluationRestDetails((rows||[]).filter(o=>!o.excludeFromEvaluation&&(all||o.procId===proc.id)),prepared,interval,worker,settingsByProc,workers);
   function confirmedRestMinutes(interval){return confirmedRestRows.filter(r=>r.answer===true&&(!worker||r.workerId===worker)).reduce((sum,r)=>sum+Math.max(0,Math.min(interval.to,r.to)-Math.max(interval.from,r.from))/60000,0);}
@@ -10640,7 +10650,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
   const [timeDetail,setTimeDetail]=useState('');
   function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from,entry.shiftStart||0),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
-    <h3>{text(title)}</h3><div className="evaluation-metrics">
+    <h3>{text(title)}</h3>{prepared.some(e=>e.segments.some(seg=>(!worker||seg.key===worker)&&seg.from<interval.to&&seg.to>interval.from)&&(e.order.evaluationPendingRest||[]).some(p=>p.from<interval.to&&p.to>interval.from))&&<p role="status">休憩確認待ち：評価は暫定値です。</p>}<div className="evaluation-metrics">
       {[[text('達成率'),rateText(m)],['総合達成率（切替ロス込み）',changeoverAdjustedRate(m,lossFor(interval))===null?'—':changeoverAdjustedRate(m,lossFor(interval))+'%'],['品番切替ロス',evaluationNumber(lossFor(interval)/60)+' '+t('分')],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
         [text('休憩'),evaluationNumber(restDetails(interval).reduce((sum,d)=>sum+d.min,0))+' '+t('分')],['確認済み休憩（作業中・切替中を含む）',evaluationNumber(confirmedRestMinutes(interval))+' '+t('分')],[text('ライン応援'),evaluationNumber(p.support)+' '+t('分')],[text('その他停止'),evaluationNumber(p.other)+' '+t('分')],[text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
         .map(([label,value],i)=><div key={i}><span>{label}</span><strong style={i===0?{color:color(m)}:undefined}>{value}</strong></div>)}
