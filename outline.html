@@ -6683,6 +6683,18 @@ function regularScheduleBreaks(rows,order,settings) {
   const custom=order.scheduleOverride?.breaks;
   return Array.isArray(custom)&&custom.length?custom:workerScheduleBreaks(rows,order,settings);
 }
+function overdueRestSlots(order, rows, settings, now) {
+  if (!order?.date || !order.workerId || !Number.isFinite(Number(now))) return [];
+  const rests=order.individualPlan
+    ? (instructionBreaks(order.individualPlan).length?instructionBreaks(order.individualPlan):(settings||DEFAULT_SETTINGS).breaks||[])
+    : regularScheduleBreaks(rows,order,settings);
+  const day=Date.parse(order.date+'T00:00:00+09:00');
+  if(!Number.isFinite(day))return [];
+  return mergeWorkBreaks(rests).map(rest=>{
+    const from=day+hm2min(rest.from)*60000,to=day+hm2min(rest.to)*60000;
+    return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+1800000};
+  }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
+}
 function scheduleOverlaps(start,end,blocks) {
   return mergeWorkBreaks(blocks).filter(b=>hm2min(b.from)<end&&hm2min(b.to)>start)
     .map(b=>({from:min2hm(Math.max(start,hm2min(b.from))),to:min2hm(Math.min(end,hm2min(b.to)))}));
