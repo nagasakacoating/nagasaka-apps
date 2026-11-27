@@ -10346,7 +10346,10 @@ function evaluationBoxCycles(order) {
   }
   return cycles;
 }
-function evaluationPrepare(orders) {
+function evaluationStart(order,settingsByProc) {
+  return evaluationMidnight(order.date)+hm2min(settingsByProc?.[order.procId]?.startTime||DEFAULT_SETTINGS.startTime)*60000;
+}
+function evaluationPrepare(orders,settingsByProc) {
   return orders.filter(order=>order.status==='done'&&!order.excludeFromEvaluation).map(order=>{
     const changes=order.workerChanges||[];let cycleCache;const getCycles=()=>cycleCache||(cycleCache=evaluationBoxCycles(order));
     const source=changes.length?[...changes.map(c=>c.segment),currentWorkerSegment(order,order.endAt,{},Number(order.fraction)||0)]:[order];
@@ -10364,32 +10367,34 @@ function evaluationPrepare(orders) {
         get timed(){return order.kind!=='task'&&this.cycles.filter(c=>!c.fraction).length===boxes&&this.cycles.every(c=>c.std!==null);},
         adjust:changes.length?0:Number(order.adjustMin)||0};
     });
-    return {order,segments,get cycles(){return getCycles();}};
+    return {order,segments,shiftStart:evaluationStart(order,settingsByProc),get cycles(){return getCycles();}};
   });
 }
 function evaluationMetric(prepared,scope,worker='') {
   const result={active:0,std:0,boxes:0,defects:0,anomalies:0,adjust:0,count:0,missing:false,unregistered:false,eligibleActive:0,eligibleStd:0};
   for(const entry of prepared){
     const order=entry.order;
-    if(order.kind==='task'&&order.workerChanges?.length&&!worker&&qrStamp(order.startAt)>=scope.from&&qrStamp(order.endAt)<=scope.to){
+    const windowStart=Math.max(scope.from,entry.shiftStart||0);
+    if(windowStart>=scope.to)continue;
+    if(order.kind==='task'&&order.workerChanges?.length&&!worker&&qrStamp(order.startAt)>=windowStart&&qrStamp(order.endAt)<=scope.to){
       const active=evaluationActiveMs(order,qrStamp(order.startAt),qrStamp(order.endAt))/60000;
       const std=Number(order.stdMin)||Number(order.durMin)||0;
       result.count++;result.active+=active;result.std+=std;result.adjust+=Number(order.adjustMin)||0;
       if(std>0){result.eligibleStd+=std;result.eligibleActive+=active;}else if(active>0)result.unregistered=true;
-      result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=scope.from&&e.at<scope.to).length;
+      result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=windowStart&&e.at<scope.to).length;
       continue;
     }
     let included=false;
     for(const segment of entry.segments){
       if(worker&&segment.key!==worker)continue;
       const hasTimes=segment.from>0&&segment.to>=segment.from;
-      const from=Math.max(scope.from,segment.from),to=Math.min(scope.to,segment.to);
+      const from=Math.max(windowStart,segment.from),to=Math.min(scope.to,segment.to);
       const dated=evaluationMidnight(order.date);
       if(hasTimes?to<=from:!(dated>=scope.from&&dated<scope.to))continue;
       included=true;
-      const whole=hasTimes?segment.from>=scope.from&&segment.to<=scope.to:scope.to-scope.from>=86400000;
+      const whole=hasTimes?segment.from>=windowStart&&segment.to<=scope.to:scope.to-scope.from>=86400000;
       const active=whole?segment.active:evaluationActiveMs(order,from,to)/60000;
-      const events=whole?[]:segment.cycles.filter(c=>c.to>scope.from&&c.to<=scope.to);
+      const events=whole?[]:segment.cycles.filter(c=>c.to>windowStart&&c.to<=scope.to);
       const boxes=whole?segment.boxes:events.filter(c=>!c.fraction).length;
       const std=whole?segment.std:events.reduce((sum,c)=>sum+(c.std||0),0);
       result.active+=active;result.std+=std;result.boxes+=boxes;
@@ -10398,7 +10403,7 @@ function evaluationMetric(prepared,scope,worker='') {
       if(active>0&&!segment.knownStandard)result.unregistered=true;
       if(segment.knownStandard){result.eligibleActive+=active;result.eligibleStd+=std;}
     }
-    if(included){result.count++;result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=scope.from&&e.at<scope.to&&
+    if(included){result.count++;result.anomalies+=(order.anomalies||[]).filter(e=>e.at>=windowStart&&e.at<scope.to&&
       (!worker||entry.segments.some(s=>s.key===worker&&e.at>=s.from&&e.at<=s.to))).length;}
   }
   result.rate=!result.missing&&!result.unregistered&&result.eligibleActive>0?evaluationNumber(result.eligibleStd/result.eligibleActive*100):null;
@@ -10466,7 +10471,7 @@ function adminChangeoverRows(rows,settingsByProc) {
   return out;
 }
 function adminChangeoverScopeSeconds(row,scope){
-  const a=Math.max(row.from,scope.from),b=Math.min(row.to,scope.to);
+  const a=Math.max(row.from,scope.from,evaluationStart(row.prev,{[row.procId]:row.settings})),b=Math.min(row.to,scope.to);
   if(b<=a)return 0;
   const orders={...row.orders,[row.nextOrder.id]:{...row.nextOrder,status:'pending'}};
   return Math.max(0,(changeoverPopupInfo(row.prev,orders,row.settings,b)?.lossSeconds||0)-(changeoverPopupInfo(row.prev,orders,row.settings,a)?.lossSeconds||0));
@@ -10488,7 +10493,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
     }).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};
   },[start,end]);
   const orders=React.useMemo(()=>(rows||[]).filter(o=>o.status==='done'&&!o.excludeFromEvaluation&&(all||o.procId===proc.id)),[rows,all,proc.id]);
-  const prepared=React.useMemo(()=>evaluationPrepare(orders),[orders]);
+  const prepared=React.useMemo(()=>evaluationPrepare(orders,settingsByProc),[orders,settingsByProc]);
   const workerOptions=[...new Map([...Object.values(workers||{}).map(w=>[w.id,w.name]),...prepared.flatMap(e=>e.segments).map(s=>[s.key,s.name])]).entries()].filter(([key])=>key);
   const root={...range,from:Math.max(range.from,evaluationMidnight(start))};
   const scope=path.at(-1)||root,total=evaluationMetric(prepared,root,worker),metric=evaluationMetric(prepared,scope,worker);
@@ -10517,7 +10522,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
   const text=(key,values)=><EvaluationText text={key} values={values}/>;
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
   const [timeDetail,setTimeDetail]=useState('');
-  function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
+  function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from,entry.shiftStart||0),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
     <h3>{text(title)}</h3><div className="evaluation-metrics">
       {[[text('達成率'),rateText(m)],['総合達成率（切替ロス込み）',changeoverAdjustedRate(m,lossFor(interval))===null?'—':changeoverAdjustedRate(m,lossFor(interval))+'%'],['品番切替ロス',evaluationNumber(lossFor(interval)/60)+' '+t('分')],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
         [text('休憩'),evaluationNumber(p.rest)+' '+t('分')],[text('ライン応援'),evaluationNumber(p.support)+' '+t('分')],[text('その他停止'),evaluationNumber(p.other)+' '+t('分')],[text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
