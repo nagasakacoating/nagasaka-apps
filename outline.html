@@ -843,7 +843,7 @@ async function startWorkOrder({order,hinban,procId,payload}){
     }
     const standard=!isTask&&!current.individualPlan?.freeText&&ms?.exists ?
       {kosu:Number(withMasterKosu(current,{[hinban]:ms.data()}).kosu)||0} : {};
-    tx.update(ref,{...payload,...standard,workerId:worker.id,workerName:worker.name,...(usesQr?{qrMode:'kanban-v1'}:{})});
+    tx.update(ref,{...payload,...standard,lossAccountingVersion:2,restReviewPending:true,workerId:worker.id,workerName:worker.name,...(usesQr?{qrMode:'kanban-v1'}:{})});
   });
 }
 function TranslationStatus() {
@@ -6689,6 +6689,11 @@ function regularScheduleBreaks(rows,order,settings) {
 }
 const REST_CONFIRMATION_I18N={"休憩をしましたか？":["Apakah Anda sudah beristirahat?","Você fez a pausa?","Bạn đã nghỉ giải lao chưa?"],"休憩記録の確認":["Konfirmasi catatan istirahat","Confirmação do registro de pausa","Xác nhận thời gian nghỉ"],"休憩時間":["Waktu istirahat","Tempo de pausa","Thời gian nghỉ"],"分":["menit","min","phút"],"はい":["Ya","Sim","Có"],"いいえ":["Tidak","Não","Không"],"休憩確認の対象が変わりました。":["Data konfirmasi istirahat berubah.","Os dados da confirmação mudaram.","Thông tin xác nhận nghỉ đã thay đổi."],"停止記録または作業時間が重複しています。管理者に確認してください。":["Catatan berhenti atau waktu kerja tumpang tindih. Hubungi pengawas.","Há sobreposição de registros de parada ou trabalho. Consulte o supervisor.","Thời gian dừng hoặc làm việc bị trùng. Hãy liên hệ quản lý."],"作業記録が見つかりません。":["Catatan kerja tidak ditemukan.","Registro de trabalho não encontrado.","Không tìm thấy bản ghi công việc."],"作業状態が変わりました。":["Status pekerjaan berubah.","O estado do trabalho mudou.","Trạng thái công việc đã thay đổi."],"休憩確認を保存できませんでした。再試行してください。":["Gagal menyimpan konfirmasi. Coba lagi.","Não foi possível salvar a confirmação. Tente novamente.","Không thể lưu xác nhận. Vui lòng thử lại."],"休憩確認待ち：評価は暫定値です。":["Menunggu konfirmasi istirahat: evaluasi sementara.","Aguardando confirmação da pausa: avaliação provisória.","Đang chờ xác nhận nghỉ: đánh giá tạm thời."],"休憩確認記録":["Catatan konfirmasi istirahat","Registros de confirmação de pausa","Bản ghi xác nhận nghỉ"],"確認済み休憩は内訳表示です。休憩合計に重複加算しません。":["Istirahat terkonfirmasi adalah rincian, tidak dihitung dua kali.","As pausas confirmadas são um detalhamento, sem dupla contagem.","Thời gian nghỉ đã xác nhận là phần chi tiết, không tính hai lần."],"確認済み休憩（作業中・切替中を含む）":["Istirahat terkonfirmasi (termasuk saat kerja dan pergantian)","Pausas confirmadas (durante trabalho e troca)","Nghỉ đã xác nhận (gồm lúc làm việc và đổi mã)"],"確認済み休憩（品番間含む）":["Istirahat terkonfirmasi (termasuk antarproduk)","Pausa confirmada (inclusive entre produtos)","Nghỉ đã xác nhận (gồm giữa các mã hàng)"],"休憩（複数品番含む）":["Istirahat (beberapa produk)","Pausa (vários produtos)","Nghỉ (nhiều mã hàng)"],"作業中の評価を含みます（暫定値・15秒ごとに更新）。時間指定作業の評価は終了後に確定します。":["Termasuk evaluasi sementara, diperbarui setiap 15 detik. Tugas berbasis waktu dinilai setelah selesai.","Inclui avaliação provisória, atualizada a cada 15 segundos. Tarefas por tempo são avaliadas após a conclusão.","Gồm đánh giá tạm thời, cập nhật mỗi 15 giây. Công việc theo thời gian được đánh giá khi kết thúc."]};
 Object.assign(REST_CONFIRMATION_I18N,{"管理者修正":["Koreksi pengawas","Correção do supervisor","Quản lý chỉnh sửa"],"自動推定":["Estimasi otomatis","Estimativa automática","Ước tính tự động"],"本人回答":["Jawaban pekerja","Resposta do trabalhador","Người lao động trả lời"],"判断材料不足":["Data tidak cukup","Dados insuficientes","Không đủ dữ liệu"],"推定":["Estimasi","Estimativa","Ước tính"],"修正":["Koreksi","Corrigir","Chỉnh sửa"],"修正履歴":["Riwayat koreksi","Histórico de correções","Lịch sử chỉnh sửa"],"休憩あり":["Beristirahat","Fez a pausa","Có nghỉ"],"休憩なし":["Tidak beristirahat","Não fez a pausa","Không nghỉ"],"休憩記録の修正":["Koreksi catatan istirahat","Corrigir registro de pausa","Chỉnh sửa bản ghi nghỉ"],"修正理由（必須）":["Alasan koreksi (wajib)","Motivo da correção (obrigatório)","Lý do chỉnh sửa (bắt buộc)"],"保存":["Simpan","Salvar","Lưu"],"取消":["Batal","Cancelar","Hủy"],"修正理由を入力してください。":["Masukkan alasan koreksi.","Informe o motivo da correção.","Hãy nhập lý do chỉnh sửa."],"作業記録が見つかりません。":["Catatan kerja tidak ditemukan.","Registro de trabalho não encontrado.","Không tìm thấy bản ghi công việc."],"休憩記録が見つかりません。":["Catatan istirahat tidak ditemukan.","Registro de pausa não encontrado.","Không tìm thấy bản ghi nghỉ."],"修正の保存に失敗しました。":["Gagal menyimpan koreksi.","Não foi possível salvar a correção.","Không thể lưu chỉnh sửa."]});
+Object.assign(REST_CONFIRMATION_I18N,{
+  '総合達成率（ロス込み）':['Tingkat capaian keseluruhan (termasuk waktu hilang)','Taxa de desempenho geral (inclui perdas)','Tỷ lệ hoàn thành tổng thể (gồm thời gian tổn thất)'],
+  '切り替え後の待ちロス':['Waktu tunggu setelah pergantian','Perda por espera após a troca','Thời gian chờ sau khi đổi mã'],
+  '総合達成率＝標準時間÷（実働時間＋切替ロス＋切り替え後の待ちロス）×100。':['Capaian keseluruhan = waktu standar ÷ (waktu kerja + kehilangan saat pergantian + waktu tunggu setelah pergantian) × 100.','Desempenho geral = tempo padrão ÷ (tempo efetivo + perda na troca + espera após a troca) × 100.','Tỷ lệ tổng thể = thời gian tiêu chuẩn ÷ (thời gian làm việc + tổn thất khi đổi mã + thời gian chờ sau khi đổi mã) × 100.']
+});
 function restText(lang,key){const i=['id','pt-BR','vi'].indexOf(lang);return i<0?key:REST_CONFIRMATION_I18N[key]?.[i]||key;}
 function overdueRestSlots(order, rows, settings, now) {
   if (!order?.date || !order.workerId || !Number.isFinite(Number(now))) return [];
@@ -6725,7 +6730,7 @@ function inferUnansweredRest(slot,rows,worker){
 function inferredRestPatches(rows,settingsByProc,now){
   const patches=new Map(),seen=new Set(),groups=new Map();
   for(const o of rows){
-    if(o.excludeFromEvaluation||o.status!=='done')continue;
+    if(o.excludeFromEvaluation||o.status!=='done'||o.restReviewPending!==true)continue;
     const ids=new Set([o.workerId,...(o.workerChanges||[]).map(c=>c.segment?.workerId)]);
     for(const worker of ids){
       if(!worker)continue;
@@ -6759,12 +6764,20 @@ async function finalizeUnansweredRestDay(date,settingsByProc){
   return db.runTransaction(async tx=>{
     const docs=await Promise.all(refs.map(ref=>tx.get(ref)));
     const rows=docs.filter(d=>d.exists).map(d=>({...d.data(),id:d.id}));
-    const patches=inferredRestPatches(rows,settingsByProc,Date.now());
-    for(const p of patches)tx.update(db.collection('workOrders').doc(p.id),{restConfirmations:p.restConfirmations});
+    if(rows.some(o=>o.restReviewPending===true&&['running','paused'].includes(o.status)))return false;
+    const patches=new Map(inferredRestPatches(rows,settingsByProc,Date.now()).map(p=>[p.id,p.restConfirmations]));
+    for(const row of rows){
+      if(row.restReviewPending!==true)continue;
+      const records=patches.get(row.id);
+      tx.update(db.collection('workOrders').doc(row.id),{
+        restReviewPending:false,...(records?{restConfirmations:records}:{})
+      });
+    }
+    return true;
   });
 }
 function pendingRestSlots(order,rows,settings,now){
-  if(!order?.workerId||!order.date||!(Number(order.startAt)>0))return [];
+  if(!order?.workerId||!order.date||!(Number(order.startAt)>0)||order.restReviewPending!==true)return [];
   const day=Date.parse(order.date+'T00:00:00+09:00');
   if(!(now>=day&&now<day+86400000))return [];
   return overdueRestSlots(order,rows,settings,day+86400000-1).filter(slot=>slot.from<now&&!restAlreadyRecorded(rows,slot,order.workerId,now)&&rows.some(o=>o.date===order.date&&restWorkerIntervals(o,order.workerId,now).some(i=>i.from<slot.to)));
@@ -9599,8 +9612,10 @@ function changeoverPopupInfo(log,orders,settings,now) {
   const elapsedEnd=start+Math.max(0,(completedAt>=at?Math.min(now,completedAt):now)-at)/60000;
   const endAt=at+Math.max(0,elapsedEnd-start)*60000;
   const pending=pendingRestSlots({...log,workerId:worker},rows,settings,Date.now());
-  const lossSeconds=confirmedChangeoverLoss(rows,worker,at,endAt,pending);
-  return {key:log.id+':'+at,previousId:log.id,completed:completedAt>=at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds,over:lossSeconds>0};
+  const lossSeconds=log.lossAccountingVersion===2
+    ? confirmedChangeoverLoss(rows,worker,at,endAt,pending)
+    : Math.max(0,Math.floor((instructionWorkMins(start,elapsedEnd,blocks)-5)*60+1e-6));
+  return {key:log.id+':'+at,previousId:log.id,completedAt,completed:completedAt>=at,nextId:next.id,deadline:min2hm(Math.ceil(deadline)),lossSeconds,over:lossSeconds>0};
 }
 function dailyChangeoverLoss(orders,procId,date,workerId,settings,now) {
   if(!workerId)return 0;
@@ -10641,7 +10656,7 @@ function adminChangeoverRows(rows,settingsByProc) {
       if(!notice||notice.nextId!==next.id)continue;
       const from=Number(notice.key.slice(notice.key.lastIndexOf(':')+1));
       if(!(to>=from))continue;
-      out.push({key:prev.workerId||prev.assignedWorkerId,procId:prev.procId,date:prev.date,previous:prev.hinban,next:next.hinban,from,to,seconds:notice.lossSeconds,prev,nextOrder:next,orders,settings});
+      out.push({key:prev.workerId||prev.assignedWorkerId,procId:prev.procId,date:prev.date,previous:prev.hinban,next:next.hinban,from,to,seconds:notice.lossSeconds,completedAt:notice.completedAt,prev,nextOrder:next,orders,settings});
     }
   }
   return out;
@@ -10651,6 +10666,27 @@ function adminChangeoverScopeSeconds(row,scope){
   if(b<=a)return 0;
   const orders={...row.orders,[row.nextOrder.id]:{...row.nextOrder,status:'pending'}};
   return Math.max(0,(changeoverPopupInfo(row.prev,orders,row.settings,b)?.lossSeconds||0)-(changeoverPopupInfo(row.prev,orders,row.settings,a)?.lossSeconds||0));
+}
+function postChangeoverLossSeconds(row,scope,dayRows,now){
+  // Earlier completed records keep their existing evaluation method.
+  if(row.prev.lossAccountingVersion!==2||row.completedAt<row.from||!row.completedAt)return 0;
+  const a=Math.max(row.completedAt,scope.from,evaluationStart(row.prev,{[row.procId]:row.settings}));
+  const b=Math.min(row.to,scope.to);
+  if(b<=a)return 0;
+  const excluded=confirmedChangeoverBlocks(dayRows,row.key,a,b);
+  for(const rest of pendingRestSlots(row.prev,dayRows,row.settings,now))excluded.push([rest.from,rest.to]);
+  for(const order of dayRows){
+    if(order.id===row.prev.id||order.id===row.nextOrder.id||order.excludeFromEvaluation)continue;
+    for(const work of restWorkerIntervals(order,row.key,b))excluded.push([work.from,work.to]);
+  }
+  let cursor=a,elapsed=b-a;
+  for(const [from,to] of excluded.sort((x,y)=>x[0]-y[0])){
+    const end=Math.min(b,to);
+    if(end<=Math.max(cursor,from))continue;
+    elapsed-=end-Math.max(cursor,from);
+    cursor=end;
+  }
+  return elapsed/1000;
 }
 function changeoverAdjustedRate(metric,lossSeconds){
   if(metric.rate===null||metric.missing||metric.unregistered||!(metric.eligibleActive>0))return null;
@@ -10712,6 +10748,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
   const orders=React.useMemo(()=>(rows||[]).filter(o=>!o.excludeFromEvaluation&&(all||o.procId===proc.id)&&(o.status==='done'||(['running','paused'].includes(o.status)&&o.date===today&&Number(o.startAt)>0&&o.kind!=='task'))).map(o=>o.status==='done'?o:{...o,status:'done',endAt:Math.max(Number(o.startAt),evaluationNow),stdMin:(Number(o.kosu)||0)*((Number(o.doneBoxes)||0)+(Number(o.fraction)||0)/(Number(o.capacity)||1)),evaluationProvisional:true}),[rows,all,proc.id,today,evaluationNow]);
   const changeoverRows=React.useMemo(()=>adminChangeoverRows((rows||[]).filter(o=>all||o.procId===proc.id),settingsByProc),[rows,all,proc.id,settingsByProc]);
   const prepared=React.useMemo(()=>evaluationPrepare(orders.map(o=>{
+    if(o.lossAccountingVersion!==2)return o;
     const windows=changeoverRows.filter(g=>g.prev.id===o.id).map(g=>({from:g.from,to:Math.min(g.to,Number(o.endAt))})).filter(g=>g.to>g.from);
     const pending=pendingRestSlots(o,rows||[],settingsByProc?.[o.procId],evaluationNow).map(p=>({from:p.from,to:Math.min(p.to,evaluationNow)}));
     const inferred=evaluationInferredRestWindows(o,rows||[]);
@@ -10729,8 +10766,22 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
 
   const scopedChangeovers=changeoverRows.filter(g=>(!worker||g.key===worker)&&g.from<scope.to&&g.to>scope.from).map(g=>({...g,scopeSeconds:adminChangeoverScopeSeconds(g,scope)}));
   const changeoverTotal=scopedChangeovers.reduce((sum,g)=>sum+g.scopeSeconds,0);
-  const lossFor=interval=>changeoverRows.reduce((sum,g)=>sum+((!worker||g.key===worker)?adminChangeoverScopeSeconds(g,interval):0),0);
-  const children=evaluationChildren(scope).map(child=>{const metric=evaluationMetric(prepared,child,worker);return {...child,metric,overallRate:changeoverAdjustedRate(metric,lossFor(child))};});
+  const rowsByDate=React.useMemo(()=>{
+    const days=new Map();
+    for(const row of rows||[]){
+      if(!days.has(row.date))days.set(row.date,[]);
+      days.get(row.date).push(row);
+    }
+    return days;
+  },[rows]);
+  const lossFor=interval=>changeoverRows.reduce((totals,g)=>{
+    if(worker&&g.key!==worker)return totals;
+    totals.changeover+=adminChangeoverScopeSeconds(g,interval);
+    totals.other+=postChangeoverLossSeconds(g,interval,rowsByDate.get(g.date)||[],evaluationNow);
+    return totals;
+  },{changeover:0,other:0});
+  const overallFor=(metric,loss)=>changeoverAdjustedRate(metric,loss.changeover+loss.other);
+  const children=evaluationChildren(scope).map(child=>{const metric=evaluationMetric(prepared,child,worker);return {...child,metric,overallRate:overallFor(metric,lossFor(child))};});
   const visible=scope.kind==='day'?children.filter(c=>c.metric.count):children;
   const trend=evaluationTrendComment(children,scope),maxRate=Math.max(120,...visible.map(c=>c.metric.rate||0));
   const rateText=m=>m.rate===null?'—':m.rate+'%',diffText=m=>m.missing?'—':(m.diff>=0?'+':'')+evaluationNumber(m.diff);
@@ -10748,9 +10799,9 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
   const text=(key,values)=><EvaluationText text={key} values={values}/>;
   const auto=m=><EvaluationText {...evaluationComment(m)}/>;
   const [timeDetail,setTimeDetail]=useState('');
-  function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from,entry.shiftStart||0),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
+  function summary(m,title,adjust=false){const interval=title==='期間合計'?root:scope;const loss=lossFor(interval),overall=overallFor(m,loss);const p={rest:0,support:0,other:0};for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(interval.from,seg.from,entry.shiftStart||0),b=Math.min(interval.to,seg.to);if(b<=a)continue;const v=actualPauseTotals(entry.order,a,b);for(const k of Object.keys(p))p[k]+=v[k];}}return <section className="evaluation-summary">
     <h3>{text(title)}</h3>{prepared.some(e=>e.segments.some(seg=>(!worker||seg.key===worker)&&seg.from<interval.to&&seg.to>interval.from)&&(e.order.evaluationPendingRest||[]).some(p=>p.from<interval.to&&p.to>interval.from))&&<p role="status">{restText(lang,"休憩確認待ち：評価は暫定値です。")}</p>}<div className="evaluation-metrics">
-      {[[text('達成率'),rateText(m)],['総合達成率（切替ロス込み）',changeoverAdjustedRate(m,lossFor(interval))===null?'—':changeoverAdjustedRate(m,lossFor(interval))+'%'],['品番切替ロス',evaluationNumber(lossFor(interval)/60)+' '+t('分')],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
+      {[[text('達成率'),rateText(m)],[restText(lang,'総合達成率（ロス込み）'),overall===null?'—':overall+'%'],['品番切替ロス',evaluationNumber(loss.changeover/60)+' '+t('分')],[restText(lang,'切り替え後の待ちロス'),evaluationNumber(loss.other/60)+' '+t('分')],[text('完了箱数'),m.boxes],[text('標準'),m.missing?'—':evaluationNumber(m.std)+' '+t('分')],[text('実働'),evaluationNumber(m.active)+' '+t('分')],
         [text('休憩'),evaluationNumber(restDetails(interval).reduce((sum,d)=>sum+d.min,0))+' '+t('分')],[restText(lang,'確認済み休憩（作業中・切替中を含む）'),evaluationNumber(confirmedRestMinutes(interval))+' '+t('分')],[text('ライン応援'),evaluationNumber(p.support)+' '+t('分')],[text('その他停止'),evaluationNumber(p.other)+' '+t('分')],[text('先行・遅れ'),m.missing?'—':(m.diff+(adjust?m.adjust:0)>=0?'+':'')+evaluationNumber(m.diff+(adjust?m.adjust:0))+' '+t('分')],[text('不良数'),m.defects??'—'],[text('異常'),m.anomalies]]
         .map(([label,value],i)=><div key={i}><span>{label}</span><strong style={i===0?{color:color(m)}:undefined}>{value}</strong></div>)}
     </div><div className="evaluation-auto"><strong>{text('アプリの自動評価')}</strong><p>{auto(m)}</p>
@@ -10776,7 +10827,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
       <label><BiText value="担当者"/><select value={worker} onChange={e=>setWorker(e.target.value)}><option value="">{t('全員')}</option>{workerOptions.map(([key,name])=><option key={key} value={key}>{name||t('担当者なし')}</option>)}</select></label>
       <button aria-pressed={all} onClick={()=>setAll(!all)}><BiText value={all?'全工程':proc.ja}/></button>
       <details className="evaluation-settings"><summary><BiText value="記録開始日（本運用開始日）"/></summary><ReportStartEditor report={report}/></details>
-    </div><p className="evaluation-note">{text('達成率＝標準時間÷実働時間×100。100％が標準です。')} {text('休憩・ライン応援を除いた時間で評価します。')} 総合達成率＝標準時間÷（実働時間＋品番切替ロス）×100。</p>
+    </div><p className="evaluation-note">{text('達成率＝標準時間÷実働時間×100。100％が標準です。')} {text('休憩・ライン応援を除いた時間で評価します。')} {restText(lang,'総合達成率＝標準時間÷（実働時間＋切替ロス＋切り替え後の待ちロス）×100。')}</p>
     {error&&<p role="alert">{error}</p>}{rows===null&&!error?<p><BiText value="読込中…"/></p>:rows!==null&&<>
       <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('集計全体に戻る')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
       {path.length>0&&<button onClick={reset}>{text('合計の評価に戻る')}</button>}
@@ -11884,8 +11935,14 @@ function App() {
       if(busy||stopped||lastDay===today)return;
       busy=true;restWrites.current++;
       try{
-        for(let offset=7;offset>=1;offset--){if(stopped)return;await finalizeUnansweredRestDay(evaluationDay(evaluationMidnight(today)-offset*86400000),procSettings);}
-        lastDay=today;
+        const pending=await db.collection('workOrders').where('restReviewPending','==',true).get({source:'server'});
+        const days=[...new Set(pending.docs.map(doc=>doc.data().date).filter(date=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<today))].sort();
+        let processed=true;
+        for(const date of days){
+          if(stopped)return;
+          if(await finalizeUnansweredRestDay(date,procSettings)===false)processed=false;
+        }
+        if(processed)lastDay=today;
       }catch(e){console.warn('rest finalization:',e.message);}
       finally{busy=false;restWrites.current--;}
     };
