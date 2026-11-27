@@ -10468,6 +10468,20 @@ function evaluationRange(mode,date) {
   const years=mode==='year'?1:Number(mode);
   return {kind:years===1?'year':'years',from:Date.UTC(year-years+1,0,1)-32400000,to:Date.UTC(year+1,0,1)-32400000,label:years===1?String(year):`${year-years+1} ～ ${year}`};
 }
+function evaluationInferredRestWindows(order,rows){
+  const windows=[];
+  for(const o of rows){
+    if(o.date!==order.date||o.excludeFromEvaluation)continue;
+    for(const r of o.restConfirmations||[]){
+      if(r.source!=='inferred'||r.answer!==true)continue;
+      for(const i of restWorkerIntervals(order,r.workerId,Number(order.endAt))){
+        const from=Math.max(i.from,Number(r.from)),to=Math.min(i.to,Number(r.to));
+        if(to>from)windows.push({from,to});
+      }
+    }
+  }
+  return windows;
+}
 function evaluationActiveMs(order,from,to) {
   let stopped=0,last=from;
   const pauses=[...(order.pauses||[]),...(order.evaluationChangeoverWindows||[])].map(p=>({from:Math.max(from,qrStamp(p.from)),to:Math.min(to,qrStamp(p.to)||to)}))
@@ -10672,7 +10686,8 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc}) {
   const prepared=React.useMemo(()=>evaluationPrepare(orders.map(o=>{
     const windows=changeoverRows.filter(g=>g.prev.id===o.id).map(g=>({from:g.from,to:Math.min(g.to,Number(o.endAt))})).filter(g=>g.to>g.from);
     const pending=pendingRestSlots(o,rows||[],settingsByProc?.[o.procId],evaluationNow).map(p=>({from:p.from,to:Math.min(p.to,evaluationNow)}));
-    return {...o,evaluationChangeoverWindows:[...windows,...pending],evaluationPendingRest:pending};
+    const inferred=evaluationInferredRestWindows(o,rows||[]);
+    return {...o,evaluationChangeoverWindows:[...windows,...pending,...inferred],evaluationPendingRest:pending};
   }),settingsByProc),[orders,settingsByProc,changeoverRows,rows,evaluationNow]);
   const confirmedRestRows=React.useMemo(()=>{const map=new Map();for(const o of rows||[]){if(o.excludeFromEvaluation||(!all&&o.procId!==proc.id))continue;for(const r of o.restConfirmations||[]){if(r.key&&r.workerId&&r.to>r.from)map.set(r.key,{...r,procId:o.procId});}}return [...map.values()];},[rows,all,proc.id]);
   const restDetails=interval=>evaluationRestDetails((rows||[]).filter(o=>!o.excludeFromEvaluation&&(all||o.procId===proc.id)),prepared,interval,worker,settingsByProc,workers);
