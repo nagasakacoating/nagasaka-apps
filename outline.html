@@ -6695,18 +6695,45 @@ function overdueRestSlots(order, rows, settings, now) {
     return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+1800000};
   }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
 }
-function restConfirmationPatch(current,slot,answer,at) {
-  if(!current.workerId||!slot||slot.key!==JSON.stringify([current.date,current.workerId,slot.from,slot.to])||slot.to<=slot.from||at<slot.dueAt)throw new Error('休憩確認の対象が変わりました。');
-  const records=current.restConfirmations||[];
-  if(records.some(r=>r.key===slot.key))return null;
-  const patch={restConfirmations:[...records,{...slot,answer,answeredAt:at,workerId:current.workerId,source:'confirmation'}]};
+function restWorkerIntervals(order,workerId,at){
+  const changes=order.workerChanges||[];
+  return [...changes.map(c=>({workerId:c.segment?.workerId,from:Number(c.segment?.startAt),to:Number(c.segment?.endAt||c.at)})),{workerId:order.workerId,from:Number(changes.at(-1)?.at||order.startAt),to:Number(order.endAt||at)}].filter(x=>x.workerId===workerId&&x.from>0&&x.to>x.from);
+}
+function restAlreadyRecorded(rows,slot,workerId,at){
+  return rows.some(o=>(o.restConfirmations||[]).some(r=>r.key===slot.key)||restWorkerIntervals(o,workerId,at).some(i=>(o.pauses||[]).some(p=>p.type==='break'&&Math.max(i.from,Number(p.from),slot.from)<Math.min(i.to,Number(p.to||at),slot.to))));
+}
+function restConfirmationPatches(rows,current,slot,answer,at){
+  if(!current.workerId||slot.key!==JSON.stringify([current.date,current.workerId,slot.from,slot.to])||slot.to<=slot.from||at<slot.dueAt)throw new Error('休憩確認の対象が変わりました。');
+  if(restAlreadyRecorded(rows,slot,current.workerId,at))return [];
+  const patches=new Map();
+  patches.set(current.id,{restConfirmations:[...(current.restConfirmations||[]),{...slot,answer,answeredAt:at,workerId:current.workerId,source:'confirmation'}]});
   if(answer){
-    const start=Math.max(Number(current.startAt)||0,Number(current.workerChanges?.at(-1)?.at)||0);
-    if(!start||slot.from<start||slot.to>at)throw new Error('別の品番または担当者の休憩です。管理者に確認してください。');
-    if((current.pauses||[]).some(p=>Number(p.from)<slot.to&&Number(p.to||at)>slot.from))throw new Error('既存の停止記録と重複しています。管理者に確認してください。');
-    patch.pauses=[...(current.pauses||[]),{from:slot.from,to:slot.to,type:'break',source:'confirmation',restKey:slot.key}].sort((a,b)=>a.from-b.from);
+    const used=[];
+    for(const o of rows){
+      const added=[];
+      for(const i of restWorkerIntervals(o,current.workerId,at)){
+        const from=Math.max(i.from,slot.from),to=Math.min(i.to,slot.to);
+        if(to<=from)continue;
+        if((o.pauses||[]).some(p=>Number(p.from)<to&&Number(p.to||at)>from)||used.some(p=>p.from<to&&p.to>from))throw new Error('停止記録または作業時間が重複しています。管理者に確認してください。');
+        const p={from,to,type:'break',source:'confirmation',restKey:slot.key};added.push(p);used.push(p);
+      }
+      if(added.length)patches.set(o.id,{...patches.get(o.id),pauses:[...(o.pauses||[]),...added].sort((a,b)=>a.from-b.from)});
+    }
   }
-  return patch;
+  return [...patches].map(([id,patch])=>({id,patch}));
+}
+async function saveRestConfirmation(log,slot,answer){
+  const query=await db.collection('workOrders').where('date','==',log.date).get();
+  const refs=query.docs.map(d=>d.ref);
+  if(!refs.some(ref=>ref.id===log.id))throw new Error('作業記録が見つかりません。');
+  return db.runTransaction(async tx=>{
+    const snapshots=await Promise.all(refs.map(ref=>tx.get(ref)));
+    const rows=snapshots.filter(d=>d.exists).map(d=>({...d.data(),id:d.id}));
+    const current=rows.find(o=>o.id===log.id);
+    if(!current||current.workerId!==log.workerId||!['running','paused'].includes(current.status)||current.qrBlocked)throw new Error('作業状態が変わりました。');
+    const patches=restConfirmationPatches(rows,current,slot,answer,Date.now());
+    for(const p of patches)tx.update(db.collection('workOrders').doc(p.id),p.patch);
+  });
 }
 function scheduleOverlaps(start,end,blocks) {
   return mergeWorkBreaks(blocks).filter(b=>hm2min(b.from)<end&&hm2min(b.to)>start)
@@ -9719,11 +9746,11 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
     target = log.targetBoxes || 0;
   const [restAnswerBusy,setRestAnswerBusy]=useState(false);
   const [restAnswerError,setRestAnswerError]=useState('');
-  const restCandidate=overdueRestSlots(log,Object.values(orders||{}),settings,now).find(slot=>!(log.restConfirmations||[]).some(r=>r.key===slot.key));
+  const restCandidate=overdueRestSlots(log,Object.values(orders||{}),settings,now).find(slot=>!restAlreadyRecorded([...Object.values(orders||{}),log],slot,log.workerId,now));
   async function answerRestConfirmation(answer){
     if(restAnswerBusy||!restCandidate)return;
     setRestAnswerBusy(true);setRestAnswerError('');
-    try{await updateWorkRun(log,current=>restConfirmationPatch(current,restCandidate,answer,Date.now()));}
+    try{await saveRestConfirmation(log,restCandidate,answer);}
     catch(e){setRestAnswerError(e.message);}
     finally{setRestAnswerBusy(false);}
   }
