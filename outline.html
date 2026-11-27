@@ -6692,7 +6692,7 @@ function overdueRestSlots(order, rows, settings, now) {
   if(!Number.isFinite(day))return [];
   return mergeWorkBreaks(rests).map(rest=>{
     const from=day+hm2min(rest.from)*60000,to=day+hm2min(rest.to)*60000;
-    return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+1800000};
+    return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+((to-from)>=3600000?7200000:1800000)};
   }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
 }
 function restWorkerIntervals(order,workerId,at){
