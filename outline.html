@@ -15,6 +15,13 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <style>
+.workrun-schedule{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:4px 8px;flex-shrink:0}
+.workrun-schedule-item{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px 8px;padding:5px 9px;border:1px solid;border-radius:8px;min-width:0;font-size:clamp(11px,1.8vw,15px);font-weight:750}
+.workrun-schedule-item.is-rest{color:#78350f;background:#fff4cf;border-color:#dcae52}
+.workrun-schedule-item.is-support{color:#17447a;background:#eaf3ff;border-color:#86aadd}
+.workrun-schedule-item.is-current{box-shadow:inset 0 0 0 1px currentColor}
+.workrun-schedule-time{font-size:clamp(17px,2.7vw,24px);font-variant-numeric:tabular-nums;white-space:nowrap}
+.workrun-schedule-state{font-size:.8em}
 .individual-card,.individual-notice{border:1px solid #b9cbe4;border-radius:12px;background:#f4f8ff;color:#143361;padding:12px;margin:0 0 12px}
 .individual-editor{display:grid;gap:12px}.individual-header,.individual-periods,.individual-metrics{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px}
 .individual-header{justify-content:space-between}.individual-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:8px}
@@ -6691,6 +6698,11 @@ const REST_CONFIRMATION_I18N={"休憩をしましたか？":["Apakah Anda sudah 
 Object.assign(REST_CONFIRMATION_I18N,{"管理者修正":["Koreksi pengawas","Correção do supervisor","Quản lý chỉnh sửa"],"自動推定":["Estimasi otomatis","Estimativa automática","Ước tính tự động"],"本人回答":["Jawaban pekerja","Resposta do trabalhador","Người lao động trả lời"],"判断材料不足":["Data tidak cukup","Dados insuficientes","Không đủ dữ liệu"],"推定":["Estimasi","Estimativa","Ước tính"],"修正":["Koreksi","Corrigir","Chỉnh sửa"],"修正履歴":["Riwayat koreksi","Histórico de correções","Lịch sử chỉnh sửa"],"休憩あり":["Beristirahat","Fez a pausa","Có nghỉ"],"休憩なし":["Tidak beristirahat","Não fez a pausa","Không nghỉ"],"休憩記録の修正":["Koreksi catatan istirahat","Corrigir registro de pausa","Chỉnh sửa bản ghi nghỉ"],"修正理由（必須）":["Alasan koreksi (wajib)","Motivo da correção (obrigatório)","Lý do chỉnh sửa (bắt buộc)"],"保存":["Simpan","Salvar","Lưu"],"取消":["Batal","Cancelar","Hủy"],"修正理由を入力してください。":["Masukkan alasan koreksi.","Informe o motivo da correção.","Hãy nhập lý do chỉnh sửa."],"作業記録が見つかりません。":["Catatan kerja tidak ditemukan.","Registro de trabalho não encontrado.","Không tìm thấy bản ghi công việc."],"休憩記録が見つかりません。":["Catatan istirahat tidak ditemukan.","Registro de pausa não encontrado.","Không tìm thấy bản ghi nghỉ."],"修正の保存に失敗しました。":["Gagal menyimpan koreksi.","Não foi possível salvar a correção.","Không thể lưu chỉnh sửa."]});
 Object.assign(REST_CONFIRMATION_I18N,{
   '総合達成率（ロス込み）':['Tingkat capaian keseluruhan (termasuk waktu hilang)','Taxa de desempenho geral (inclui perdas)','Tỷ lệ hoàn thành tổng thể (gồm thời gian tổn thất)'],
+  '休憩・ライン応援の予定':['Jadwal istirahat dan bantu line','Horários de pausa e de apoio à linha','Lịch nghỉ và hỗ trợ chuyền'],
+  '休憩予定':['Jadwal istirahat','Pausa prevista','Lịch nghỉ'],
+  'ライン応援予定':['Jadwal Bantu Line','Apoio à linha previsto','Lịch hỗ trợ chuyền'],
+  '予定時間内':['Sekarang','Neste horário','Đang trong khung giờ'],
+  '次の予定なし':['Tidak ada jadwal berikutnya','Sem próximo horário','Không có lịch tiếp theo'],
   '切り替え後の待ちロス':['Waktu tunggu setelah pergantian','Perda por espera após a troca','Thời gian chờ sau khi đổi mã'],
   '総合達成率＝標準時間÷（実働時間＋切替ロス＋切り替え後の待ちロス）×100。':['Capaian keseluruhan = waktu standar ÷ (waktu kerja + kehilangan saat pergantian + waktu tunggu setelah pergantian) × 100.','Desempenho geral = tempo padrão ÷ (tempo efetivo + perda na troca + espera após a troca) × 100.','Tỷ lệ tổng thể = thời gian tiêu chuẩn ÷ (thời gian làm việc + tổn thất khi đổi mã + thời gian chờ sau khi đổi mã) × 100.']
 });
@@ -9554,6 +9566,39 @@ function WorkOperationHelp({needsQr,onClose}) {
   </QrDialog>;
 }
 
+function upcomingWorkWindow(schedule, date, now) {
+  const day = todayKeyFor(now);
+  if (day > date) return null;
+  const minute = day === date ? now.getHours() * 60 + now.getMinutes() : -1;
+  const window = mergeWorkBreaks(schedule).find(entry => hm2min(entry.to) > minute);
+  return window ? {...window, current: hm2min(window.from) <= minute} : null;
+}
+
+function WorkRunSchedule({order, plannedOrder, orders, settings, now}) {
+  const {lang} = useLang();
+  const rests = plannedOrder?._planBreaks || (order.individualPlan
+    ? instructionForecast(order, now, settings).breaks
+    : regularScheduleBreaks(Object.values(orders || {}), order, settings));
+  const supports = order.scheduleOverride?.supports ?? lineSupportBreaks(settings, order.date);
+  const entries = [
+    {kind:'rest', label:'休憩予定', icon:'☕', schedule:rests},
+    {kind:'support', label:'ライン応援予定', icon:'🤝', schedule:supports}
+  ];
+  return <section className="workrun-schedule" aria-label={restText(lang,'休憩・ライン応援の予定')}>
+    {entries.map(({kind,label,icon,schedule}) => {
+      const window = upcomingWorkWindow(schedule, order.date, now);
+      return <div key={kind} className={'workrun-schedule-item is-'+kind+(window?.current?' is-current':'')}>
+        <span><span aria-hidden="true">{icon} </span>{restText(lang,label)}
+          {window?.current && <small className="workrun-schedule-state"> · {restText(lang,'予定時間内')}</small>}
+        </span>
+        {window
+          ? <strong className="workrun-schedule-time">{window.from}–{window.to}</strong>
+          : <span>{restText(lang,'次の予定なし')}</span>}
+      </div>;
+    })}
+  </section>;
+}
+
 function WorkRunBreakProgress({order, plannedStart, target}) {
   const {lang}=useLang();
   const {rest,isBreak,periodStart,cutoff,boxes}=target;
@@ -9931,6 +9976,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
           <span aria-hidden="true">▶</span><BiText value="再開"/>
         </button>
       </section>}
+      <WorkRunSchedule order={log} plannedOrder={plannedOrder} orders={orders} settings={settings} now={new Date(now)}/>
       {breakProgress&&<WorkRunBreakProgress order={log} plannedStart={plannedOrder._planStart} target={breakProgress}/>}
       <div className="workrun-layout" data-has-qr={needsQr} style={{
       flex: 1,
