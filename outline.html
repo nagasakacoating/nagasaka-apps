@@ -6707,6 +6707,7 @@ Object.assign(REST_CONFIRMATION_I18N,{
   '総合達成率＝標準時間÷（実働時間＋切替ロス＋切り替え後の待ちロス）×100。':['Capaian keseluruhan = waktu standar ÷ (waktu kerja + kehilangan saat pergantian + waktu tunggu setelah pergantian) × 100.','Desempenho geral = tempo padrão ÷ (tempo efetivo + perda na troca + espera após a troca) × 100.','Tỷ lệ tổng thể = thời gian tiêu chuẩn ÷ (thời gian làm việc + tổn thất khi đổi mã + thời gian chờ sau khi đổi mã) × 100.']
 });
 Object.assign(REST_CONFIRMATION_I18N,{"休憩・ライン応援の照合": ["Pengecekan istirahat dan Bantu Line", "Conferência de pausas e apoio à linha", "Đối chiếu nghỉ và hỗ trợ chuyền"], "予定と記録を各回ごとに確認できます。記録なしは、実施していないことを意味しません。重なる記録は区分を確認してください。": ["Periksa jadwal dan catatan setiap sesi. Catatan yang tidak ada belum membuktikan kegiatan tidak dilakukan. Periksa jenis catatan yang bertumpang tindih.", "Confira o horário previsto e o registro de cada período. A ausência de registro não comprova que a atividade não ocorreu. Confira o tipo dos registros sobrepostos.", "Xem lịch và bản ghi của từng lần. Thiếu bản ghi chưa chứng minh là chưa thực hiện. Hãy kiểm tra loại của bản ghi trùng thời gian."], "各回の予定": ["Jadwal setiap sesi", "Horário previsto de cada período", "Lịch từng lần"], "保存された休憩・応援記録": ["Catatan istirahat dan Bantu Line tersimpan", "Registros salvos de pausas e apoio", "Bản ghi nghỉ và hỗ trợ đã lưu"], "同じ区分の記録あり": ["Ada catatan dengan jenis yang sama", "Há registro do mesmo tipo", "Có bản ghi cùng loại"], "別区分の記録あり・要確認": ["Ada catatan jenis lain, perlu pengecekan", "Há registro de outro tipo, conferir", "Có bản ghi khác loại, cần kiểm tra"], "記録なし・未確認": ["Belum ada catatan, belum dikonfirmasi", "Sem registro, não confirmado", "Chưa có bản ghi, chưa xác nhận"], "該当する予定がありません。": ["Tidak ada jadwal yang sesuai.", "Nenhum horário previsto correspondente.", "Không có lịch phù hợp."], "該当する記録がありません。": ["Tidak ada catatan yang sesuai.", "Nenhum registro correspondente.", "Không có bản ghi phù hợp."], "本人回答と操作記録が同じ時間帯にある場合も表示します。この一覧を合算して評価には加えません。": ["Jawaban pekerja dan catatan operasi pada waktu yang sama juga ditampilkan. Daftar ini tidak dijumlahkan lagi dalam evaluasi.", "Respostas e registros no mesmo horário também aparecem. Esta lista não é somada novamente à avaliação.", "Hiển thị cả câu trả lời và thao tác trùng giờ. Danh sách này không được cộng thêm vào đánh giá."], "予定時刻": ["Waktu rencana", "Horário previsto", "Giờ dự kiến"], "確認状況": ["Status pengecekan", "Situação da conferência", "Trạng thái xác nhận"], "記録区分": ["Jenis catatan", "Tipo de registro", "Loại bản ghi"], "記録時刻": ["Waktu tercatat", "Horário registrado", "Giờ ghi nhận"], "時間（分）": ["Durasi (menit)", "Duração (min)", "Thời lượng (phút)"], "記録元": ["Sumber catatan", "Origem do registro", "Nguồn bản ghi"], "回答": ["Jawaban", "Resposta", "Câu trả lời"], "操作記録": ["Catatan operasi", "Registro de operação", "Bản ghi thao tác"], "あり": ["Ada", "Sim", "Có"], "なし": ["Tidak ada", "Não", "Không"], "未確認": ["Belum dikonfirmasi", "Não confirmado", "Chưa xác nhận"], "日付": ["Tanggal", "Data", "Ngày"], "担当者": ["Petugas", "Responsável", "Người phụ trách"], "工程": ["Proses", "Processo", "Công đoạn"], "区分": ["Jenis", "Tipo", "Loại"], "品番": ["Nomor produk", "Referência", "Mã sản phẩm"], "ライン応援": ["Bantu Line", "Apoio à linha", "Hỗ trợ chuyền"], "休憩": ["Istirahat", "Pausa", "Nghỉ"]});
+Object.assign(REST_CONFIRMATION_I18N,{"これまでは休憩でしたか？ ライン応援でしたか？": ["Apakah tadi istirahat atau Bantu Line?", "Foi uma pausa ou apoio à linha?", "Vừa rồi bạn nghỉ hay hỗ trợ chuyền?"], "現在の記録": ["Catatan saat ini", "Registro atual", "Bản ghi hiện tại"], "異なる区分の予定と重なっています。実際に行った内容を選ぶと、記録して再開します。": ["Waktu ini tumpang tindih dengan jadwal jenis lain. Pilih kegiatan yang dilakukan untuk mencatat dan melanjutkan.", "O período coincide com outro tipo de atividade prevista. Selecione o que fez para registrar e retomar.", "Thời gian này trùng lịch hoạt động khác. Chọn hoạt động thực tế để lưu và tiếp tục."], "再開時に本人が選択": ["Dipilih pekerja saat melanjutkan", "Selecionado pelo trabalhador ao retomar", "Người lao động chọn khi tiếp tục"], "停止区分の確認・訂正": ["Pengecekan dan koreksi jenis jeda", "Conferência e correção do tipo de parada", "Xác nhận và sửa loại dừng"], "停止区分を確認してください。": ["Periksa jenis jeda.", "Confira o tipo de parada.", "Hãy kiểm tra loại dừng."], "戻る": ["Kembali", "Voltar", "Quay lại"]});
 function restText(lang,key){const i=['id','pt-BR','vi'].indexOf(lang);return i<0?key:REST_CONFIRMATION_I18N[key]?.[i]||key;}
 function overdueRestSlots(order, rows, settings, now) {
   if (!order?.date || !order.workerId || !Number.isFinite(Number(now))) return [];
@@ -7196,7 +7197,49 @@ function changeWorkOrderWorker(order, nextWorker, notes, user) {
     return workerHandoffPatch(current,worker,notes,user,workerHandoffTime(current));
   },{allowMissingWorker:true});
 }
-function continueWorkOrder(order, workerId, user) {
+function pauseScheduleConflict(order,orders,settings,at){
+  const pause=order.pauses?.at(-1);
+  if(order.status!=='paused'||!pause||pause.to||!['break','support'].includes(pause.type))return null;
+  const rows=Object.values(orders||{}),day=evaluationMidnight(order.date);
+  const rests=order.individualPlan
+    ? (instructionBreaks(order.individualPlan).length?instructionBreaks(order.individualPlan):(settings||DEFAULT_SETTINGS).breaks||[])
+    : regularScheduleBreaks(rows,order,settings);
+  const supports=order.scheduleOverride?.supports??lineSupportBreaks(settings,order.date);
+  const other=pause.type==='break'?supports:rests;
+  const overlaps=mergeWorkBreaks(other).filter(slot=>{
+    const from=day+hm2min(slot.from)*60000,to=day+hm2min(slot.to)*60000;
+    return Math.max(from,Number(pause.from))<Math.min(to,at);
+  });
+  return overlaps.length?{from:pause.from,type:pause.type,overlaps}:null;
+}
+function reviewedResumePatch(current,original,selected,at,user){
+  const pauses=[...(current.pauses||[])],last=pauses.at(-1),expected=original.pauses?.at(-1);
+  if(!expected||expected.to){
+    if(selected||pauses.length!==(original.pauses||[]).length||(last&&!last.to))
+      throw new Error('作業状態が変わりました。計画表を確認してください。');
+    return {status:'running',pauses};
+  }
+  if(!last||last.to||last.from!==expected.from||last.type!==expected.type||
+      pauses.length!==original.pauses.length)
+    throw new Error('作業状態が変わりました。計画表を確認してください。');
+  if(selected&&!['break','support'].includes(selected))throw new Error('停止区分を確認してください。');
+  pauses[pauses.length-1]={...last,to:Math.max(Number(last.from),at),
+    ...(selected?{type:selected,typeReviewHistory:[...(last.typeReviewHistory||[]),{
+      at,previousType:last.type,type:selected,actor:user?.uid||'',source:'resume_confirmation'
+    }]}:{})};
+  return {status:'running',pauses};
+}
+
+async function continueWorkOrder(order, workerId, user, review={}) {
+  let selected=null;
+  const conflict=pauseScheduleConflict(order,review.orders,review.settings,Date.now());
+  if(conflict){
+    selected=await showBiDialog('pause-kind','', '',{
+      pauseLang:review.lang||'ja',pauseFrom:conflict.from,recordedType:conflict.type,
+      pauseUntil:Date.now()
+    });
+    if(!['break','support'].includes(selected))return false;
+  }
   return updateWorkRun(order,async (current,tx)=>{
     const worker=await requireRegisteredWorker(tx,workerId);
     const at=workerHandoffTime(current);
@@ -7204,16 +7247,13 @@ function continueWorkOrder(order, workerId, user) {
     if(current.individualPlan && worker.id!==current.assignedWorkerId) throw new Error('個別作業指示の担当者は変更できません。');
     const patch=changesWorker?workerHandoffPatch(current,worker,{},user,at):{workerName:worker.name};
     if(current.status!=='paused')return patch;
-    const pauses=[...(current.pauses||[])];
-    const last=pauses[pauses.length-1];
-    if(last&&!last.to)pauses[pauses.length-1]={...last,to:Math.max(last.from,at)};
-    return {...patch,status:'running',pauses};
+    return {...patch,...reviewedResumePatch(current,order,selected,at,user)};
   },{allowMissingWorker:true});
 }
-function resumeWorkOrder(order) {
+function resumeWorkOrder(order,review={}) {
   if(order.status!=='paused')return Promise.reject(new Error('作業状態が変わりました。計画表を確認してください。'));
   if(!hasWorkOrderWorker(order))return Promise.reject(new Error(WORKER_REQUIRED));
-  return continueWorkOrder(order,order.workerId);
+  return continueWorkOrder(order,order.workerId,review.user,review);
 }
 /* 完了を取り消して同じ指示を継続する。完了中の経過時間は実働から除外する。 */
 async function reopenCompletedWorkOrder(order,user) {
@@ -7931,7 +7971,8 @@ function WorkPlanScreen({
     setWorkerBusy(true);
     setWorkerError('');
     try{
-      await continueWorkOrder(startOrder,worker.id,user);
+      const resumed=await continueWorkOrder(startOrder,worker.id,user,{orders,settings,lang});
+      if(resumed===false)return;
       onResume(startOrder);
     }catch(e){
       if(e.message==='管理者の解除が必要です。')openManagerUnlock(orders[startOrder.id]||startOrder);
@@ -9853,7 +9894,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   const pause = (type) => w(()=>updateWorkRun(log,current=>({
     status:'paused',pauses:[...(current.pauses||[]),{type,from:Date.now()}]
   })));
-  const resume = () => w(()=>resumeWorkOrder(log));
+  const resume = () => w(()=>resumeWorkOrder(log,{orders,settings,user,lang}));
   const addAnom = (comment) => w(()=>updateWorkRun(log,current=>({
     anomalies:[...(current.anomalies||[]),{at:Date.now(),comment}]
   })));
@@ -10995,7 +11036,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
         {!boxRows.length&&<p>{auto(metric)}</p>}
       </section>}
       {['hour','ten'].includes(scope.kind)&&<section className="evaluation-detail-section"><h3>{text('保存されている操作の記録')}</h3>
-        {events.map((event,i)=><div key={i} className="evaluation-event"><time>{evaluationClock(event.at)}</time><strong><BiText value={HISTORY_EVENT_LABELS[event.type]||event.type}/></strong><span>{event.workerName}</span>
+        {events.map((event,i)=><div key={i} className="evaluation-event"><time>{evaluationClock(event.at)}</time><strong><BiText value={(event.type==='pause_review'?restText(lang,'停止区分の確認・訂正'):HISTORY_EVENT_LABELS[event.type]||event.type)}/></strong><span>{event.workerName}</span>
           <div className="history-comment">{event.type==='box_undo'?<><BiText value="完了箱数"/>：{event.previous} → {event.doneAfter}</>:event.type==='worker_change'?<>{event.workerName} → {event.nextWorkerName}</>:event.type==='notes_saved'?<><BiText value="不良数"/>：{event.defectCount} {t('個')}　<BiText value="作業者コメント"/>：{event.workerComment||'—'}</>:event.comment||event.reason||''}</div></div>)}
         {!events.length&&<p><BiText value="該当する操作記録はありません。"/></p>}
         <p className="evaluation-note">{text('保存時刻が不明な不良数・コメントは、作業の詳細で確認できます。')}</p>
@@ -11386,6 +11427,10 @@ function workHistoryTimeline(order) {
     }
   }
   for(const pause of order.pauses||[]){
+    for(const review of pause.typeReviewHistory||[])add('pause_review',review.at,{
+      previousType:review.previousType,reviewedType:review.type,actor:review.actor,
+      pauseFrom:pause.from
+    });
     const type=pause.type==='break'?'break':pause.type==='support'?'support':pause.type==='completion'?'completion_pause':'pause';
     add(type,pause.from,{until:qrStamp(pause.to)});
     if(pause.to)add(qrStamp(pause.to)===qrStamp(order.endAt)?'pause_end':'resume',pause.to,{pauseType:type});
@@ -11415,7 +11460,7 @@ function historyNoteSnapshots(order) {
     return {...note,savedAt:saved?qrStamp(saved.at):0};
   });
 }
-const HISTORY_EVENT_LABELS={start:'作業開始',box_done:'1箱完了',box_undo:'1つ戻す',break:'休憩',support:'ライン応援',pause:'中断',
+const HISTORY_EVENT_LABELS={pause_review:'停止区分の確認・訂正',start:'作業開始',box_done:'1箱完了',box_undo:'1つ戻す',break:'休憩',support:'ライン応援',pause:'中断',
   resume:'再開',completion_pause:'完了後の停止',pause_end:'停止終了（作業終了）',anomaly:'異常',worker_change:'担当者変更',notes_saved:'不良数・コメント保存',
   qr_blocked:'QR不一致・管理者解除待ち',qr_unlocked:'管理者解除',finish:'作業終了',adjust:'評価を調整',history_finish:'管理者が終了扱いに変更（評価対象外）',history_archive:'管理者が非表示に変更',history_restore:'管理者が非表示を解除'};
 function WorkHistoryDetail({order,onClose}) {
@@ -11424,7 +11469,7 @@ function WorkHistoryDetail({order,onClose}) {
   const [now,setNow]=useState(Date.now);
   useEffect(()=>{if(['done','archived'].includes(order.status))return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[order.status]);
   const timeline=React.useMemo(()=>workHistoryTimeline(order),[order]);
-  const groups={boxes:['box_done','box_undo'],pauses:['break','support','pause','resume','pause_end'],
+  const groups={boxes:['box_done','box_undo'],pauses:['break','support','pause','resume','pause_end','pause_review'],
     reports:['anomaly','qr_blocked','qr_unlocked'],notes:['notes_saved'],workers:['worker_change']};
   const rows=filter==='all'?timeline:timeline.filter(event=>groups[filter]?.includes(event.type));
   const snapshots=historyNoteSnapshots(order);
@@ -11450,6 +11495,7 @@ function WorkHistoryDetail({order,onClose}) {
       <span>{stamp(event.at)} → {stamp(event.until)}</span>
       <span>{number((event.until-event.at)/60000)} <BiText value="分"/></span>
     </>:<BiText value="停止中"/>;
+    if(event.type==='pause_review')return <span>{restText(lang,event.previousType==='support'?'ライン応援':'休憩')} → {restText(lang,event.reviewedType==='support'?'ライン応援':'休憩')}（{restText(lang,'再開時に本人が選択')}）</span>;
     if(event.type==='notes_saved')return <>
       <span><BiText value="不良数"/>：{event.defectCount} <BiText value="個"/></span>
       <div className="history-comment"><BiText value="作業者コメント"/>：{event.workerComment||'—'}</div>
@@ -11488,7 +11534,7 @@ function WorkHistoryDetail({order,onClose}) {
         <div className="history-event-count">{rows.length} <BiText value="件"/></div>
         <ol className="history-events">{rows.map((event,i)=><li key={i} className={'history-event '+(['anomaly','qr_blocked'].includes(event.type)?'history-event-alert':'')}>
           <time dateTime={new Date(event.at).toISOString()}>{stamp(event.at)}</time>
-          <div><strong><BiText value={HISTORY_EVENT_LABELS[event.type]||event.type}/></strong><div className="history-event-worker">{event.workerName||'—'}</div></div>
+          <div><strong><BiText value={(event.type==='pause_review'?restText(lang,'停止区分の確認・訂正'):HISTORY_EVENT_LABELS[event.type]||event.type)}/></strong><div className="history-event-worker">{event.workerName||'—'}</div></div>
           <div className="history-event-content">{eventContent(event)}</div>
         </li>)}</ol>
         {!rows.length&&<p><BiText value="該当する操作記録はありません。"/></p>}
@@ -12536,17 +12582,31 @@ function BilingualDialog() {
   }, [biDialog]);
   if (!biDialog) return null;
   const job = biDialog;
-  function close(ok) {const result = job.kind === 'prompt' ? ok ? input : null : ok;biDialog = biDialogQueue.shift() || null;job.resolve(result);notifyBi();}
+  const pauseLabel=key=>restText(job.pauseLang||'ja',key);
+  function close(ok) {if(biDialog!==job)return;const result = job.kind === 'prompt' ? ok ? input : null : ok;biDialog = biDialogQueue.shift() || null;job.resolve(result);notifyBi();}
   return <div className="bi-dialog-backdrop" onKeyDown={(e) => {
     if (e.key === 'Escape') {e.preventDefault();close(false);}
     if (e.key === 'Tab') {const controls = e.currentTarget.querySelectorAll('input,button');const first = controls[0],last = controls[controls.length - 1];if (e.shiftKey && document.activeElement === first) {e.preventDefault();last.focus();} else if (!e.shiftKey && document.activeElement === last) {e.preventDefault();first.focus();}}
   }}><div className="bi-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bi-dialog-message">
     <ReturnJapaneseButton/>
-    <div id="bi-dialog-message" style={{ fontSize: 17, lineHeight: 1.6 }}><BiText value={job.message} /></div>
+    <div id="bi-dialog-message" style={{ fontSize: 17, lineHeight: 1.6 }}>
+      {job.kind==='pause-kind'?<div translate="no" lang={job.pauseLang}>
+        <strong>{pauseLabel('これまでは休憩でしたか？ ライン応援でしたか？')}</strong>
+        <p>{fmtHM(job.pauseFrom)}–{fmtHM(job.pauseUntil)}</p>
+        <p>{pauseLabel('現在の記録')}　{pauseLabel(job.recordedType==='support'?'ライン応援':'休憩')}</p>
+        <p>{pauseLabel('異なる区分の予定と重なっています。実際に行った内容を選ぶと、記録して再開します。')}</p>
+      </div>:<BiText value={job.message}/>}
+    </div>
     {job.kind === 'prompt' && <input ref={field} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && close(true)} style={{ marginTop: 16 }} />}
     <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+      {job.kind==='pause-kind'?<div style={{display:'grid',gap:12,width:'100%'}} translate="no">
+        <button type="button" className="bi-ok" onClick={()=>close('break')} style={{minHeight:60,fontSize:22,background:'#fff1c2',color:'#78350f'}}>{pauseLabel('休憩')}</button>
+        <button type="button" className="bi-ok" onClick={()=>close('support')} style={{minHeight:60,fontSize:22,background:'#dbeafe',color:'#17447a'}}>{pauseLabel('ライン応援')}</button>
+        <button type="button" ref={field} className="bi-cancel" onClick={()=>close(false)}>{pauseLabel('戻る')}</button>
+      </div>:<>
       {job.kind !== 'alert' && <button ref={job.destructive ? field : undefined} onClick={() => close(false)} className="bi-cancel"><BiText value="キャンセル" /></button>}
       <button ref={job.kind === 'prompt' || job.destructive ? undefined : field} onClick={() => close(true)} className={job.destructive ? 'bi-ok bi-danger' : 'bi-ok'}><BiText value={job.confirmLabel || (job.kind === 'alert' ? '閉じる' : '確認')} /></button>
+      </>}
     </div>
   </div></div>;
 }
