@@ -6697,6 +6697,26 @@ function overdueRestSlots(order, rows, settings, now) {
     return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+((to-from)>=3600000?7200000:1800000)};
   }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
 }
+function inferUnansweredRest(slot,rows,worker){
+  const events=[];
+  for(const o of rows){
+    if(o.excludeFromEvaluation||!(Number(o.kosu)>0))continue;
+    const intervals=restWorkerIntervals(o,worker,slot.to+7200000);
+    const retained=new Map();
+    for(const e of workHistoryTimeline(o)){
+      if(e.type==='box_done'){for(const n of retained.keys())if(n>=e.doneAfter)retained.delete(n);retained.set(e.doneAfter,e);}
+      else if(e.type==='box_undo')for(const n of retained.keys())if(n>=e.doneAfter)retained.delete(n);
+    }
+    for(const e of retained.values())if(intervals.some(i=>e.at>=i.from&&e.at<=i.to))events.push({at:e.at,kosu:Number(o.kosu),id:o.id});
+  }
+  events.sort((a,b)=>a.at-b.at);
+  const inside=events.filter(e=>e.at>slot.from&&e.at<slot.to);
+  const before=events.filter(e=>e.at<=slot.from).at(-1),after=events.find(e=>e.at>=slot.to);
+  const continuous=inside.some((e,i)=>i>0&&e.id===inside[i-1].id&&e.at-inside[i-1].at<=e.kosu*90000);
+  const answer=!continuous;
+  const reason=continuous?'continuous_boxes':inside.length?'ambiguous_boxes':before&&after?'gap_between_boxes':'insufficient_data';
+  return {...slot,workerId:worker,answer,source:'inferred',reason,confidence:continuous?'moderate':before&&after&&!inside.length?'moderate':'low',evidence:{inside:inside.length,before:before?.at||null,after:after?.at||null}};
+}
 function pendingRestSlots(order,rows,settings,now){
   if(!order?.workerId||!order.date||!(Number(order.startAt)>0))return [];
   const day=Date.parse(order.date+'T00:00:00+09:00');
