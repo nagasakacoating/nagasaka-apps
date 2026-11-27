@@ -6719,22 +6719,29 @@ function inferUnansweredRest(slot,rows,worker){
   return {...slot,workerId:worker,answer,source:'inferred',reason,confidence:continuous?'moderate':before&&after&&!inside.length?'moderate':'low',evidence:{inside:inside.length,before:before?.at||null,after:after?.at||null}};
 }
 function inferredRestPatches(rows,settingsByProc,now){
-  const patches=new Map(),seen=new Set();
-  const groups=new Map();
+  const patches=new Map(),seen=new Set(),groups=new Map();
   for(const o of rows){
-    if(o.excludeFromEvaluation||o.status!=='done'||!o.workerId||!(Number(o.startAt)>0)||!(Number(o.endAt)>Number(o.startAt)))continue;
-    const key=JSON.stringify([o.date,o.workerId]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(o);
+    if(o.excludeFromEvaluation||o.status!=='done')continue;
+    const ids=new Set([o.workerId,...(o.workerChanges||[]).map(c=>c.segment?.workerId)]);
+    for(const worker of ids){
+      if(!worker)continue;
+      const intervals=restWorkerIntervals(o,worker,now);
+      if(!intervals.length)continue;
+      const key=JSON.stringify([o.date,worker]);
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push({o,worker,intervals});
+    }
   }
   for(const group of groups.values()){
-    group.sort((a,b)=>Number(a.startAt)-Number(b.startAt));
-    const first=group[0],day=Date.parse(first.date+'T00:00:00+09:00'),end=day+86400000;
-    if(!Number.isFinite(day)||now<end||rows.some(o=>o.date===first.date&&o.workerId===first.workerId&&['running','paused'].includes(o.status)))continue;
+    const {o:first,worker}=group[0],day=Date.parse(first.date+'T00:00:00+09:00'),end=day+86400000;
+    if(!Number.isFinite(day)||now<end||rows.some(o=>o.date===first.date&&o.workerId===worker&&['running','paused'].includes(o.status)))continue;
     const sameDay=rows.filter(o=>o.date===first.date);
-    for(const o of group)for(const slot of overdueRestSlots(o,sameDay,settingsByProc?.[o.procId],end-1)){
-      if(seen.has(slot.key)||restAlreadyRecorded(sameDay,slot,o.workerId,end))continue;
-      if(!group.some(x=>Number(x.startAt)<slot.to)||!group.some(x=>Number(x.endAt)>slot.from))continue;
+    const intervals=group.flatMap(g=>g.intervals);
+    for(const {o} of group)for(const slot of overdueRestSlots({...o,workerId:worker},sameDay,settingsByProc?.[o.procId],end-1)){
+      if(seen.has(slot.key)||restAlreadyRecorded(sameDay,slot,worker,end))continue;
+      if(!intervals.some(i=>i.from<slot.to)||!intervals.some(i=>i.to>slot.from))continue;
       seen.add(slot.key);
-      const inferred=inferUnansweredRest(slot,sameDay,o.workerId);
+      const inferred=inferUnansweredRest(slot,sameDay,worker);
       const list=patches.get(o.id)||[...(o.restConfirmations||[])];
       list.push({...inferred,answeredAt:now});patches.set(o.id,list);
     }
