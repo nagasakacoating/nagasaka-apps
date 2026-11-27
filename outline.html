@@ -6695,6 +6695,19 @@ function overdueRestSlots(order, rows, settings, now) {
     return {key:JSON.stringify([order.date,order.workerId,from,to]),from,to,minutes:(to-from)/60000,dueAt:to+1800000};
   }).filter(rest=>rest.dueAt<=Number(now)&&Number(now)<day+86400000);
 }
+function restConfirmationPatch(current,slot,answer,at) {
+  if(!current.workerId||!slot||slot.key!==JSON.stringify([current.date,current.workerId,slot.from,slot.to])||slot.to<=slot.from||at<slot.dueAt)throw new Error('休憩確認の対象が変わりました。');
+  const records=current.restConfirmations||[];
+  if(records.some(r=>r.key===slot.key))return null;
+  const patch={restConfirmations:[...records,{...slot,answer,answeredAt:at,workerId:current.workerId,source:'confirmation'}]};
+  if(answer){
+    const start=Math.max(Number(current.startAt)||0,Number(current.workerChanges?.at(-1)?.at)||0);
+    if(!start||slot.from<start||slot.to>at)throw new Error('別の品番または担当者の休憩です。管理者に確認してください。');
+    if((current.pauses||[]).some(p=>Number(p.from)<slot.to&&Number(p.to||at)>slot.from))throw new Error('既存の停止記録と重複しています。管理者に確認してください。');
+    patch.pauses=[...(current.pauses||[]),{from:slot.from,to:slot.to,type:'break',source:'confirmation',restKey:slot.key}].sort((a,b)=>a.from-b.from);
+  }
+  return patch;
+}
 function scheduleOverlaps(start,end,blocks) {
   return mergeWorkBreaks(blocks).filter(b=>hm2min(b.from)<end&&hm2min(b.to)>start)
     .map(b=>({from:min2hm(Math.max(start,hm2min(b.from))),to:min2hm(Math.min(end,hm2min(b.to)))}));
@@ -9704,8 +9717,16 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   }
   const done = log.doneBoxes || 0,
     target = log.targetBoxes || 0;
-  const [restPreviewAnswers,setRestPreviewAnswers]=useState({});
-  const restCandidate=overdueRestSlots(log,Object.values(orders||{}),settings,now).find(slot=>!restPreviewAnswers[slot.key]);
+  const [restAnswerBusy,setRestAnswerBusy]=useState(false);
+  const [restAnswerError,setRestAnswerError]=useState('');
+  const restCandidate=overdueRestSlots(log,Object.values(orders||{}),settings,now).find(slot=>!(log.restConfirmations||[]).some(r=>r.key===slot.key));
+  async function answerRestConfirmation(answer){
+    if(restAnswerBusy||!restCandidate)return;
+    setRestAnswerBusy(true);setRestAnswerError('');
+    try{await updateWorkRun(log,current=>restConfirmationPatch(current,restCandidate,answer,Date.now()));}
+    catch(e){setRestAnswerError(e.message);}
+    finally{setRestAnswerBusy(false);}
+  }
   const showRestPreview=!!restCandidate&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp&&!result;
   const changeoverNotice=changeoverPopupInfo(log,orders,settings,now);
   const showChangeover=!!changeoverNotice&&!changeoverNotice.completed&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
@@ -9741,10 +9762,10 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
     }}>👤 <BiText value={log.workerName || t('担当者なし')} />　｜ <BiText value={proc.ja} /></div>} />
       {showRestPreview&&<div role="dialog" aria-modal="true" aria-label="休憩をしましたか？" style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,.65)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
         <div style={{background:'#fff',color:'#172033',borderRadius:16,padding:24,width:'min(540px,95vw)',textAlign:'center'}}>
-          <h2>休憩をしましたか？</h2><p>休憩記録の確認（検証用・保存されません）</p>
+          <h2>休憩をしましたか？</h2><p>休憩記録の確認</p>
           <div style={{fontSize:32,fontWeight:700}}>{fmtHM(restCandidate.from)} ～ {fmtHM(restCandidate.to)}</div>
-          <p style={{fontSize:24}}>休憩時間：{restCandidate.minutes}分</p>
-          <div style={{display:'flex',gap:16}}>{[[true,'はい','#16803c'],[false,'いいえ','#b3261e']].map(([answer,label,color])=><button key={label} style={{flex:1,minHeight:64,background:color,color:'#fff',fontSize:24,border:0,borderRadius:10}} onClick={()=>setRestPreviewAnswers(old=>({...old,[restCandidate.key]:{answer}}))}>{label}</button>)}</div>
+          <p style={{fontSize:24}}>休憩時間：{restCandidate.minutes}分</p>{restAnswerError&&<p role="alert" style={{color:'#b3261e'}}>{restAnswerError}</p>}
+          <div style={{display:'flex',gap:16}}>{[[true,'はい','#16803c'],[false,'いいえ','#b3261e']].map(([answer,label,color])=><button key={label} style={{flex:1,minHeight:64,background:color,color:'#fff',fontSize:24,border:0,borderRadius:10}} disabled={restAnswerBusy} onClick={()=>answerRestConfirmation(answer)}>{label}</button>)}</div>
         </div>
       </div>}
       {showChangeover&&<ChangeoverNotice notice={changeoverNotice}/>}
