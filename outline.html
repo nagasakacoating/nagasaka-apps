@@ -6717,6 +6717,40 @@ function inferUnansweredRest(slot,rows,worker){
   const reason=continuous?'continuous_boxes':inside.length?'ambiguous_boxes':before&&after?'gap_between_boxes':'insufficient_data';
   return {...slot,workerId:worker,answer,source:'inferred',reason,confidence:continuous?'moderate':before&&after&&!inside.length?'moderate':'low',evidence:{inside:inside.length,before:before?.at||null,after:after?.at||null}};
 }
+function inferredRestPatches(rows,settingsByProc,now){
+  const patches=new Map(),seen=new Set();
+  const groups=new Map();
+  for(const o of rows){
+    if(o.excludeFromEvaluation||o.status!=='done'||!o.workerId||!(Number(o.startAt)>0)||!(Number(o.endAt)>Number(o.startAt)))continue;
+    const key=JSON.stringify([o.date,o.workerId]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(o);
+  }
+  for(const group of groups.values()){
+    group.sort((a,b)=>Number(a.startAt)-Number(b.startAt));
+    const first=group[0],day=Date.parse(first.date+'T00:00:00+09:00'),end=day+86400000;
+    if(!Number.isFinite(day)||now<end||rows.some(o=>o.date===first.date&&o.workerId===first.workerId&&['running','paused'].includes(o.status)))continue;
+    const sameDay=rows.filter(o=>o.date===first.date);
+    for(const o of group)for(const slot of overdueRestSlots(o,sameDay,settingsByProc?.[o.procId],end-1)){
+      if(seen.has(slot.key)||restAlreadyRecorded(sameDay,slot,o.workerId,end))continue;
+      if(!group.some(x=>Number(x.startAt)<slot.to)||!group.some(x=>Number(x.endAt)>slot.from))continue;
+      seen.add(slot.key);
+      const inferred=inferUnansweredRest(slot,sameDay,o.workerId);
+      const list=patches.get(o.id)||[...(o.restConfirmations||[])];
+      list.push({...inferred,answeredAt:now});patches.set(o.id,list);
+    }
+  }
+  return [...patches].map(([id,restConfirmations])=>({id,restConfirmations}));
+}
+async function finalizeUnansweredRestDay(date,settingsByProc){
+  const snap=await db.collection('workOrders').where('date','==',date).get({source:'server'});
+  const refs=snap.docs.map(d=>d.ref);
+  if(!refs.length)return;
+  return db.runTransaction(async tx=>{
+    const docs=await Promise.all(refs.map(ref=>tx.get(ref)));
+    const rows=docs.filter(d=>d.exists).map(d=>({...d.data(),id:d.id}));
+    const patches=inferredRestPatches(rows,settingsByProc,Date.now());
+    for(const p of patches)tx.update(db.collection('workOrders').doc(p.id),{restConfirmations:p.restConfirmations});
+  });
+}
 function pendingRestSlots(order,rows,settings,now){
   if(!order?.workerId||!order.date||!(Number(order.startAt)>0))return [];
   const day=Date.parse(order.date+'T00:00:00+09:00');
@@ -11797,6 +11831,23 @@ function App() {
       u2();
     };
   }, [user]);
+  useEffect(()=>{
+    if(!user||!Object.keys(procSettings).length)return;
+    let busy=false,stopped=false,lastDay='';
+    const run=async()=>{
+      const today=evaluationDay(Date.now());
+      if(busy||stopped||lastDay===today)return;
+      busy=true;
+      try{
+        const yesterday=evaluationDay(evaluationMidnight(today)-86400000);
+        await finalizeUnansweredRestDay(yesterday,procSettings);
+        lastDay=today;
+      }catch(e){console.warn('rest finalization:',e.message);}
+      finally{busy=false;}
+    };
+    run();const timer=setInterval(run,60000);
+    return()=>{stopped=true;clearInterval(timer);};
+  },[user,procSettings]);
   const [updateStatus,setUpdateStatus]=useState('更新確認待ち');
   const updateContext=useRef(null);
   updateContext.current={view,user,ready,adminOpen,adminRequest,scanHome};
