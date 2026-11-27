@@ -6706,7 +6706,7 @@ function inferUnansweredRest(slot,rows,worker){
     const retained=new Map();
     for(const e of workHistoryTimeline(o)){
       if(e.type==='box_done'){for(const n of retained.keys())if(n>=e.doneAfter)retained.delete(n);retained.set(e.doneAfter,e);}
-      else if(e.type==='box_undo')for(const n of retained.keys())if(n>=e.doneAfter)retained.delete(n);
+      else if(e.type==='box_undo')for(const n of retained.keys())if(n>e.doneAfter)retained.delete(n);
     }
     for(const e of retained.values())if(intervals.some(i=>e.at>=i.from&&e.at<=i.to))events.push({at:e.at,kosu:Number(o.kosu),id:o.id});
   }
@@ -9839,7 +9839,7 @@ const needsQr=!!(!isTask&&(kanbanRules(m).length>0||log.qrMode==='kanban-v1'||lo
   }
   const showRestPreview=!!restCandidate&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp&&!result;
   const changeoverNotice=changeoverPopupInfo(log,orders,settings,now);
-  const showChangeover=!!changeoverNotice&&!changeoverNotice.completed&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
+  const showChangeover=!showRestPreview&&!result&&!!changeoverNotice&&!changeoverNotice.completed&&!qrBlocked&&!qrGate.busy&&!qrGate.flash&&!out&&!changingWorker&&!anom&&!showSteps&&!showOperationHelp;
   const pct = target ? Math.min(100, Math.round(done / target * 100)) : 0;
   const ahead = c.diffMin >= 0;
   const diffTxt = c.hasKosu ? (ahead ? '+' : '−') + Math.abs(Math.round(c.diffMin)) + ' ' + t('分') : '—';
@@ -11874,8 +11874,7 @@ function App() {
       if(busy||stopped||lastDay===today)return;
       busy=true;
       try{
-        const yesterday=evaluationDay(evaluationMidnight(today)-86400000);
-        await finalizeUnansweredRestDay(yesterday,procSettings);
+        for(let offset=7;offset>=1;offset--){if(stopped)return;await finalizeUnansweredRestDay(evaluationDay(evaluationMidnight(today)-offset*86400000),procSettings);}
         lastDay=today;
       }catch(e){console.warn('rest finalization:',e.message);}
       finally{busy=false;}
@@ -12071,7 +12070,7 @@ function App() {
     if(next==='ja'||next==='id')setLang(next);
   }
   const startLanguage=Object.hasOwn(PROCESS_LANGUAGES,processLang)?processLang:lang;
-  const screenContext = view.name==='proc' ? {...ctx,lang:startLanguage,setLang:changeStartLanguage,singleLanguage:true,startScreen:true} : singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : ctx;
+  const screenContext = view.name==='proc' ? {...ctx,lang:startLanguage,setLang:changeStartLanguage,singleLanguage:true,startScreen:true} : singleLanguage ? {...ctx, lang:screenLang, setLang:changeProcessLang, singleLanguage:true,viewedTranslations:processTranslations} : view.name==='analytics'&&hasProcessLanguages(view.proc?.id)&&Object.hasOwn(PROCESS_LANGUAGES,processLang)?{...ctx,lang:processLang}:ctx;
   return <LangCtx.Provider value={screenContext}>
       <BiText value={screen} /><BilingualDialog />
       {(err||(view.name==='workrun'&&!orders[view.logId])||(view.name==='worksheet'&&!orders[view.orderId]))&&
