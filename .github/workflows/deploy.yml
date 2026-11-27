@@ -27,6 +27,8 @@ jobs:
       PAGES_ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
+      - name: Package Outline release
+        run: python3 scripts/prepare-outline-release.py "$GITHUB_SHA"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
