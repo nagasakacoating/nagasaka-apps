@@ -6706,6 +6706,7 @@ Object.assign(REST_CONFIRMATION_I18N,{
   '切り替え後の待ちロス':['Waktu tunggu setelah pergantian','Perda por espera após a troca','Thời gian chờ sau khi đổi mã'],
   '総合達成率＝標準時間÷（実働時間＋切替ロス＋切り替え後の待ちロス）×100。':['Capaian keseluruhan = waktu standar ÷ (waktu kerja + kehilangan saat pergantian + waktu tunggu setelah pergantian) × 100.','Desempenho geral = tempo padrão ÷ (tempo efetivo + perda na troca + espera após a troca) × 100.','Tỷ lệ tổng thể = thời gian tiêu chuẩn ÷ (thời gian làm việc + tổn thất khi đổi mã + thời gian chờ sau khi đổi mã) × 100.']
 });
+Object.assign(REST_CONFIRMATION_I18N,{"休憩・ライン応援の照合": ["Pengecekan istirahat dan Bantu Line", "Conferência de pausas e apoio à linha", "Đối chiếu nghỉ và hỗ trợ chuyền"], "予定と記録を各回ごとに確認できます。記録なしは、実施していないことを意味しません。重なる記録は区分を確認してください。": ["Periksa jadwal dan catatan setiap sesi. Catatan yang tidak ada belum membuktikan kegiatan tidak dilakukan. Periksa jenis catatan yang bertumpang tindih.", "Confira o horário previsto e o registro de cada período. A ausência de registro não comprova que a atividade não ocorreu. Confira o tipo dos registros sobrepostos.", "Xem lịch và bản ghi của từng lần. Thiếu bản ghi chưa chứng minh là chưa thực hiện. Hãy kiểm tra loại của bản ghi trùng thời gian."], "各回の予定": ["Jadwal setiap sesi", "Horário previsto de cada período", "Lịch từng lần"], "保存された休憩・応援記録": ["Catatan istirahat dan Bantu Line tersimpan", "Registros salvos de pausas e apoio", "Bản ghi nghỉ và hỗ trợ đã lưu"], "同じ区分の記録あり": ["Ada catatan dengan jenis yang sama", "Há registro do mesmo tipo", "Có bản ghi cùng loại"], "別区分の記録あり・要確認": ["Ada catatan jenis lain, perlu pengecekan", "Há registro de outro tipo, conferir", "Có bản ghi khác loại, cần kiểm tra"], "記録なし・未確認": ["Belum ada catatan, belum dikonfirmasi", "Sem registro, não confirmado", "Chưa có bản ghi, chưa xác nhận"], "該当する予定がありません。": ["Tidak ada jadwal yang sesuai.", "Nenhum horário previsto correspondente.", "Không có lịch phù hợp."], "該当する記録がありません。": ["Tidak ada catatan yang sesuai.", "Nenhum registro correspondente.", "Không có bản ghi phù hợp."], "本人回答と操作記録が同じ時間帯にある場合も表示します。この一覧を合算して評価には加えません。": ["Jawaban pekerja dan catatan operasi pada waktu yang sama juga ditampilkan. Daftar ini tidak dijumlahkan lagi dalam evaluasi.", "Respostas e registros no mesmo horário também aparecem. Esta lista não é somada novamente à avaliação.", "Hiển thị cả câu trả lời và thao tác trùng giờ. Danh sách này không được cộng thêm vào đánh giá."], "予定時刻": ["Waktu rencana", "Horário previsto", "Giờ dự kiến"], "確認状況": ["Status pengecekan", "Situação da conferência", "Trạng thái xác nhận"], "記録区分": ["Jenis catatan", "Tipo de registro", "Loại bản ghi"], "記録時刻": ["Waktu tercatat", "Horário registrado", "Giờ ghi nhận"], "時間（分）": ["Durasi (menit)", "Duração (min)", "Thời lượng (phút)"], "記録元": ["Sumber catatan", "Origem do registro", "Nguồn bản ghi"], "回答": ["Jawaban", "Resposta", "Câu trả lời"], "操作記録": ["Catatan operasi", "Registro de operação", "Bản ghi thao tác"], "あり": ["Ada", "Sim", "Có"], "なし": ["Tidak ada", "Não", "Không"], "未確認": ["Belum dikonfirmasi", "Não confirmado", "Chưa xác nhận"], "日付": ["Tanggal", "Data", "Ngày"], "担当者": ["Petugas", "Responsável", "Người phụ trách"], "工程": ["Proses", "Processo", "Công đoạn"], "区分": ["Jenis", "Tipo", "Loại"], "品番": ["Nomor produk", "Referência", "Mã sản phẩm"], "ライン応援": ["Bantu Line", "Apoio à linha", "Hỗ trợ chuyền"], "休憩": ["Istirahat", "Pausa", "Nghỉ"]});
 function restText(lang,key){const i=['id','pt-BR','vi'].indexOf(lang);return i<0?key:REST_CONFIRMATION_I18N[key]?.[i]||key;}
 function overdueRestSlots(order, rows, settings, now) {
   if (!order?.date || !order.workerId || !Number.isFinite(Number(now))) return [];
@@ -10783,6 +10784,74 @@ function evaluationRestDetails(rows,prepared,interval,worker,settingsByProc,work
   }
   return out.map(d=>({...d,min:(d.to-d.from)/60000}));
 }
+function workTimeReview(rows,settingsByProc,scope,worker,procId,all){
+  const planned=new Map(),actual=[],groups=new Map();
+  for(const order of rows||[]){
+    if(order.excludeFromEvaluation||(!all&&order.procId!==procId))continue;
+    const ids=new Set([order.workerId||order.assignedWorkerId,...(order.workerChanges||[]).map(c=>c.segment?.workerId)]);
+    const day=evaluationMidnight(order.date);
+    if(!Number.isFinite(day)||day>=scope.to||day+86400000<=scope.from)continue;
+    for(const id of ids){
+      if(!id||(worker&&id!==worker))continue;
+      const groupKey=JSON.stringify([order.date,order.procId,id]);
+      if(!groups.has(groupKey))groups.set(groupKey,{date:order.date,procId:order.procId,workerId:id,orders:[]});
+      groups.get(groupKey).orders.push(order);
+      for(const [index,pause] of (order.pauses||[]).entries()){
+        if(!['break','support'].includes(pause.type))continue;
+        for(const own of restWorkerIntervals(order,id,Date.now())){
+          const from=Math.max(own.from,Number(pause.from),scope.from);
+          const to=Math.min(own.to,Number(pause.to||order.endAt||Date.now()),scope.to);
+          if(to>from)actual.push({key:JSON.stringify([order.id,index,id,from]),date:order.date,procId:order.procId,workerId:id,kind:pause.type,from,to,source:'操作記録',answer:true,product:order.hinban||order.taskName||''});
+        }
+      }
+    }
+    for(const [index,record] of (order.restConfirmations||[]).entries()){
+      if(worker&&record.workerId!==worker)continue;
+      const from=Math.max(Number(record.from),scope.from),to=Math.min(Number(record.to),scope.to);
+      if(to>from)actual.push({key:JSON.stringify([order.id,'confirmation',index]),date:order.date,procId:order.procId,workerId:record.workerId,kind:'break',from,to,answer:record.answer,source:record.correctedAt?'管理者修正':record.source==='inferred'?'自動推定':'本人回答',product:order.hinban||''});
+    }
+  }
+  for(const group of groups.values()){
+    const day=evaluationMidnight(group.date),settings=settingsByProc?.[group.procId];
+    for(const order of group.orders){
+      const settingsOrder={...order,assignedWorkerId:group.workerId};
+      const rests=regularScheduleBreaks(group.orders,settingsOrder,settings);
+      const supports=order.scheduleOverride?.supports??lineSupportBreaks(settings,group.date);
+      for(const [kind,slots] of [['break',rests],['support',supports]]){
+        for(const slot of slots||[]){
+          const from=day+hm2min(slot.from)*60000,to=day+hm2min(slot.to)*60000;
+          if(to<=from||from>=scope.to||to<=scope.from)continue;
+          const key=JSON.stringify([group.date,group.procId,group.workerId,kind,from,to]);
+          const matches=actual.filter(a=>a.workerId===group.workerId&&a.date===group.date&&a.procId===group.procId&&a.answer===true&&a.from<to&&a.to>from);
+          planned.set(key,{...group,key,kind,from,to,status:matches.some(a=>a.kind===kind)?'同じ区分の記録あり':matches.length?'別区分の記録あり・要確認':'記録なし・未確認'});
+        }
+      }
+    }
+  }
+  return {planned:[...planned.values()].sort((a,b)=>a.from-b.from),actual:actual.sort((a,b)=>a.from-b.from)};
+}
+function WorkTimeReview({rows,settingsByProc,scope,worker,procId,all,workers}){
+  const {lang}=useLang();
+  const review=React.useMemo(()=>workTimeReview(rows,settingsByProc,scope,worker,procId,all),[rows,settingsByProc,scope,worker,procId,all]);
+  const label=key=>restText(lang,key);
+  const kind=key=>label(key==='support'?'ライン応援':'休憩');
+  const name=row=>workers?.[row.workerId]?.name||row.workerId;
+  const identity=row=><><td>{row.date}</td><td>{name(row)}</td><td>{PROCESSES.find(p=>p.id===row.procId)?.ja||row.procId}</td><td>{kind(row.kind)}</td><td>{evaluationClock(row.from)}–{evaluationClock(row.to)}</td></>;
+  return <section className="evaluation-summary">
+    <h3>{label('休憩・ライン応援の照合')}</h3>
+    <p>{label('予定と記録を各回ごとに確認できます。記録なしは、実施していないことを意味しません。重なる記録は区分を確認してください。')}</p>
+    <details open><summary>{label('各回の予定')}</summary><div className="evaluation-table-wrap"><table className="evaluation-table">
+      <thead><tr>{['日付','担当者','工程','区分','予定時刻','確認状況'].map(key=><th key={key}>{label(key)}</th>)}</tr></thead>
+      <tbody>{review.planned.map(row=><tr key={row.key}>{identity(row)}<td>{label(row.status)}</td></tr>)}</tbody>
+    </table>{!review.planned.length&&<p>{label('該当する予定がありません。')}</p>}</div></details>
+    <details open><summary>{label('保存された休憩・応援記録')}</summary><div className="evaluation-table-wrap"><table className="evaluation-table">
+      <thead><tr>{['日付','担当者','工程','記録区分','記録時刻','時間（分）','記録元','回答','品番'].map(key=><th key={key}>{label(key)}</th>)}</tr></thead>
+      <tbody>{review.actual.map(row=><tr key={row.key}>{identity(row)}<td>{evaluationNumber((row.to-row.from)/60000)}</td><td>{label(row.source)}</td><td>{label(row.answer===true?'あり':row.answer===false?'なし':'未確認')}</td><td>{row.product}</td></tr>)}</tbody>
+    </table>{!review.actual.length&&<p>{label('該当する記録がありません。')}</p>}</div></details>
+    <p>{label('本人回答と操作記録が同じ時間帯にある場合も表示します。この一覧を合算して評価には加えません。')}</p>
+  </section>;
+}
+
 function correctedInferredRest(record,answer,reason,actor,at){
   if(record.source!=='inferred'||typeof answer!=='boolean'||!reason.trim())throw new Error('修正理由を入力してください。');
   return {...record,answer,correctionHistory:[...(record.correctionHistory||[]),{previousAnswer:record.answer,answer,reason:reason.trim(),actor,at}],correctedAt:at};
@@ -10905,6 +10974,7 @@ function AnalyticsScreen({proc,master,workers,user,onBack,settingsByProc,onAdmin
       <div className="evaluation-breadcrumb"><button onClick={reset}>{range.label} {text('集計全体に戻る')}</button>{path.map((part,i)=><button key={i} onClick={()=>setPath(path.slice(0,i+1))}>{part.label}</button>)}</div>
       {path.length>0&&<button onClick={reset}>{text('合計の評価に戻る')}</button>}
       {orders.some(o=>o.evaluationProvisional)&&<p role="status">{restText(lang,"作業中の評価を含みます（暫定値・15秒ごとに更新）。時間指定作業の評価は終了後に確定します。")}</p>}{summary(metric,path.length?'この範囲の評価':'期間合計',!path.length)}<section className="evaluation-summary"><h3>{restText(lang,"休憩確認記録")}</h3>{confirmedRestRows.filter(r=>(!worker||r.workerId===worker)&&r.from<scope.to&&r.to>scope.from).map(r=><div key={r.key}>{evaluationDay(r.from)} {workers?.[r.workerId]?.name||r.workerId} {fmtHM(r.from)} ～ {fmtHM(r.to)}：{restText(lang,r.answer===null?'判断材料不足':r.answer?'はい':'いいえ')}　<strong>{r.source==='inferred'?(r.correctedAt?restText(lang,"管理者修正"):restText(lang,"自動推定")):restText(lang,"本人回答")}</strong>{r.source==='inferred'&&<><span>（{r.confidence==='low'?restText(lang,"判断材料不足"):restText(lang,"推定")}）</span><button disabled={restEditBusy} onClick={()=>onAdminAction(()=>{setRestEdit({...r,reason:''});setRestEditError('');})}>{restText(lang,"修正")}</button>{r.correctionHistory?.length>0&&<details><summary>{restText(lang,"修正履歴")}</summary>{r.correctionHistory.map((h,i)=><div key={i}>{fmtHM(h.at)} {restText(lang,h.previousAnswer===null?"判断材料不足":h.previousAnswer?"休憩あり":"休憩なし")} → {h.answer?restText(lang,"休憩あり"):restText(lang,"休憩なし")}：{h.reason}</div>)}</details>}</>}</div>)}{restEdit&&adminUnlocked&&<div style={{padding:12,border:'1px solid #94a3b8',borderRadius:8}}><h4>{restText(lang,"休憩記録の修正")}</h4><select value={String(restEdit.answer)} onChange={e=>setRestEdit({...restEdit,answer:e.target.value==='true'})}><option value="null" disabled>{restText(lang,"判断材料不足")}</option><option value="true">{restText(lang,"休憩あり")}</option><option value="false">{restText(lang,"休憩なし")}</option></select><textarea placeholder={restText(lang,"修正理由（必須）")} value={restEdit.reason} onChange={e=>setRestEdit({...restEdit,reason:e.target.value})}/><button disabled={restEditBusy||!restEdit.reason.trim()} onClick={saveRestEdit}>{restText(lang,"保存")}</button><button disabled={restEditBusy} onClick={()=>setRestEdit(null)}>{restText(lang,"取消")}</button>{restEditError&&<p role="alert">{restText(lang,REST_CONFIRMATION_I18N[restEditError]?restEditError:'修正の保存に失敗しました。')}</p>}</div>}<p>{restText(lang,"確認済み休憩は内訳表示です。休憩合計に重複加算しません。")}</p></section><section className="evaluation-summary"><h3>品番切替の計算上の超過（次品番開始済み）</h3><div style={{background:'#fee2e2',padding:12,borderRadius:8,color:'#b91c1c'}}><strong style={{fontSize:25}}>{Math.floor(changeoverTotal/60)} 分 {pad2(changeoverTotal%60)} 秒</strong><p>予定箱数到達から次品番開始までの計算上の超過時間です。除外した時間と根拠は詳細に表示します。実際の休憩・応援が未記録の場合は、確認と訂正が必要です。</p></div><details><summary>切替ロス詳細（{scopedChangeovers.length}件）</summary><div style={{overflowX:'auto'}}><table className="evaluation-table"><thead><tr>{['日付','担当者','工程','前品番','次品番','箱数到達','次開始','対象間隔（分）','除外した休憩・応援（分）','標準切替（分）','計算上の超過（分）','除外の根拠'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{scopedChangeovers.map((g,i)=><tr key={i}><td>{g.date}</td><td>{workers?.[g.key]?.name||g.key}</td><td>{g.prev.procName||g.procId}</td><td>{g.previous}</td><td>{g.next}</td><td>{evaluationClock(g.from,true)}</td><td>{evaluationClock(g.to,true)}</td><td>{evaluationNumber(g.intervalSeconds/60)}</td><td>{evaluationNumber(g.excludedSeconds/60)}</td><td>{evaluationNumber(g.standardSeconds/60)}</td><td>{evaluationNumber(g.scopeSeconds/60)}</td><td>{g.prev.lossAccountingVersion===2?'保存された休憩・応援記録':'登録済みの休憩・応援予定'}</td></tr>)}</tbody></table></div></details></section><section className="evaluation-summary"><h3>製品間の空白時間・切り替え確認</h3><div style={{background:'#fff1e2',padding:12,borderRadius:8}}><strong>基準5分を超えた未確認時間：{evaluationNumber(gapExcess)} 分</strong><p>製品間の休憩・応援・材料待ちが未記録の場合も含まれます。確認前は確定ロスや個人評価に加算しません。</p></div><details><summary>製品間の詳細（{visibleGaps.length}件）</summary><div style={{overflowX:'auto'}}><table className="evaluation-table"><thead><tr>{['日付','担当者','前製品','次製品','終了','開始','空白（分）','基準超過（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{visibleGaps.slice().sort((a,b)=>a.from-b.from).map((g,i)=><tr key={i}><td>{evaluationDay(g.from)}</td><td>{g.name}</td><td>{g.previous}</td><td>{g.next}</td><td>{evaluationClock(g.from,true)}</td><td>{evaluationClock(g.to,true)}</td><td>{evaluationNumber((g.to-g.from)/60000)}</td><td style={{color:g.excess>0?'#b91c1c':'#166534'}}>{evaluationNumber(g.excess)}</td></tr>)}</tbody></table></div></details></section>
+      <WorkTimeReview rows={rows} settingsByProc={settingsByProc} scope={scope} worker={worker} procId={proc.id} all={all} workers={workers}/>
       <section className="evaluation-detail-section"><h3>作業時間の内訳・詳細</h3><p><BiText value="完了から再開までの時間は、その他停止の合計から除外しています。操作履歴で確認できます。"/></p><div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>{[['active','実働時間','#e5f5e9','#166534'],['rest','休憩時間','#fff1c2','#805500'],['support','ライン応援時間','#e1edff','#174ea6'],['other','その他停止時間','#fce8e8','#a32626']].map(([key,label,bg,fg])=>{let sum=key==='active'?metric.active:0;const details=[];for(const entry of prepared){for(const seg of entry.segments){if(worker&&seg.key!==worker)continue;const a=Math.max(scope.from,seg.from,entry.shiftStart||0),b=Math.min(scope.to,seg.to);if(b<=a)continue;if(key==='active'){details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from:a,to:b,min:evaluationActiveMs(entry.order,a,b)/60000});continue;}for(const p of entry.order.pauses||[]){const k=recordedPauseCategory(p);if(k!==key)continue;const from=Math.max(a,Number(p.from)),to=Math.min(b,Number(p.to||entry.order.endAt||Date.now()));if(!(to>from))continue;const min=(to-from)/60000;sum+=min;details.push({name:seg.name,product:entry.order.hinban||entry.order.taskName,from,to,min});}}}if(key==='rest'){details.splice(0,details.length,...restDetails(scope));sum=details.reduce((n,d)=>n+d.min,0);}return <React.Fragment key={key}><button type="button" aria-expanded={timeDetail===key} onClick={()=>setTimeDetail(timeDetail===key?'':key)} style={{background:bg,color:fg,border:'1px solid '+fg,borderRadius:10,padding:12,textAlign:'left'}}><strong>{label}</strong><div style={{fontSize:25,fontWeight:700}}>{evaluationNumber(sum)} 分</div><div>詳細を見る {timeDetail===key?'▲':'▼'}</div></button>{timeDetail===key&&<div style={{gridColumn:'1 / -1',overflowX:'auto',padding:8}}><strong>{label}の記録</strong><table className="evaluation-table"><thead><tr>{['日付','担当者','呼称','開始','終了','実績（分）'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>{details.sort((a,b)=>a.from-b.from).map((d,i)=><tr key={i}><td>{evaluationDay(d.from)}</td><td>{d.name}</td><td>{restText(lang,d.product)}</td><td>{evaluationClock(d.from,true)}</td><td>{evaluationClock(d.to,true)}</td><td>{evaluationNumber(d.min)}</td></tr>)}</tbody></table>{!details.length&&<p>該当する記録はありません。</p>}{key==='active'&&<small>開始・終了は集計対象区間、実績は停止時間を除いた時間です。</small>}</div>}</React.Fragment>;})}</div></section>
       {path.length===0&&trend&&<div className="evaluation-auto"><EvaluationText {...trend}/></div>}
       {!!total.adjust&&<p className="evaluation-note">{text('管理者の調整時間は、全期間合計の先行・遅れに反映します。')}</p>}
